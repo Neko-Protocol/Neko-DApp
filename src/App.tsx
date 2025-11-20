@@ -4,9 +4,11 @@ import ConnectAccount from "./components/ConnectAccount.tsx";
 import { Routes, Route, Outlet, NavLink } from "react-router-dom";
 import Home from "./pages/Home";
 import Debugger from "./pages/Debugger.tsx";
+import Navbar from "./components/modules/dashboard/ui/Navbar.tsx";
 
 const AppLayout: React.FC = () => (
   <main>
+    <Navbar />
     <Layout.Header
       projectId="My App"
       projectTitle="My App"
