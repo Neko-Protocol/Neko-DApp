@@ -10,16 +10,7 @@ export const WalletButton = () => {
 
   if (!address) {
     return (
-      <Button
-        variant="primary"
-        size="md"
-        onClick={() => void connectWallet()}
-        style={{
-          backgroundColor: "#f7f7f7",
-          borderColor: "#f7f7f7",
-          color: "#3e4144",
-        }}
-      >
+      <Button variant="primary" size="md" onClick={() => void connectWallet()}>
         {buttonLabel}
       </Button>
     );
@@ -33,41 +24,44 @@ export const WalletButton = () => {
         alignItems: "center",
         gap: "5px",
         opacity: isPending ? 0.6 : 1,
+        color: "white",
       }}
     >
-      <div id="modalContainer">
+      <div id="modalContainer" className="bg-white">
         <Modal
           visible={showDisconnectModal}
           onClose={() => setShowDisconnectModal(false)}
           parentId="modalContainer"
         >
-          <Modal.Heading>
-            Connected as{" "}
-            <code style={{ lineBreak: "anywhere" }}>{address}</code>. Do you
-            want to disconnect?
-          </Modal.Heading>
-          <Modal.Footer itemAlignment="stack">
-            <Button
-              size="md"
-              variant="primary"
-              onClick={() => {
-                void disconnectWallet().then(() =>
-                  setShowDisconnectModal(false),
-                );
-              }}
-            >
-              Disconnect
-            </Button>
-            <Button
-              size="md"
-              variant="tertiary"
-              onClick={() => {
-                setShowDisconnectModal(false);
-              }}
-            >
-              Cancel
-            </Button>
-          </Modal.Footer>
+          <div className="bg-[#334eac] p-5 opacity-90 rounded-2xl">
+            <Modal.Heading>
+              Connected as{" "}
+              <code style={{ lineBreak: "anywhere" }}>{address}</code>. Do you
+              want to disconnect?
+            </Modal.Heading>
+            <Modal.Footer itemAlignment="stack">
+              <Button
+                size="md"
+                variant="primary"
+                onClick={() => {
+                  void disconnectWallet().then(() =>
+                    setShowDisconnectModal(false),
+                  );
+                }}
+              >
+                Disconnect
+              </Button>
+              <Button
+                size="md"
+                variant="tertiary"
+                onClick={() => {
+                  setShowDisconnectModal(false);
+                }}
+              >
+                Cancel
+              </Button>
+            </Modal.Footer>
+          </div>
         </Modal>
       </div>
 
