@@ -1,15 +1,16 @@
 import React from "react";
+import GraphicHoldingCard from "./GraphicHoldingCard";
 
 const GraphicStats: React.FC = () => {
   return (
     <div className="mx-auto flex w-full max-w-5xl gap-6 px-6 py-8">
-      <div className="flex-1 rounded-3xl border border-[#334eac]/30 p-8">
+      <div className="flex-1 rounded-3xl bg-[#334eac]/30 p-8">
         <h3 className="mb-6 text-xl font-semibold text-white">
           Volts performance
         </h3>
 
         <div className="mb-4 flex justify-end">
-          <div className="rounded-full border border-[#334eac]/50 px-6 py-2">
+          <div className="rounded-full bg-[#334eac]/50 px-6 py-2">
             <span className="text-sm font-normal text-[#bfe1ff]/70">
               Day | Week | Month
             </span>
@@ -44,64 +45,35 @@ const GraphicStats: React.FC = () => {
         </div>
       </div>
 
-      <div className="w-96 rounded-3xl border border-[#334eac]/30 p-8">
+      <div className="w-96 rounded-3xl bg-[#334eac]/30 p-8">
         <h3 className="mb-6 text-xl font-semibold text-white">App holdings</h3>
 
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="h-12 w-12 rounded-full border-2 border-[#334eac]"></div>
-              <div>
-                <p className="text-sm font-semibold text-white">Tesla</p>
-                <p className="text-xs font-normal text-[#bfe1ff]/70">Stellar</p>
-              </div>
-            </div>
-            <span className="text-lg font-semibold text-white">$1,345.67</span>
-          </div>
-
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="h-12 w-12 rounded-full border-2 border-[#334eac]"></div>
-              <div>
-                <p className="text-sm font-semibold text-white">Tesla</p>
-                <p className="text-xs font-normal text-[#bfe1ff]/70">Stellar</p>
-              </div>
-            </div>
-            <span className="text-lg font-semibold text-white">$1,345.67</span>
-          </div>
-
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="h-12 w-12 rounded-full border-2 border-[#334eac]"></div>
-              <div>
-                <p className="text-sm font-semibold text-white">Tesla</p>
-                <p className="text-xs font-normal text-[#bfe1ff]/70">Stellar</p>
-              </div>
-            </div>
-            <span className="text-lg font-semibold text-white">$1,345.67</span>
-          </div>
-
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="h-12 w-12 rounded-full border-2 border-[#334eac]"></div>
-              <div>
-                <p className="text-sm font-semibold text-white">Tesla</p>
-                <p className="text-xs font-normal text-[#bfe1ff]/70">Stellar</p>
-              </div>
-            </div>
-            <span className="text-lg font-semibold text-white">$1,345.67</span>
-          </div>
-
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="h-12 w-12 rounded-full border-2 border-[#334eac]"></div>
-              <div>
-                <p className="text-sm font-semibold text-white">Tesla</p>
-                <p className="text-xs font-normal text-[#bfe1ff]/70">Stellar</p>
-              </div>
-            </div>
-            <span className="text-lg font-semibold text-white">$1,345.67</span>
-          </div>
+          <GraphicHoldingCard
+            name="Tesla"
+            platform="Stellar"
+            value="$1,345.67"
+          />
+          <GraphicHoldingCard
+            name="Tesla"
+            platform="Stellar"
+            value="$1,345.67"
+          />
+          <GraphicHoldingCard
+            name="Tesla"
+            platform="Stellar"
+            value="$1,345.67"
+          />
+          <GraphicHoldingCard
+            name="Tesla"
+            platform="Stellar"
+            value="$1,345.67"
+          />
+          <GraphicHoldingCard
+            name="Tesla"
+            platform="Stellar"
+            value="$1,345.67"
+          />
         </div>
       </div>
     </div>
