@@ -1,7 +1,6 @@
-import { Button, Icon, Layout } from "@stellar/design-system";
+import { Layout } from "@stellar/design-system";
 import "./App.module.css";
-import ConnectAccount from "./components/ConnectAccount.tsx";
-import { Routes, Route, Outlet, NavLink } from "react-router-dom";
+import { Routes, Route, Outlet } from "react-router-dom";
 import Home from "./pages/Home";
 import Debugger from "./pages/Debugger.tsx";
 import Navbar from "./components/modules/dashboard/ui/Navbar.tsx";
@@ -10,37 +9,9 @@ import Portfolio from "./components/modules/dashboard/pages/Portfolio.tsx";
 import Swap from "./components/modules/dashboard/pages/Swap.tsx";
 
 const AppLayout: React.FC = () => (
-  <main>
+  <main style={{ minHeight: "100vh", backgroundColor: "#1a1d24" }}>
+    {/* aqui le cambiamos el background luego */}
     <Navbar />
-    <Layout.Header
-      projectId="My App"
-      projectTitle="My App"
-      contentRight={
-        <>
-          <nav>
-            <NavLink
-              to="/debug"
-              style={{
-                textDecoration: "none",
-              }}
-            >
-              {({ isActive }) => (
-                <Button
-                  variant="tertiary"
-                  size="md"
-                  onClick={() => (window.location.href = "/debug")}
-                  disabled={isActive}
-                >
-                  <Icon.Code02 size="md" />
-                  Debugger
-                </Button>
-              )}
-            </NavLink>
-          </nav>
-          <ConnectAccount />
-        </>
-      }
-    />
     <Outlet />
     <Layout.Footer>
       <span>

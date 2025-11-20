@@ -5,7 +5,7 @@ import Neko from "/Neko.svg";
 
 const Navbar: React.FC = () => {
   return (
-    <header className="sticky top-4 z-40 mx-auto w-full max-w-5xl rounded-[999px] px-6 py-4 bg-[#334eac] text-[#bfe1ff] sm:px-8">
+    <header className="sticky top-0 z-40 mx-auto w-full max-w-7xl px-8 py-4 mt-5 bg-[#334eac] text-[#bfe1ff] shadow-[0_0_20px_rgba(51,78,172,0.4)] rounded-2xl">
       <div className="flex flex-wrap items-center justify-between gap-6">
         <div className="flex flex-wrap items-center gap-10">
           <Link to="/">
