@@ -8,7 +8,9 @@ const Navbar: React.FC = () => {
     <header className="sticky top-4 z-40 mx-auto w-full max-w-5xl rounded-[999px] px-6 py-4 bg-[#334eac] text-[#bfe1ff] sm:px-8">
       <div className="flex flex-wrap items-center justify-between gap-6">
         <div className="flex flex-wrap items-center gap-10">
-          <img src={Neko} alt="Neko Logo" className="h-10 w-auto" />
+          <Link to="/">
+            <img src={Neko} alt="Neko Logo" className="h-10 w-auto" />
+          </Link>
 
           <div className="flex items-center gap-6">
             <Link

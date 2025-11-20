@@ -5,6 +5,9 @@ import { Routes, Route, Outlet, NavLink } from "react-router-dom";
 import Home from "./pages/Home";
 import Debugger from "./pages/Debugger.tsx";
 import Navbar from "./components/modules/dashboard/ui/Navbar.tsx";
+import Dashboard from "./components/modules/dashboard/pages/Dashboard.tsx";
+import Portfolio from "./components/modules/dashboard/pages/Portfolio.tsx";
+import Swap from "./components/modules/dashboard/pages/Swap.tsx";
 
 const AppLayout: React.FC = () => (
   <main>
@@ -60,6 +63,9 @@ function App() {
     <Routes>
       <Route element={<AppLayout />}>
         <Route path="/" element={<Home />} />
+        <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/portfolio" element={<Portfolio />} />
+        <Route path="/swap" element={<Swap />} />
         <Route path="/debug" element={<Debugger />} />
         <Route path="/debug/:contractName" element={<Debugger />} />
       </Route>
