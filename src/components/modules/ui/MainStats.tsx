@@ -130,17 +130,17 @@ const MainStats: React.FC = () => {
             </div>
 
             <div className="grid grid-cols-3 gap-4">
-              <div className="bg-[#13389c]/90 rounded-2xl p-4 text-center border border-[#334EAC]/20 backdrop-blur-sm">
+              <div className="bg-[#96b2ff]/90 rounded-2xl p-4 text-center border border-[#334EAC]/20 backdrop-blur-sm">
                 <p className="text-[#FFF9F0] font-bold text-lg mb-1">
                   +$120.28
                 </p>
-                <p className="text-[#7096D1] text-[10px] font-bold uppercase tracking-wider opacity-70">
+                <p className="text-[#000000] text-[10px] font-bold uppercase tracking-wider opacity-70">
                   Returns last week
                 </p>
               </div>
-              <div className="bg-[#13389c]/90 rounded-2xl p-4 text-center border border-[#334EAC]/20 backdrop-blur-sm">
+              <div className="bg-[#96b2ff]/90 rounded-2xl p-4 text-center border border-[#334EAC]/20 backdrop-blur-sm">
                 <p className="text-[#FFF9F0] font-bold text-lg mb-1">7.8%</p>
-                <p className="text-[#7096D1] text-[10px] font-bold uppercase tracking-wider opacity-70">
+                <p className="text-[#000000] text-[10px] font-bold uppercase tracking-wider opacity-70">
                   Avg. Pool Performance
                 </p>
               </div>

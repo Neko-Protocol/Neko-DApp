@@ -81,11 +81,10 @@ const AssetBreakdown: React.FC = () => {
         <TableContainer
           component={Paper}
           sx={{
-            background:
-              "linear-gradient(135deg, #5FC4BD 0%, #8EDDD6 50%, #A8E8E3 100%)",
+            backgroundColor: "#404040ff",
             borderRadius: "24px",
-            boxShadow: "0 8px 16px -2px rgba(95, 196, 189, 0.3)",
-            border: "1px solid rgba(142, 221, 214, 0.4)",
+            boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.3)",
+            border: "1px solid rgba(51, 78, 172, 0.3)",
           }}
         >
           <Table sx={{ minWidth: 650 }}>
@@ -93,8 +92,8 @@ const AssetBreakdown: React.FC = () => {
               <TableRow
                 sx={{
                   "& th": {
-                    backgroundColor: "#0a2470",
-                    color: "#7096D1",
+                    backgroundColor: "#3c3c3cff",
+                    color: "#ffffffff",
                     fontWeight: 600,
                     fontSize: "0.875rem",
                     borderBottom: "1px solid rgba(51, 78, 172, 0.3)",
@@ -109,7 +108,7 @@ const AssetBreakdown: React.FC = () => {
                     ROI
                     <Tooltip title="Return on Investment">
                       <IconButton size="small" sx={{ p: 0 }}>
-                        <Info sx={{ fontSize: 16, color: "#7096D1" }} />
+                        <Info sx={{ fontSize: 16, color: "#ffffffff" }} />
                       </IconButton>
                     </Tooltip>
                   </Box>
@@ -119,7 +118,7 @@ const AssetBreakdown: React.FC = () => {
                     FEE APY
                     <Tooltip title="Annual Percentage Yield from fees">
                       <IconButton size="small" sx={{ p: 0 }}>
-                        <Info sx={{ fontSize: 16, color: "#7096D1" }} />
+                        <Info sx={{ fontSize: 16, color: "#ffffffff" }} />
                       </IconButton>
                     </Tooltip>
                   </Box>
@@ -129,7 +128,7 @@ const AssetBreakdown: React.FC = () => {
                     LIQUIDITY
                     <Tooltip title="Total liquidity in pool">
                       <IconButton size="small" sx={{ p: 0 }}>
-                        <Info sx={{ fontSize: 16, color: "#7096D1" }} />
+                        <Info sx={{ fontSize: 16, color: "#ffffffff" }} />
                       </IconButton>
                     </Tooltip>
                   </Box>
@@ -159,13 +158,13 @@ const AssetBreakdown: React.FC = () => {
                           height: 8,
                           borderRadius: "50%",
                           backgroundColor: asset.isActive
-                            ? "#22c55e"
+                            ? "#00f95bff"
                             : "#6b7280",
                         }}
                       />
                       <Typography
                         sx={{
-                          color: asset.isActive ? "#39bfb7" : "#7096D1",
+                          color: asset.isActive ? "#00f95bff" : "#7096D1",
                           fontWeight: 500,
                         }}
                       >
@@ -206,7 +205,7 @@ const AssetBreakdown: React.FC = () => {
                           size="small"
                           sx={{
                             backgroundColor: "rgba(51, 78, 172, 0.3)",
-                            color: "#39bfb7",
+                            color: "#ffffffff",
                             fontWeight: 600,
                             height: 20,
                             fontSize: "0.7rem",
