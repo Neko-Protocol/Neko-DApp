@@ -6,10 +6,12 @@ const AssetBreakdown: React.FC = () => {
   return (
     <div className="mx-auto w-full max-w-5xl px-6 py-8">
       <div className="mb-6 flex items-center justify-between">
-        <h2 className="text-2xl font-semibold text-white">Asset breakdown</h2>
+        <h2 className="text-2xl font-semibold text-gray-900">
+          Asset breakdown
+        </h2>
 
         <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2 rounded-full bg-[#334eac]/50 px-6 py-2">
+          <div className="flex items-center gap-2 rounded-full bg-[#1e3a8a] px-6 py-2">
             <svg
               className="h-5 w-5 text-[#bfe1ff]/70"
               fill="none"
@@ -27,11 +29,9 @@ const AssetBreakdown: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-2">
-            <span className="text-sm font-normal text-[#bfe1ff]/70">
-              Sort by
-            </span>
+            <span className="text-sm font-normal text-gray-700">Sort by</span>
             <div className="relative">
-              <select className="appearance-none rounded-full bg-[#334eac]/50 px-6 py-2 pr-10 text-sm font-normal text-white outline-none">
+              <select className="appearance-none rounded-full bg-[#1e3a8a] px-6 py-2 pr-10 text-sm font-normal text-white outline-none">
                 <option value="return">Return</option>
                 <option value="balance">Balance</option>
                 <option value="deposit">Deposit</option>
@@ -42,7 +42,7 @@ const AssetBreakdown: React.FC = () => {
         </div>
       </div>
 
-      <div className="mb-4 flex items-center gap-4 px-6 text-sm font-normal text-[#bfe1ff]/70">
+      <div className="mb-4 flex items-center gap-4 px-6 text-sm font-normal text-gray-600">
         <div className="w-38">Token</div>
         <div className="w-38">Deposit</div>
         <div className="w-30">Balance</div>

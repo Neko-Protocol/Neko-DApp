@@ -5,11 +5,11 @@ import Home from "./pages/Home";
 import Debugger from "./pages/Debugger.tsx";
 import Navbar from "./components/modules/dashboard/ui/Navbar.tsx";
 import Dashboard from "./components/modules/dashboard/pages/Dashboard.tsx";
-import Portfolio from "./components/modules/dashboard/pages/Portfolio.tsx";
-import Swap from "./components/modules/dashboard/pages/Swap.tsx";
+import Portfolio from "./components/modules/portfolio/pages/Portfolio.tsx";
+import Swap from "./components/modules/swap/pages/Swap.tsx";
 
 const AppLayout: React.FC = () => (
-  <main style={{ minHeight: "100vh", backgroundColor: "#1a1d24" }}>
+  <main style={{ minHeight: "100vh", backgroundColor: "#ffffff" }}>
     {/* aqui le cambiamos el background luego */}
     <Navbar />
     <Outlet />

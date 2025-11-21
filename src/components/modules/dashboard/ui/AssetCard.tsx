@@ -21,9 +21,9 @@ const AssetCard: React.FC<AssetCardProps> = ({
   netReturnChange,
 }) => {
   return (
-    <div className="flex items-center gap-2 rounded-3xl bg-[#334eac]/30 px-6 py-6">
+    <div className="flex items-center gap-2 rounded-3xl bg-[#1e3a8a] px-6 py-6">
       <div className="flex w-32 items-center gap-3">
-        <div className="h-12 w-12 rounded-full bg-[#334eac]"></div>
+        <div className="h-12 w-12 rounded-full bg-[#0f172a]"></div>
         <span className="text-sm font-semibold text-white">{tokenName}</span>
       </div>
       <div className="w-32 text-sm font-normal text-white">{deposit}</div>
@@ -37,7 +37,7 @@ const AssetCard: React.FC<AssetCardProps> = ({
         <p className="text-xs font-normal text-green-400">{netReturnChange}</p>
       </div>
       <div className="w-32">
-        <button className="rounded-full bg-[#334eac]/50 px-6 py-2 text-sm font-normal text-white transition-colors hover:bg-[#334eac]">
+        <button className="rounded-full bg-[#0f172a] px-6 py-2 text-sm font-normal text-white transition-colors hover:bg-[#1e40af]">
           Actions <ChevronDown className="inline-block h-4 w-4" />
         </button>
       </div>

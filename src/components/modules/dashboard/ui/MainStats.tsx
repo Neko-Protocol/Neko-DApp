@@ -7,13 +7,13 @@ const MainStats: React.FC = () => {
       <div className="mb-8 flex items-center justify-between">
         <div className="flex items-center gap-4">
           <div>
-            <p className="text-sm font-normal text-[#bfe1ff]/70">
+            <p className="text-sm font-normal text-gray-600">
               Your portfolio, Santiago(GBX...ZFD4)
             </p>
-            <h1 className="text-5xl font-semibold text-white">$97921.74</h1>
+            <h1 className="text-5xl font-semibold text-gray-900">$97921.74</h1>
           </div>
         </div>
-        <p className="mt-2 text-sm font-normal text-[#bfe1ff]/70">
+        <p className="mt-2 text-sm font-normal text-gray-600">
           Updated 2 mins ago
         </p>
       </div>
