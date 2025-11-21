@@ -10,6 +10,7 @@ const Dashboard: React.FC = () => {
         <MainStats />
         <GraphicStats />
         <AssetBreakdown />
+        {/* add borrow/lending thing */}
       </div>
     </div>
   );
