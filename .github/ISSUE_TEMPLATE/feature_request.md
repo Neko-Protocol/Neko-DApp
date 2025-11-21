@@ -8,9 +8,9 @@ Thank you for reporting an issue! Please complete the sections below.
 
 ## 📋 Steps to Reproduce
 
-1. 
-2. 
-3. 
+1.
+2.
+3.
 
 ## 🤔 Expected Behavior
 
@@ -26,7 +26,7 @@ Thank you for reporting an issue! Please complete the sections below.
 
 ## 🛠 Environment
 
-- OS: 
+- OS:
 - Browser/Version:
 - App Version (if relevant):
 
