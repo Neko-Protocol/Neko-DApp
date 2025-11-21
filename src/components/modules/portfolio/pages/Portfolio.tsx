@@ -1,11 +1,15 @@
 import React from "react";
+import MainStats from "../../ui/MainStats";
+import AssetBreakdown from "../../ui/AssetBreakdown";
+import GraphicStats from "../../ui/GraphicStats";
 
 const Portfolio: React.FC = () => {
   return (
     <div>
       <div className="container mx-auto px-4 py-8">
-        <h1 className="text-2xl font-bold">Portfolio</h1>
-        {/* Add your portfolio content here */}
+        <MainStats />
+        <GraphicStats />
+        <AssetBreakdown />
       </div>
     </div>
   );

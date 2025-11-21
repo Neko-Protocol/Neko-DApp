@@ -1,5 +1,5 @@
 import React from "react";
-import AssetCard from "../dashboard/ui/AssetCard";
+import AssetCard from "./AssetCard";
 import { ChevronDown } from "lucide-react";
 
 const AssetBreakdown: React.FC = () => {

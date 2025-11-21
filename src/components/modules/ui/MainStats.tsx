@@ -1,5 +1,5 @@
 import React from "react";
-import MainStatsCard from "../dashboard/ui/MainStatsCard";
+import MainStatsCard from "./MainStatsCard";
 
 const MainStats: React.FC = () => {
   return (
