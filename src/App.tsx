@@ -9,17 +9,23 @@ import Portfolio from "./components/modules/portfolio/pages/Portfolio.tsx";
 import Swap from "./components/modules/swap/pages/Swap.tsx";
 
 const AppLayout: React.FC = () => (
-  <main style={{ minHeight: "100vh", backgroundColor: "#ffffff" }}>
+  <main
+    style={{
+      minHeight: "100vh",
+      color: "#081F5C",
+    }}
+  >
     {/* aqui le cambiamos el background luego */}
     <Navbar />
     <Outlet />
     <Layout.Footer>
-      <span>
+      <span style={{ color: "#334EAC" }}>
         © {new Date().getFullYear()} My App. Licensed under the{" "}
         <a
           href="http://www.apache.org/licenses/LICENSE-2.0"
           target="_blank"
           rel="noopener noreferrer"
+          style={{ color: "#39bfb7", fontWeight: "bold" }}
         >
           Apache License, Version 2.0
         </a>

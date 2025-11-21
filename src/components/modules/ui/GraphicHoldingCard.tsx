@@ -14,13 +14,13 @@ const GraphicHoldingCard: React.FC<GraphicHoldingCardProps> = ({
   return (
     <div className="flex items-center justify-between">
       <div className="flex items-center gap-3">
-        <div className="h-12 w-12 rounded-full bg-[#0f172a]"></div>
+        <div className="h-12 w-12 rounded-full bg-[#334EAC]"></div>
         <div>
-          <p className="text-sm font-semibold text-white">{name}</p>
-          <p className="text-xs font-normal text-[#bfe1ff]/70">{platform}</p>
+          <p className="text-sm font-semibold text-[#FFF9F0]">{name}</p>
+          <p className="text-xs font-normal text-[#7096D1]">{platform}</p>
         </div>
       </div>
-      <span className="text-lg font-semibold text-white">{value}</span>
+      <span className="text-lg font-semibold text-[#FFF9F0]">{value}</span>
     </div>
   );
 };

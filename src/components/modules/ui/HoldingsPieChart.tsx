@@ -113,7 +113,7 @@ const HoldingsPieChart: React.FC = () => {
   };
 
   return (
-    <div className="w-96 rounded-3xl bg-[#1e3a8a] p-8">
+    <div className="w-full rounded-3xl bg-[#1e3a8a] p-8">
       <h3 className="mb-6 text-xl font-semibold text-white">App holdings</h3>
 
       <div className="mb-6 h-64">

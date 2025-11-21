@@ -51,12 +51,12 @@ const PerformanceChart: React.FC = () => {
 
   // Holdings data for pie chart
   const holdings: Holding[] = [
-    { name: "Tesla", value: 1345.67, color: "#334eac", percentage: 15.2 },
-    { name: "Apple", value: 2150.32, color: "#5486c5", percentage: 24.3 },
-    { name: "Microsoft", value: 1820.45, color: "#7a9fc9", percentage: 20.6 },
-    { name: "Amazon", value: 950.89, color: "#9ab8db", percentage: 10.8 },
-    { name: "Google", value: 1580.23, color: "#b8d1ed", percentage: 17.9 },
-    { name: "Others", value: 1000.0, color: "#d4e5f7", percentage: 11.2 },
+    { name: "Tesla", value: 1345.67, color: "#334EAC", percentage: 15.2 },
+    { name: "Apple", value: 2150.32, color: "#7096D1", percentage: 24.3 },
+    { name: "Microsoft", value: 1820.45, color: "#334EAC", percentage: 20.6 },
+    { name: "Amazon", value: 950.89, color: "#7096D1", percentage: 10.8 },
+    { name: "Google", value: 1580.23, color: "#334EAC", percentage: 17.9 },
+    { name: "Others", value: 1000.0, color: "#7096D1", percentage: 11.2 },
   ];
 
   const totalValue = holdings.reduce((sum, holding) => sum + holding.value, 0);
@@ -145,7 +145,7 @@ const PerformanceChart: React.FC = () => {
             ? `${h.color}40`
             : h.color,
         ),
-        borderColor: "#1e3a8a",
+        borderColor: "#081F5C",
         borderWidth: 3,
         hoverOffset: 15,
       },
@@ -160,7 +160,7 @@ const PerformanceChart: React.FC = () => {
         display: true,
         position: "bottom" as const,
         labels: {
-          color: "#bfe1ff",
+          color: "#7096D1",
           padding: 15,
           font: {
             size: 12,
@@ -170,9 +170,9 @@ const PerformanceChart: React.FC = () => {
         },
       },
       tooltip: {
-        backgroundColor: "#0f172a",
-        titleColor: "#bfe1ff",
-        bodyColor: "#bfe1ff",
+        backgroundColor: "#081F5C",
+        titleColor: "#FFF9F0",
+        bodyColor: "#7096D1",
         borderColor: "#334eac",
         borderWidth: 1,
         padding: 12,
@@ -211,7 +211,7 @@ const PerformanceChart: React.FC = () => {
         display: true,
         position: "bottom" as const,
         labels: {
-          color: "#bfe1ff",
+          color: "#7096D1",
           padding: 20,
           font: {
             size: 12,
@@ -221,9 +221,9 @@ const PerformanceChart: React.FC = () => {
         },
       },
       tooltip: {
-        backgroundColor: "#0f172a",
-        titleColor: "#bfe1ff",
-        bodyColor: "#bfe1ff",
+        backgroundColor: "#081F5C",
+        titleColor: "#FFF9F0",
+        bodyColor: "#7096D1",
         borderColor: "#334eac",
         borderWidth: 1,
         padding: 12,
@@ -236,23 +236,23 @@ const PerformanceChart: React.FC = () => {
           display: false,
         },
         ticks: {
-          color: "#bfe1ff70",
+          color: "#7096D1",
         },
       },
       y: {
         grid: {
-          color: "#334eac30",
+          color: "#334EAC30",
         },
         ticks: {
-          color: "#bfe1ff70",
+          color: "#7096D1",
         },
       },
     },
   };
 
   return (
-    <div className="flex-1 rounded-3xl bg-[#1e3a8a] p-8">
-      <h3 className="mb-6 text-xl font-semibold text-white">
+    <div className="flex-1 rounded-3xl bg-[#081F5C] p-8 border border-[#334EAC]/30">
+      <h3 className="mb-6 text-xl font-semibold text-[#FFF9F0]">
         {isPortfolioPage ? "Portfolio Distribution" : "Volts performance"}
       </h3>
 
@@ -264,8 +264,8 @@ const PerformanceChart: React.FC = () => {
                 onClick={() => toggleLine("line1")}
                 className={`rounded-full px-4 py-2 text-sm transition-all ${
                   visibleLines.line1
-                    ? "bg-[#334eac] text-white"
-                    : "bg-[#0f172a] text-[#bfe1ff]/50"
+                    ? "bg-[#334EAC] text-[#FFF9F0]"
+                    : "bg-[#334EAC]/20 text-[#7096D1]"
                 }`}
               >
                 Portfolio
@@ -274,8 +274,8 @@ const PerformanceChart: React.FC = () => {
                 onClick={() => toggleLine("line2")}
                 className={`rounded-full px-4 py-2 text-sm transition-all ${
                   visibleLines.line2
-                    ? "bg-[#5486c5] text-white"
-                    : "bg-[#0f172a] text-[#bfe1ff]/50"
+                    ? "bg-[#7096D1] text-[#FFF9F0]"
+                    : "bg-[#334EAC]/20 text-[#7096D1]"
                 }`}
               >
                 Volume
@@ -284,43 +284,43 @@ const PerformanceChart: React.FC = () => {
                 onClick={() => toggleLine("line3")}
                 className={`rounded-full px-4 py-2 text-sm transition-all ${
                   visibleLines.line3
-                    ? "bg-[#7a9fc9] text-white"
-                    : "bg-[#0f172a] text-[#bfe1ff]/50"
+                    ? "bg-[#334EAC] text-[#FFF9F0]"
+                    : "bg-[#334EAC]/20 text-[#7096D1]"
                 }`}
               >
                 Market
               </button>
             </div>
 
-            <div className="rounded-full bg-[#0f172a] px-6 py-2">
+            <div className="rounded-full bg-[#334EAC]/20 px-6 py-2">
               <button
                 onClick={() => setActiveFilter("day")}
                 className={`text-sm font-normal transition-colors ${
                   activeFilter === "day"
-                    ? "text-white"
-                    : "text-[#bfe1ff]/70 hover:text-white"
+                    ? "text-[#FFF9F0]"
+                    : "text-[#7096D1] hover:text-[#FFF9F0]"
                 }`}
               >
                 Day
               </button>
-              <span className="mx-2 text-[#bfe1ff]/70">|</span>
+              <span className="mx-2 text-[#7096D1]">|</span>
               <button
                 onClick={() => setActiveFilter("week")}
                 className={`text-sm font-normal transition-colors ${
                   activeFilter === "week"
-                    ? "text-white"
-                    : "text-[#bfe1ff]/70 hover:text-white"
+                    ? "text-[#FFF9F0]"
+                    : "text-[#7096D1] hover:text-[#FFF9F0]"
                 }`}
               >
                 Week
               </button>
-              <span className="mx-2 text-[#bfe1ff]/70">|</span>
+              <span className="mx-2 text-[#7096D1]">|</span>
               <button
                 onClick={() => setActiveFilter("month")}
                 className={`text-sm font-normal transition-colors ${
                   activeFilter === "month"
-                    ? "text-white"
-                    : "text-[#bfe1ff]/70 hover:text-white"
+                    ? "text-[#FFF9F0]"
+                    : "text-[#7096D1] hover:text-[#FFF9F0]"
                 }`}
               >
                 Month
@@ -337,8 +337,8 @@ const PerformanceChart: React.FC = () => {
       {isPortfolioPage && (
         <>
           <div className="mb-4 text-center">
-            <p className="text-sm text-[#bfe1ff]/70">Total Portfolio Value</p>
-            <p className="text-3xl font-bold text-white">
+            <p className="text-sm text-[#7096D1]">Total Portfolio Value</p>
+            <p className="text-3xl font-bold text-[#FFF9F0]">
               $
               {totalValue.toLocaleString("en-US", {
                 minimumFractionDigits: 2,

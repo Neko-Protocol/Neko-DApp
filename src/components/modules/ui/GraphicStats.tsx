@@ -4,11 +4,13 @@ import PerformanceChart from "./PerformanceChart";
 
 const GraphicStats: React.FC = () => {
   return (
-    <div className="mx-auto flex w-full max-w-5xl gap-6 px-6 py-8">
+    <div className="flex w-full gap-6 px-6 py-8">
       <PerformanceChart />
 
-      <div className="w-96 rounded-3xl bg-[#1e3a8a] p-8">
-        <h3 className="mb-6 text-xl font-semibold text-white">App holdings</h3>
+      <div className="flex-1 rounded-3xl bg-[#081F5C] p-8 border border-[#334EAC]/30">
+        <h3 className="mb-6 text-xl font-semibold text-[#FFF9F0]">
+          App holdings
+        </h3>
 
         <div className="space-y-4">
           <GraphicHoldingCard

@@ -1,99 +1,242 @@
 import React from "react";
-import AssetCard from "./AssetCard";
-import { ChevronDown } from "lucide-react";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Paper,
+  Avatar,
+  Chip,
+  IconButton,
+  Tooltip,
+  Box,
+  Typography,
+} from "@mui/material";
+import { Info } from "@mui/icons-material";
+import { ThemeProvider, createTheme } from "@mui/material/styles";
+
+interface AssetData {
+  id: string;
+  pool: {
+    token1: string;
+    token2: string;
+    fee: string;
+  };
+  roi: string;
+  feeApy: string;
+  liquidity: string;
+  isActive: boolean;
+}
+
+const darkTheme = createTheme({
+  palette: {
+    mode: "dark",
+    primary: {
+      main: "#083dffff",
+    },
+    background: {
+      default: "#000000ff",
+      paper: "#3b486bff",
+    },
+    text: {
+      primary: "#FFF9F0",
+      secondary: "#7096D1",
+    },
+  },
+});
 
 const AssetBreakdown: React.FC = () => {
+  const assets: AssetData[] = [
+    {
+      id: "123456",
+      pool: { token1: "USDC", token2: "NVDA", fee: "1%" },
+      roi: "0.07%",
+      feeApy: "372.70%",
+      liquidity: "$15.21k",
+      isActive: true,
+    },
+    {
+      id: "1234567",
+      pool: { token1: "USDC", token2: "TSLA", fee: "0.01%" },
+      roi: "0.00%",
+      feeApy: "7.20%",
+      liquidity: "$719.39k",
+      isActive: true,
+    },
+    {
+      id: "1234",
+      pool: { token1: "USDC", token2: "GOOG", fee: "0.01%" },
+      roi: "0.00%",
+      feeApy: "7.20%",
+      liquidity: "$719.39k",
+      isActive: true,
+    },
+  ];
+
   return (
-    <div className="mx-auto w-full max-w-5xl px-6 py-8">
-      <div className="mb-6 flex items-center justify-between">
-        <h2 className="text-2xl font-semibold text-gray-900">
-          Asset breakdown
-        </h2>
-
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2 rounded-full bg-[#1e3a8a] px-6 py-2">
-            <svg
-              className="h-5 w-5 text-[#bfe1ff]/70"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <circle cx="11" cy="11" r="8" strokeWidth="2" />
-              <path d="m21 21-4.35-4.35" strokeWidth="2" />
-            </svg>
-            <input
-              type="text"
-              placeholder="Search by account or token ID"
-              className="bg-transparent text-sm font-normal text-white placeholder-[#bfe1ff]/50 outline-none"
-            />
-          </div>
-
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-normal text-gray-700">Sort by</span>
-            <div className="relative">
-              <select className="appearance-none rounded-full bg-[#1e3a8a] px-6 py-2 pr-10 text-sm font-normal text-white outline-none">
-                <option value="return">Return</option>
-                <option value="balance">Balance</option>
-                <option value="deposit">Deposit</option>
-              </select>
-              <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white" />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="mb-4 flex items-center gap-4 px-6 text-sm font-normal text-gray-600">
-        <div className="w-38">Token</div>
-        <div className="w-38">Deposit</div>
-        <div className="w-30">Balance</div>
-        <div className="w-32">AVL</div>
-        <div className="w-38">USD Value</div>
-        <div className="w-32">Net Return</div>
-        <div className="w-32">Actions</div>
-      </div>
-
-      <div className="space-y-4">
-        <AssetCard
-          tokenName="USDC"
-          deposit="13,450 USDC"
-          balance="3450 USDC"
-          availableBalance="3450 USDC"
-          usdValue="3450 USDC"
-          netReturn="1150 USDC"
-          netReturnChange="+1150 USDC (2.17%)"
-        />
-
-        <AssetCard
-          tokenName="XLM"
-          deposit="13,450 USDC"
-          balance="3450 USDC"
-          availableBalance="3450 USDC"
-          usdValue="3450 USDC"
-          netReturn="1150 USDC"
-          netReturnChange="+1150 USDC (2.17%)"
-        />
-
-        <AssetCard
-          tokenName="TSLA"
-          deposit="13,450 USDC"
-          balance="3450 USDC"
-          availableBalance="3450 USDC"
-          usdValue="3450 USDC"
-          netReturn="1150 USDC"
-          netReturnChange="+1150 USDC (2.17%)"
-        />
-
-        <AssetCard
-          tokenName="NVDA"
-          deposit="13,450 USDC"
-          balance="3450 USDC"
-          availableBalance="3450 USDC"
-          usdValue="3450 USDC"
-          netReturn="1150 USDC"
-          netReturnChange="+1150 USDC (2.17%)"
-        />
-      </div>
-    </div>
+    <ThemeProvider theme={darkTheme}>
+      <Box sx={{ width: "100%", px: 3, py: 4 }}>
+        <TableContainer
+          component={Paper}
+          sx={{
+            background:
+              "linear-gradient(135deg, #5FC4BD 0%, #8EDDD6 50%, #A8E8E3 100%)",
+            borderRadius: "24px",
+            boxShadow: "0 8px 16px -2px rgba(95, 196, 189, 0.3)",
+            border: "1px solid rgba(142, 221, 214, 0.4)",
+          }}
+        >
+          <Table sx={{ minWidth: 650 }}>
+            <TableHead>
+              <TableRow
+                sx={{
+                  "& th": {
+                    backgroundColor: "#0a2470",
+                    color: "#7096D1",
+                    fontWeight: 600,
+                    fontSize: "0.875rem",
+                    borderBottom: "1px solid rgba(51, 78, 172, 0.3)",
+                    py: 2,
+                  },
+                }}
+              >
+                <TableCell>ID</TableCell>
+                <TableCell>POOL</TableCell>
+                <TableCell>
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                    ROI
+                    <Tooltip title="Return on Investment">
+                      <IconButton size="small" sx={{ p: 0 }}>
+                        <Info sx={{ fontSize: 16, color: "#7096D1" }} />
+                      </IconButton>
+                    </Tooltip>
+                  </Box>
+                </TableCell>
+                <TableCell>
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                    FEE APY
+                    <Tooltip title="Annual Percentage Yield from fees">
+                      <IconButton size="small" sx={{ p: 0 }}>
+                        <Info sx={{ fontSize: 16, color: "#7096D1" }} />
+                      </IconButton>
+                    </Tooltip>
+                  </Box>
+                </TableCell>
+                <TableCell>
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                    LIQUIDITY
+                    <Tooltip title="Total liquidity in pool">
+                      <IconButton size="small" sx={{ p: 0 }}>
+                        <Info sx={{ fontSize: 16, color: "#7096D1" }} />
+                      </IconButton>
+                    </Tooltip>
+                  </Box>
+                </TableCell>
+                <TableCell>ACTIONS</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {assets.map((asset) => (
+                <TableRow
+                  key={asset.id}
+                  sx={{
+                    "&:hover": {
+                      backgroundColor: "rgba(51, 78, 172, 0.1)",
+                    },
+                    "& td": {
+                      borderBottom: "1px solid rgba(51, 78, 172, 0.2)",
+                      py: 2.5,
+                    },
+                  }}
+                >
+                  <TableCell>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                      <Box
+                        sx={{
+                          width: 8,
+                          height: 8,
+                          borderRadius: "50%",
+                          backgroundColor: asset.isActive
+                            ? "#22c55e"
+                            : "#6b7280",
+                        }}
+                      />
+                      <Typography
+                        sx={{
+                          color: asset.isActive ? "#39bfb7" : "#7096D1",
+                          fontWeight: 500,
+                        }}
+                      >
+                        {asset.id}
+                      </Typography>
+                    </Box>
+                  </TableCell>
+                  <TableCell>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                      <Box sx={{ position: "relative", width: 40, height: 24 }}>
+                        <Avatar
+                          sx={{
+                            width: 24,
+                            height: 24,
+                            position: "absolute",
+                            left: 0,
+                            border: "2px solid #081F5C",
+                            backgroundColor: "#334EAC",
+                          }}
+                        />
+                        <Avatar
+                          sx={{
+                            width: 24,
+                            height: 24,
+                            position: "absolute",
+                            left: 16,
+                            border: "2px solid #081F5C",
+                            backgroundColor: "#7096D1",
+                          }}
+                        />
+                      </Box>
+                      <Box>
+                        <Typography sx={{ color: "#FFF9F0", fontWeight: 500 }}>
+                          {asset.pool.token1} / {asset.pool.token2}
+                        </Typography>
+                        <Chip
+                          label={asset.pool.fee}
+                          size="small"
+                          sx={{
+                            backgroundColor: "rgba(51, 78, 172, 0.3)",
+                            color: "#39bfb7",
+                            fontWeight: 600,
+                            height: 20,
+                            fontSize: "0.7rem",
+                          }}
+                        />
+                      </Box>
+                    </Box>
+                  </TableCell>
+                  <TableCell>
+                    <Typography sx={{ color: "#FFF9F0" }}>
+                      {asset.roi}
+                    </Typography>
+                  </TableCell>
+                  <TableCell>
+                    <Typography sx={{ color: "#FFF9F0" }}>
+                      {asset.feeApy}
+                    </Typography>
+                  </TableCell>
+                  <TableCell>
+                    <Typography sx={{ color: "#FFF9F0" }}>
+                      {asset.liquidity}
+                    </Typography>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      </Box>
+    </ThemeProvider>
   );
 };
 
