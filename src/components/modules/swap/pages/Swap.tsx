@@ -5,7 +5,7 @@ const Swap: React.FC = () => {
     <div>
       <div className="w-full px-4 py-8">
         <h1 className="text-2xl font-bold">Swap</h1>
-        {/* Add your swap content here */}
+        <h2>nice to have.</h2>
       </div>
     </div>
   );

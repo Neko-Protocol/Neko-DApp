@@ -5,7 +5,9 @@ import Home from "./pages/Home";
 import Debugger from "./pages/Debugger.tsx";
 import Navbar from "./components/modules/ui/Navbar.tsx";
 import Dashboard from "./components/modules/dashboard/pages/Dashboard.tsx";
-import Portfolio from "./components/modules/portfolio/pages/Portfolio.tsx";
+import Borrow from "./components/modules/borrow/pages/Borrow.tsx";
+import Lend from "./components/modules/lend/pages/Lend.tsx";
+import Pools from "./components/modules/pools/pages/Pools.tsx";
 import Swap from "./components/modules/swap/pages/Swap.tsx";
 
 const AppLayout: React.FC = () => (
@@ -41,8 +43,10 @@ function App() {
       <Route element={<AppLayout />}>
         <Route path="/" element={<Home />} />
         <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/portfolio" element={<Portfolio />} />
         <Route path="/swap" element={<Swap />} />
+        <Route path="/lend" element={<Lend />} />
+        <Route path="/borrow" element={<Borrow />} />
+        <Route path="/pools" element={<Pools />} />
         <Route path="/debug" element={<Debugger />} />
         <Route path="/debug/:contractName" element={<Debugger />} />
       </Route>
