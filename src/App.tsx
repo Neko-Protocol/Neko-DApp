@@ -3,7 +3,7 @@ import "./App.module.css";
 import { Routes, Route, Outlet } from "react-router-dom";
 import Home from "./pages/Home";
 import Debugger from "./pages/Debugger.tsx";
-import Navbar from "./components/modules/dashboard/ui/Navbar.tsx";
+import Navbar from "./components/modules/ui/Navbar.tsx";
 import Dashboard from "./components/modules/dashboard/pages/Dashboard.tsx";
 import Portfolio from "./components/modules/portfolio/pages/Portfolio.tsx";
 import Swap from "./components/modules/swap/pages/Swap.tsx";

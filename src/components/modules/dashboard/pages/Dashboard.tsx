@@ -1,7 +1,7 @@
 import React from "react";
-import MainStats from "../ui/MainStats";
+import MainStats from "../../ui/MainStats";
 import GraphicStats from "../ui/GraphicStats";
-import AssetBreakdown from "../ui/AssetBreakdown";
+import AssetBreakdown from "../../ui/AssetBreakdown";
 
 const Dashboard: React.FC = () => {
   return (

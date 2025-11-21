@@ -33,7 +33,7 @@ export const WalletButton = () => {
           onClose={() => setShowDisconnectModal(false)}
           parentId="modalContainer"
         >
-          <div className="bg-[#334eac] p-5 opacity-90 rounded-2xl">
+          <div className="bg-[#334eac] p-5 opacity-100 rounded-2xl">
             <Modal.Heading>
               Connected as{" "}
               <code style={{ lineBreak: "anywhere" }}>{address}</code>. Do you

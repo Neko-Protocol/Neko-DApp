@@ -1,6 +1,6 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import { WalletButton } from "../../../../components/WalletButton";
+import { WalletButton } from "../../WalletButton";
 import Neko from "/Neko.svg";
 
 const Navbar: React.FC = () => {
