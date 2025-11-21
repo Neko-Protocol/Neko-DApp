@@ -3,23 +3,31 @@ import "./App.module.css";
 import { Routes, Route, Outlet } from "react-router-dom";
 import Home from "./pages/Home";
 import Debugger from "./pages/Debugger.tsx";
-import Navbar from "./components/modules/dashboard/ui/Navbar.tsx";
+import Navbar from "./components/modules/ui/Navbar.tsx";
 import Dashboard from "./components/modules/dashboard/pages/Dashboard.tsx";
-import Portfolio from "./components/modules/dashboard/pages/Portfolio.tsx";
-import Swap from "./components/modules/dashboard/pages/Swap.tsx";
+import Borrow from "./components/modules/borrow/pages/Borrow.tsx";
+import Lend from "./components/modules/lend/pages/Lend.tsx";
+import Pools from "./components/modules/pools/pages/Pools.tsx";
+import Swap from "./components/modules/swap/pages/Swap.tsx";
 
 const AppLayout: React.FC = () => (
-  <main style={{ minHeight: "100vh", backgroundColor: "#1a1d24" }}>
+  <main
+    style={{
+      minHeight: "100vh",
+      color: "#081F5C",
+    }}
+  >
     {/* aqui le cambiamos el background luego */}
     <Navbar />
     <Outlet />
     <Layout.Footer>
-      <span>
+      <span style={{ color: "#334EAC" }}>
         © {new Date().getFullYear()} My App. Licensed under the{" "}
         <a
           href="http://www.apache.org/licenses/LICENSE-2.0"
           target="_blank"
           rel="noopener noreferrer"
+          style={{ color: "#39bfb7", fontWeight: "bold" }}
         >
           Apache License, Version 2.0
         </a>
@@ -35,8 +43,10 @@ function App() {
       <Route element={<AppLayout />}>
         <Route path="/" element={<Home />} />
         <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/portfolio" element={<Portfolio />} />
         <Route path="/swap" element={<Swap />} />
+        <Route path="/lend" element={<Lend />} />
+        <Route path="/borrow" element={<Borrow />} />
+        <Route path="/pools" element={<Pools />} />
         <Route path="/debug" element={<Debugger />} />
         <Route path="/debug/:contractName" element={<Debugger />} />
       </Route>
