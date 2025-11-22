@@ -8,6 +8,7 @@ import Dashboard from "./components/modules/dashboard/pages/Dashboard";
 import Borrow from "./components/modules/borrow/pages/Borrow";
 import Lend from "./components/modules/lend/pages/Lend";
 import Pools from "./components/modules/pools/pages/Pools";
+import PoolDetail from "./components/modules/pools/pages/PoolDetail";
 import Swap from "./components/modules/swap/pages/Swap";
 import Oracle from "./components/modules/oracle/pages/Oracle";
 import AssetDetail from "./components/modules/oracle/pages/AssetDetail";
@@ -49,6 +50,7 @@ function App() {
         <Route path="/lend" element={<Lend />} />
         <Route path="/borrow" element={<Borrow />} />
         <Route path="/pools" element={<Pools />} />
+        <Route path="/pools/:contractid" element={<PoolDetail />} />
         <Route path="/oracle" element={<Oracle />} />
         <Route path="/asset/:symbol" element={<AssetDetail />} />
         <Route path="/debug" element={<Debugger />} />

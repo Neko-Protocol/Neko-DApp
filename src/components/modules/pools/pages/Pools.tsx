@@ -1,4 +1,4 @@
-import React from "react";
+import { useNavigate } from "react-router-dom";
 
 interface PoolData {
   id: string;
@@ -12,6 +12,7 @@ interface PoolData {
 }
 
 const Pools: React.FC = () => {
+  const navigate = useNavigate();
   const pools: PoolData[] = [
     {
       id: "123456",
@@ -125,17 +126,22 @@ const Pools: React.FC = () => {
               </div>
 
               {/* Pool Details / Dashboard Link */}
-              <div className="relative z-10 bg-[#39bfb7]/10 rounded-2xl p-4 mb-4 border border-[#334EAC]/30">
+              <div
+                className="relative z-10 bg-[#fff] rounded-2xl p-4 mb-4 border border-[#334EAC]/30 hover:bg-[#f3f4f6] cursor-pointer transition-colors duration-200"
+                onClick={() => {
+                  void navigate(`/pools/${pool.id}`);
+                }}
+              >
                 <div className="flex items-center justify-center">
-                  <button className="bg-transparent text-[#39bfb7] px-3 py-1 rounded-lg text-sm font-semibold hover:bg-[#39bfb7]/10 transition-colors duration-200 flex items-center gap-1">
-                    Dashboard <span className="opacity-70">→</span>
+                  <button className="text-black px-3 py-1 rounded-lg text-sm font-semibold duration-200 flex items-center gap-1">
+                    Pool Details <span className="opacity-70">→</span>
                   </button>
                 </div>
               </div>
 
               {/* Action Buttons */}
               <div className="relative z-10 flex">
-                <button className="flex-1 bg-[#081F5C] hover:bg-[#334EAC] text-[#FFF9F0] px-4 py-3 rounded-xl text-sm font-bold transition-colors duration-200 border border-[#334EAC]/30">
+                <button className="flex-1 bg-[#081F5C] hover:bg-[#12328a] text-[#FFF9F0] px-4 py-3 rounded-xl text-sm font-bold transition-colors duration-200 border border-[#334EAC]/30">
                   Lend
                 </button>
               </div>
