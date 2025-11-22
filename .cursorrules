@@ -1,0 +1,208 @@
+# Cursor Rules for Neko DApp
+
+## Project Overview
+
+This is a Stellar/Soroban smart contract frontend application built with:
+- **Frontend**: React 19 + TypeScript + Vite
+- **Smart Contracts**: Rust (Soroban SDK v23.1.0)
+- **UI Libraries**: Material-UI v7, Tailwind CSS v4, Stellar Design System
+- **State Management**: React Query (TanStack Query)
+- **Routing**: React Router v7
+- **Wallet Integration**: Stellar Wallets Kit
+
+## Project Structure
+
+```
+neko-dapp/
+├── contracts/              # Rust smart contracts (Soroban)
+│   └── */src/             # Each contract has contract.rs, lib.rs, test.rs
+├── packages/              # Auto-generated TypeScript client packages
+├── src/
+│   ├── components/        # React components
+│   │   ├── modules/       # Feature modules (borrow, lend, swap, pools, dashboard)
+│   │   └── ui/            # Shared UI components
+│   ├── contracts/         # Contract interaction helpers and utilities
+│   ├── debug/             # Contract debugging tools and components
+│   ├── hooks/             # Custom React hooks
+│   ├── pages/             # Top-level page components
+│   ├── providers/         # React context providers (Wallet, Notification)
+│   └── util/              # Utility functions
+├── target/                # Rust build artifacts and WASM files
+└── environments.toml      # Environment configurations for Stellar networks
+```
+
+## Code Style & Conventions
+
+### TypeScript/React
+
+- Use **functional components** with hooks, never class components
+- Use TypeScript strictly - avoid `any` types, prefer explicit types
+- Components should be exported as default or named exports consistently
+- Use **React 19** features like `use()` hook when appropriate
+- Custom hooks should be prefixed with `use` (e.g., `useWallet`, `useNotification`)
+- Use **named exports** for utilities and constants
+- Prefer **arrow functions** for component definitions
+- Use **TailwindCSS** utility classes for styling - prefer Tailwind classes over inline styles
+- Use inline styles only when dynamic values or complex calculations are needed
+- Follow the **ESLint** configuration (extends recommended + Prettier)
+- Use **Prettier** for code formatting
+
+### React Component Patterns
+
+- Extract reusable logic into custom hooks
+- Use Context API (WalletProvider, NotificationProvider) for global state
+- Components should be co-located with their modules:
+  - `src/components/modules/[feature]/pages/` for page components
+  - `src/components/modules/[feature]/ui/` for feature-specific UI
+  - `src/components/modules/ui/` for shared UI components
+
+### Rust Smart Contracts
+
+- Use **Soroban SDK v23.1.0**
+- Follow Soroban contract structure:
+  - `lib.rs` - Contract interface and public functions
+  - `contract.rs` - Contract implementation
+  - `test.rs` - Contract tests
+- Use `#[contracterror]` for custom errors
+- Use `#[contract]` macro for contract implementation
+- Optimize for WASM: use release profile with `opt-level = "z"`, `lto = true`
+- Contracts are in `contracts/*/` directory
+- Use **snake_case** for Rust identifiers
+
+### File Naming
+
+- **React components**: PascalCase (e.g., `WalletButton.tsx`)
+- **Hooks**: camelCase with `use` prefix (e.g., `useWallet.ts`)
+- **Utilities**: camelCase (e.g., `formatAmount.ts`)
+- **Rust files**: snake_case (e.g., `contract.rs`)
+- **CSS files**: Only use for global styles or Tailwind configuration (e.g., `index.css`, `tailwind.config.js`)
+
+## Development Workflow
+
+### Contract Development
+
+- Contracts are auto-compiled by `stellar scaffold watch` during development
+- WASM files are generated in `target/stellar/local/`
+- TypeScript clients are auto-generated to `packages/*/` when `client = true` in `environments.toml`
+- Deploy contracts using `stellar registry publish` and `stellar registry deploy`
+
+### Frontend Development
+
+- Run `npm start` or `npm run dev` to start dev server with hot reload
+- Contract clients are automatically rebuilt when contracts change
+- Use `src/contracts/*.ts` files to interact with deployed contracts
+- Environment config is in `environments.toml`, not `.env` files
+
+### Code Quality
+
+- **ESLint** runs on all TypeScript files (except `packages/`, `dist/`, `target/`)
+- **Prettier** formats all code
+- **Husky** runs `lint-staged` on git commits
+- Always run `npm run lint` and `npm run format` before committing
+
+## Important Dependencies
+
+### Frontend Core
+- `@stellar/stellar-sdk`: Stellar SDK for blockchain interactions
+- `@stellar/stellar-xdr-json`: XDR JSON utilities
+- `@creit.tech/stellar-wallets-kit`: Wallet connection kit
+- `@tanstack/react-query`: Server state management
+- `zod`: Schema validation
+
+### UI Libraries
+- `tailwindcss`: **Primary styling solution** - use Tailwind utility classes for all component styling
+- `@mui/material` + `@mui/icons-material`: Material-UI components (used alongside Tailwind)
+- `@emotion/react` + `@emotion/styled`: CSS-in-JS for MUI components only
+- `@stellar/design-system`: Stellar design components
+- Prefer TailwindCSS classes over inline styles or CSS modules
+
+## Stellar/Soroban Specific
+
+- Use **Soroban** for smart contract development on Stellar
+- Contracts compile to WASM for execution on Stellar network
+- Network configuration is managed via `environments.toml`
+- Local development uses `Standalone Network ; February 2017` passphrase
+- Contract interactions use the auto-generated TypeScript clients from `packages/`
+- Always use the contract utilities in `src/contracts/util.ts` for common operations
+
+## Module Organization
+
+The app follows a feature-based module structure:
+- Each module (borrow, lend, swap, pools, dashboard) has its own directory
+- Modules contain: `pages/`, `hooks/`, `ui/`, `utils/` subdirectories
+- Shared components go in `src/components/modules/ui/`
+
+## Best Practices
+
+1. **Styling**: Always use **TailwindCSS utility classes** for styling components. Avoid CSS modules, separate CSS files, or inline styles unless absolutely necessary (e.g., dynamic values)
+2. **Error Handling**: Always handle contract call errors gracefully
+3. **Loading States**: Use React Query's loading states for async operations
+4. **Type Safety**: Leverage TypeScript strict mode and generated contract types
+5. **Security**: Never commit private keys or secrets
+6. **Performance**: Use React Query caching, avoid unnecessary re-renders
+7. **Accessibility**: Follow Material-UI accessibility guidelines and Tailwind accessibility best practices
+8. **Testing**: Write tests for contracts in `test.rs`, test React components appropriately
+
+## Code Generation
+
+- **Contract clients** are auto-generated - don't manually edit files in `packages/`
+- Generated files include TypeScript types and contract interaction methods
+- Regenerate clients when contract interfaces change using `stellar scaffold watch`
+
+## Environment & Configuration
+
+- Development: Uses local Stellar network (`http://localhost:8000/rpc`)
+- Testnet/Mainnet: Configure via `environments.toml` and Stellar CLI
+- Accounts are managed via `stellar registry` commands
+- Contract deployment state is tracked in `.stellar/` directory (git-ignored)
+
+## When Adding New Features
+
+1. **New Contract**: Add to `contracts/`, configure in `environments.toml`, clients auto-generate
+2. **New Module**: Create in `src/components/modules/[feature]/` with pages, hooks, ui
+3. **New Route**: Add to `App.tsx` routes array
+4. **New Hook**: Add to `src/hooks/` or within module's `hooks/` directory
+5. **New Utility**: Add to `src/util/` or module's `utils/` directory
+
+## Common Patterns
+
+### Wallet Connection
+```typescript
+import { useWallet } from '../hooks/useWallet';
+
+const { wallet, connect, disconnect } = useWallet();
+```
+
+### Contract Interaction
+```typescript
+import { guess_the_number } from '../contracts/guess_the_number';
+// Use generated contract client methods
+```
+
+### React Query Usage
+```typescript
+import { useQuery } from '@tanstack/react-query';
+// Follow existing patterns in the codebase
+```
+
+### Styling with TailwindCSS
+```typescript
+// ✅ Preferred: Use Tailwind utility classes
+<div className="flex items-center justify-between bg-[#081F5C] text-white p-4 rounded-lg">
+  <span className="font-semibold">Content</span>
+</div>
+
+// ✅ Use inline styles only when needed for dynamic values
+<div style={{ opacity: isPending ? 0.6 : 1 }} className="base-tailwind-classes">
+  Content
+</div>
+
+// ❌ Avoid: CSS modules or separate CSS files
+```
+
+## Notes
+
+- This project uses **monorepo** structure with npm workspaces
+- Contract clients are in separate packages under `packages/`
+- Build outputs: `dist/` for frontend, `target/` for Rust contracts
+- Git ignores: `node_modules/`, `target/`, `dist/`, `.stellar/`, `.env`
