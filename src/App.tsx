@@ -5,12 +5,12 @@ import Home from "./pages/Home";
 import Debugger from "./pages/Debugger.tsx";
 import Navbar from "./components/modules/ui/Navbar.tsx";
 import Dashboard from "./components/modules/dashboard/pages/Dashboard";
-import Borrow from "./components/modules/borrow/pages/Borrow.tsx";
-import Lend from "./components/modules/lend/pages/Lend.tsx";
-import Pools from "./components/modules/pools/pages/Pools.tsx";
-import Swap from "./components/modules/swap/pages/Swap.tsx";
-import Oracle from "./components/modules/oracle/pages/Oracle.tsx";
-import AssetDetail from "./components/modules/oracle/pages/AssetDetail.tsx";
+import Borrow from "./components/modules/borrow/pages/Borrow";
+import Lend from "./components/modules/lend/pages/Lend";
+import Pools from "./components/modules/pools/pages/Pools";
+import Swap from "./components/modules/swap/pages/Swap";
+import Oracle from "./components/modules/oracle/pages/Oracle";
+import AssetDetail from "./components/modules/oracle/pages/AssetDetail";
 
 const AppLayout: React.FC = () => (
   <main
