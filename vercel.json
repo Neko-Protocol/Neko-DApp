@@ -1,5 +1,5 @@
 {
   "buildCommand": "npm run build",
-  "installCommand": "npm install",
+  "installCommand": "curl -L https://github.com/stellar/stellar-cli/releases/latest/download/stellar-cli-x86_64-unknown-linux-gnu.tar.gz | tar -xz && sudo mv stellar /usr/local/bin/ && npm run ensure:oracle-contract && npm run generate:oracle-binding && cd packages/oracle && npm install && npm run build && cd ../.. && npm install",
   "framework": null
 }
