@@ -141,7 +141,12 @@ const Pools: React.FC = () => {
 
               {/* Action Buttons */}
               <div className="relative z-10 flex">
-                <button className="flex-1 bg-[#081F5C] hover:bg-[#12328a] text-[#FFF9F0] px-4 py-3 rounded-xl text-sm font-bold transition-colors duration-200 border border-[#334EAC]/30">
+                <button
+                  className="flex-1 bg-[#081F5C] hover:bg-[#12328a] text-[#FFF9F0] px-4 py-3 rounded-xl text-sm font-bold transition-colors duration-200 border border-[#334EAC]/30"
+                  onClick={() => {
+                    void navigate(`/lend}`);
+                  }}
+                >
                   Lend
                 </button>
               </div>
