@@ -11,6 +11,7 @@ const Navbar: React.FC = () => {
     { name: "Swap", path: "/swap" },
     { name: "Borrow", path: "/borrow" },
     { name: "Lend", path: "/lend" },
+    { name: "Oracle", path: "/oracle" },
   ];
 
   return (

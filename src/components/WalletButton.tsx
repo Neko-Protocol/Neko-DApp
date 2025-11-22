@@ -5,9 +5,8 @@ import { connectWallet, disconnectWallet } from "../util/wallet";
 
 export const WalletButton = () => {
   const [showDisconnectModal, setShowDisconnectModal] = useState(false);
-  const { address, isPending, balances, isFetchingBalances } = useWallet();
+  const { address, isPending } = useWallet();
   const buttonLabel = isPending ? "Connecting..." : "Connect Wallet";
-  const xlmBalance = balances.xlm?.balance ?? "0";
 
   if (!address) {
     return (
@@ -32,27 +31,6 @@ export const WalletButton = () => {
         color: "white",
       }}
     >
-      {/* Show XLM balance when connected */}
-      {address && (
-        <div className="hidden sm:flex items-center gap-2 bg-[#334EAC]/30 px-4 py-2 rounded-full border border-[#334EAC]/50">
-          {isFetchingBalances ? (
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 bg-[#39bfb7] rounded-full animate-pulse"></div>
-              <span className="text-[#FFF9F0] text-sm font-medium">
-                Loading...
-              </span>
-            </div>
-          ) : (
-            <>
-              <span className="text-[#FFF9F0] text-sm font-bold">
-                {xlmBalance}
-              </span>
-              <span className="text-[#7096D1] text-xs font-semibold">XLM</span>
-            </>
-          )}
-        </div>
-      )}
-
       <div id="modalContainer" className="bg-white">
         <Modal
           visible={showDisconnectModal}
