@@ -116,7 +116,7 @@ npm run generate:oracle-binding
 ### Paso 4: Construir los Paquetes de Contratos
 
 ```bash
-npm run build --workspace=packages/oracle
+npm run build:oracle
 ```
 
 O construir todos los paquetes:
@@ -124,6 +124,8 @@ O construir todos los paquetes:
 ```bash
 npm run install:contracts
 ```
+
+**Nota:** El script `build:oracle` maneja automáticamente el caso cuando el workspace no existe, mostrando un warning en lugar de fallar.
 
 ### Paso 5: Verificar que Todo Funciona
 
