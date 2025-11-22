@@ -30,18 +30,18 @@ interface AssetData {
   isActive: boolean;
 }
 
-const darkTheme = createTheme({
+const lightTheme = createTheme({
   palette: {
-    mode: "dark",
+    mode: "light",
     primary: {
       main: "#083dffff",
     },
     background: {
-      default: "#000000ff",
-      paper: "#3b486bff",
+      default: "#ffffff",
+      paper: "#f9fafb",
     },
     text: {
-      primary: "#FFF9F0",
+      primary: "#081F5C",
       secondary: "#7096D1",
     },
   },
@@ -76,15 +76,15 @@ const AssetBreakdown: React.FC = () => {
   ];
 
   return (
-    <ThemeProvider theme={darkTheme}>
+    <ThemeProvider theme={lightTheme}>
       <Box sx={{ width: "100%", px: 3, py: 4 }}>
         <TableContainer
           component={Paper}
           sx={{
-            backgroundColor: "#404040ff",
+            backgroundColor: "#ffffff",
             borderRadius: "24px",
-            boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.3)",
-            border: "1px solid rgba(51, 78, 172, 0.3)",
+            boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
+            border: "1px solid rgba(51, 78, 172, 0.2)",
           }}
         >
           <Table sx={{ minWidth: 650 }}>
@@ -92,11 +92,11 @@ const AssetBreakdown: React.FC = () => {
               <TableRow
                 sx={{
                   "& th": {
-                    backgroundColor: "#3c3c3cff",
-                    color: "#ffffffff",
+                    backgroundColor: "#f3f4f6",
+                    color: "#081F5C",
                     fontWeight: 600,
                     fontSize: "0.875rem",
-                    borderBottom: "1px solid rgba(51, 78, 172, 0.3)",
+                    borderBottom: "1px solid rgba(51, 78, 172, 0.2)",
                     py: 2,
                   },
                 }}
@@ -108,7 +108,7 @@ const AssetBreakdown: React.FC = () => {
                     ROI
                     <Tooltip title="Return on Investment">
                       <IconButton size="small" sx={{ p: 0 }}>
-                        <Info sx={{ fontSize: 16, color: "#ffffffff" }} />
+                        <Info sx={{ fontSize: 16, color: "#081F5C" }} />
                       </IconButton>
                     </Tooltip>
                   </Box>
@@ -118,7 +118,7 @@ const AssetBreakdown: React.FC = () => {
                     FEE APY
                     <Tooltip title="Annual Percentage Yield from fees">
                       <IconButton size="small" sx={{ p: 0 }}>
-                        <Info sx={{ fontSize: 16, color: "#ffffffff" }} />
+                        <Info sx={{ fontSize: 16, color: "#081F5C" }} />
                       </IconButton>
                     </Tooltip>
                   </Box>
@@ -128,12 +128,11 @@ const AssetBreakdown: React.FC = () => {
                     LIQUIDITY
                     <Tooltip title="Total liquidity in pool">
                       <IconButton size="small" sx={{ p: 0 }}>
-                        <Info sx={{ fontSize: 16, color: "#ffffffff" }} />
+                        <Info sx={{ fontSize: 16, color: "#081F5C" }} />
                       </IconButton>
                     </Tooltip>
                   </Box>
                 </TableCell>
-                <TableCell>ACTIONS</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -158,13 +157,13 @@ const AssetBreakdown: React.FC = () => {
                           height: 8,
                           borderRadius: "50%",
                           backgroundColor: asset.isActive
-                            ? "#00f95bff"
+                            ? "#028733ff"
                             : "#6b7280",
                         }}
                       />
                       <Typography
                         sx={{
-                          color: asset.isActive ? "#00f95bff" : "#7096D1",
+                          color: asset.isActive ? "#028733ff" : "#7096D1",
                           fontWeight: 500,
                         }}
                       >
@@ -181,7 +180,7 @@ const AssetBreakdown: React.FC = () => {
                             height: 24,
                             position: "absolute",
                             left: 0,
-                            border: "2px solid #081F5C",
+                            border: "2px solid #ffffff",
                             backgroundColor: "#334EAC",
                           }}
                         />
@@ -191,21 +190,21 @@ const AssetBreakdown: React.FC = () => {
                             height: 24,
                             position: "absolute",
                             left: 16,
-                            border: "2px solid #081F5C",
+                            border: "2px solid #ffffff",
                             backgroundColor: "#7096D1",
                           }}
                         />
                       </Box>
                       <Box>
-                        <Typography sx={{ color: "#FFF9F0", fontWeight: 500 }}>
+                        <Typography sx={{ color: "#081F5C", fontWeight: 500 }}>
                           {asset.pool.token1} / {asset.pool.token2}
                         </Typography>
                         <Chip
                           label={asset.pool.fee}
                           size="small"
                           sx={{
-                            backgroundColor: "rgba(51, 78, 172, 0.3)",
-                            color: "#ffffffff",
+                            backgroundColor: "rgba(51, 78, 172, 0.1)",
+                            color: "#081F5C",
                             fontWeight: 600,
                             height: 20,
                             fontSize: "0.7rem",
@@ -215,17 +214,17 @@ const AssetBreakdown: React.FC = () => {
                     </Box>
                   </TableCell>
                   <TableCell>
-                    <Typography sx={{ color: "#FFF9F0" }}>
+                    <Typography sx={{ color: "#081F5C" }}>
                       {asset.roi}
                     </Typography>
                   </TableCell>
                   <TableCell>
-                    <Typography sx={{ color: "#FFF9F0" }}>
+                    <Typography sx={{ color: "#081F5C" }}>
                       {asset.feeApy}
                     </Typography>
                   </TableCell>
                   <TableCell>
-                    <Typography sx={{ color: "#FFF9F0" }}>
+                    <Typography sx={{ color: "#081F5C" }}>
                       {asset.liquidity}
                     </Typography>
                   </TableCell>

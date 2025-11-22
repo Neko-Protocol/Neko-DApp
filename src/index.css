@@ -1,6 +1,19 @@
 /* Import font for Stellar Design System */
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@100..900&family=Inconsolata:wght@500&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@100..900&family=Inconsolata:wght@500&family=Antonio:wght@700&display=swap");
 @import "tailwindcss";
+
+/* Klein Condensed Bold font */
+@font-face {
+  font-family: "Klein Condensed";
+  src: url("/Klein-Condensed-ExtraBold-trial.ttf") format("truetype");
+  font-weight: 800;
+  font-style: normal;
+}
+
+.font-klein {
+  font-family: "Klein Condensed", "Antonio", sans-serif;
+  font-weight: 800;
+}
 
 body {
   margin: 0;

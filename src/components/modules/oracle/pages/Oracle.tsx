@@ -1,15 +1,9 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import type { Asset, ComplianceStatus } from "oracle";
+import type { Asset } from "oracle";
 import { useOracle } from "../hooks/useOracle";
 import { useOracleAssetPrice } from "../hooks/useOracleAssetPrice";
-import { useOracleRWAMetadata } from "../hooks/useOracleRWAMetadata";
-import {
-  formatAsset,
-  formatPrice,
-  formatAssetType,
-  formatComplianceStatus,
-} from "../utils/oracleUtils";
+import { formatAsset, formatPrice } from "../utils/oracleUtils";
 import { STOCK_INFO } from "../utils/stockInfo";
 import {
   TrendingUp,
@@ -26,7 +20,6 @@ const OracleVisualizer: React.FC = () => {
     baseAsset,
     decimals,
     resolution,
-    rwaAssets,
     isLoading,
     isLoadingBase,
     isLoadingDecimals,
@@ -36,22 +29,20 @@ const OracleVisualizer: React.FC = () => {
   } = useOracle();
 
   return (
-    <div className="w-full px-4 py-2">
-      <div className="w-full px-6 py-8">
+    <div className="w-full min-h-screen">
+      <div className="max-w-7xl mx-auto px-6 py-8">
         {/* Header Section */}
-        <div className="mb-12">
-          <div className="flex items-center gap-3 mb-4">
-            <h1 className="text-4xl font-bold text-black tracking-tight">
-              Oracle Dashboard
-            </h1>
-          </div>
+        <div className="mb-10">
+          <h1 className="text-5xl font-bold text-[#081F5C] tracking-tight mb-3">
+            Oracle Dashboard
+          </h1>
           <p className="text-[#7096D1] text-lg leading-relaxed">
             Real-time price data and RWA metadata from the RWACLE
           </p>
         </div>
 
         {/* Oracle Configuration Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-12">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-12">
           <StatCard
             icon={<Database className="h-5 w-5" />}
             label="Base Asset"
@@ -109,8 +100,8 @@ const OracleVisualizer: React.FC = () => {
 
         {/* Assets and Prices Section */}
         {assetsError && (
-          <div className="rounded-3xl bg-[#294cab] p-6 shadow-lg border border-red-500/50 mb-8">
-            <p className="text-red-400 font-semibold">
+          <div className="rounded-2xl bg-red-50 p-6 shadow-md border border-red-200 mb-8">
+            <p className="text-red-600 font-semibold">
               Error loading assets:{" "}
               {assetsError instanceof Error
                 ? assetsError.message
@@ -120,25 +111,27 @@ const OracleVisualizer: React.FC = () => {
         )}
 
         {isLoading ? (
-          <div className="rounded-3xl bg-[#294cab] p-12 shadow-lg border border-[#334EAC]/90">
+          <div className="rounded-2xl bg-gradient-to-br from-[#4169B8] to-[#334EAC] p-12 shadow-xl">
             <div className="flex flex-col items-center justify-center gap-4">
               <div className="flex gap-2">
-                <div className="w-3 h-3 bg-[#39bfb7] rounded-full animate-bounce [animation-delay:-0.3s]"></div>
-                <div className="w-3 h-3 bg-[#39bfb7] rounded-full animate-bounce [animation-delay:-0.15s]"></div>
-                <div className="w-3 h-3 bg-[#39bfb7] rounded-full animate-bounce"></div>
+                <div className="w-3 h-3 bg-white/60 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
+                <div className="w-3 h-3 bg-white/60 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
+                <div className="w-3 h-3 bg-white/60 rounded-full animate-bounce"></div>
               </div>
-              <span className="text-[#7096D1] text-lg">
+              <span className="text-white text-lg font-medium">
                 Loading oracle data...
               </span>
             </div>
           </div>
         ) : assets && assets.length > 0 ? (
-          <div className="space-y-8">
+          <div className="space-y-6">
             <div>
-              <h2 className="text-2xl font-bold text-black mb-2">
+              <h2 className="text-3xl font-bold text-[#081F5C] mb-2">
                 Assets & Prices
               </h2>
-              <p className="text-[#7096D1]">Live price feeds from the oracle</p>
+              <p className="text-[#7096D1] text-base">
+                Live price feeds from the oracle
+              </p>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {assets
@@ -158,29 +151,10 @@ const OracleVisualizer: React.FC = () => {
             </div>
           </div>
         ) : (
-          <div className="rounded-3xl bg-[#294cab] p-12 shadow-lg border border-[#334EAC]/90 text-center">
-            <p className="text-[#7096D1] text-lg">
+          <div className="rounded-2xl bg-gradient-to-br from-[#4169B8] to-[#334EAC] p-12 shadow-xl text-center">
+            <p className="text-white text-lg font-medium">
               No assets found in the oracle
             </p>
-          </div>
-        )}
-
-        {/* RWA Assets Section */}
-        {rwaAssets && rwaAssets.length > 0 && (
-          <div className="mt-12 space-y-8">
-            <div>
-              <h2 className="text-2xl font-bold text-[#FFF9F0] mb-2">
-                RWA Assets
-              </h2>
-              <p className="text-[#7096D1]">
-                Real World Asset tokenization details
-              </p>
-            </div>
-            <div className="grid grid-cols-1 gap-6">
-              {rwaAssets.map((assetId: string) => (
-                <RWAAssetCard key={assetId} assetId={assetId} />
-              ))}
-            </div>
           </div>
         )}
       </div>
@@ -196,16 +170,16 @@ const StatCard: React.FC<{
   isLoading?: boolean;
 }> = ({ icon, label, value, isLoading }) => {
   return (
-    <div className="rounded-3xl bg-[#294cab] p-6 shadow-lg border border-[#334EAC]/90 transition-all hover:shadow-xl hover:-translate-y-1">
-      <div className="flex items-center gap-3 mb-3">
-        <div className="p-2 bg-[#39bfb7]/10 text-[#39bfb7] rounded-lg">
+    <div className="rounded-2xl bg-gradient-to-br from-[#4169B8] to-[#334EAC] p-6 shadow-xl transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 hover:from-[#4A73C4] hover:to-[#3D5AC0]">
+      <div className="flex items-center gap-3 mb-4">
+        <div className="p-2 bg-white/10 text-white/70 rounded-lg backdrop-blur-sm">
           {icon}
         </div>
-        <p className="text-xs font-medium uppercase tracking-wider text-[#7096D1]">
+        <p className="text-xs font-semibold uppercase tracking-widest text-white/70">
           {label}
         </p>
       </div>
-      <h3 className="text-2xl font-bold text-[#FFF9F0]">
+      <h3 className="text-3xl font-bold text-white">
         {isLoading ? <LoadingDots /> : value}
       </h3>
     </div>
@@ -215,9 +189,9 @@ const StatCard: React.FC<{
 // Loading Dots Component
 export const LoadingDots = () => (
   <span className="inline-flex gap-1">
-    <span className="w-2 h-2 bg-[#7096D1] rounded-full animate-pulse"></span>
-    <span className="w-2 h-2 bg-[#7096D1] rounded-full animate-pulse [animation-delay:0.2s]"></span>
-    <span className="w-2 h-2 bg-[#7096D1] rounded-full animate-pulse [animation-delay:0.4s]"></span>
+    <span className="w-2 h-2 bg-white/50 rounded-full animate-pulse"></span>
+    <span className="w-2 h-2 bg-white/50 rounded-full animate-pulse [animation-delay:0.2s]"></span>
+    <span className="w-2 h-2 bg-white/50 rounded-full animate-pulse [animation-delay:0.4s]"></span>
   </span>
 );
 
@@ -246,8 +220,8 @@ const AssetPriceCard: React.FC<{
   }, [lastPrice, priceHistory]);
 
   return (
-    <Link to={`/asset/${assetStr}`} className="block h-full">
-      <div className="rounded-3xl bg-white p-6 shadow-lg border border-gray-200 transition-all hover:shadow-xl hover:-translate-y-1 overflow-hidden cursor-pointer h-full flex flex-col">
+    <Link to={`/asset/${assetStr}`} className="block h-full group">
+      <div className="rounded-2xl bg-white p-6 shadow-md border border-gray-200 transition-all duration-300 hover:shadow-2xl hover:-translate-y-2 hover:border-[#334EAC]/30 overflow-hidden cursor-pointer h-full flex flex-col">
         {/* Header */}
         <div className="flex items-start justify-between mb-6">
           <div className="flex items-center gap-3">
@@ -351,232 +325,6 @@ const AssetPriceCard: React.FC<{
         </div>
       </div>
     </Link>
-  );
-};
-
-// Component for displaying RWA asset metadata
-const RWAAssetCard: React.FC<{ assetId: string }> = ({ assetId }) => {
-  const { metadata, isLoading, error } = useOracleRWAMetadata(assetId);
-
-  if (isLoading) {
-    return (
-      <div className="rounded-3xl bg-[#294cab] p-6 shadow-lg border border-[#334EAC]/90">
-        <div className="flex items-center gap-3">
-          <LoadingDots />
-          <span className="text-[#7096D1]">
-            Loading metadata for {assetId}...
-          </span>
-        </div>
-      </div>
-    );
-  }
-
-  if (error || !metadata) {
-    return (
-      <div className="rounded-3xl bg-[#294cab] p-6 shadow-lg border border-red-500/50">
-        <p className="text-red-400 font-medium">
-          Error loading metadata for {assetId}
-        </p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="rounded-3xl bg-[#294cab] p-8 shadow-lg border border-[#334EAC]/90 relative overflow-hidden transition-all hover:shadow-xl">
-      <div className="relative z-10">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
-          <div>
-            <h3 className="text-2xl font-bold text-[#FFF9F0] mb-2">
-              {metadata.name}
-            </h3>
-            <p className="text-sm text-[#7096D1] font-mono">
-              {metadata.asset_id}
-            </p>
-          </div>
-          <span className="inline-flex items-center px-4 py-2 bg-[#39bfb7]/10 text-[#39bfb7] rounded-lg text-sm font-semibold w-fit">
-            {formatAssetType(metadata.asset_type)}
-          </span>
-        </div>
-
-        {/* Main Details Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-          <DetailItem
-            label="Description"
-            value={metadata.description}
-            fullWidth
-          />
-
-          <DetailItem
-            label="Underlying Asset"
-            value={metadata.underlying_asset}
-          />
-
-          <DetailItem label="Issuer" value={metadata.issuer} mono />
-
-          <div>
-            <p className="text-xs font-medium uppercase tracking-wider text-[#7096D1] mb-2">
-              Compliance Status
-            </p>
-            <ComplianceStatusBadge
-              status={metadata.regulatory_info?.compliance_status}
-            />
-          </div>
-        </div>
-
-        {/* Regulatory Information */}
-        {metadata.regulatory_info?.is_regulated && (
-          <div className="mb-6 p-6 bg-[#334EAC]/20 rounded-2xl border border-[#334EAC]/30">
-            <h4 className="text-sm font-bold uppercase tracking-wider text-[#FFF9F0] mb-4">
-              Regulatory Information
-            </h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {metadata.regulatory_info.approval_server && (
-                <DetailItem
-                  label="Approval Server"
-                  value={metadata.regulatory_info.approval_server}
-                  small
-                />
-              )}
-              {metadata.regulatory_info.license_number && (
-                <DetailItem
-                  label="License Number"
-                  value={metadata.regulatory_info.license_number}
-                  small
-                />
-              )}
-              {metadata.regulatory_info.license_type && (
-                <DetailItem
-                  label="License Type"
-                  value={metadata.regulatory_info.license_type}
-                  small
-                />
-              )}
-              {metadata.regulatory_info.licensing_authority && (
-                <DetailItem
-                  label="Licensing Authority"
-                  value={metadata.regulatory_info.licensing_authority}
-                  small
-                />
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Tokenization Information */}
-        {metadata.tokenization_info?.is_tokenized && (
-          <div className="mb-6 p-6 bg-[#334EAC]/20 rounded-2xl border border-[#334EAC]/30">
-            <h4 className="text-sm font-bold uppercase tracking-wider text-[#FFF9F0] mb-4">
-              Tokenization Information
-            </h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {metadata.tokenization_info.token_contract && (
-                <DetailItem
-                  label="Token Contract"
-                  value={metadata.tokenization_info.token_contract}
-                  mono
-                  small
-                />
-              )}
-              {metadata.tokenization_info.total_supply && (
-                <DetailItem
-                  label="Total Supply"
-                  value={String(metadata.tokenization_info.total_supply)}
-                  small
-                />
-              )}
-              {metadata.tokenization_info.underlying_asset && (
-                <DetailItem
-                  label="Underlying Asset"
-                  value={metadata.tokenization_info.underlying_asset}
-                  small
-                />
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Additional Metadata */}
-        {Array.isArray(metadata.metadata) && metadata.metadata.length > 0 && (
-          <div className="p-6 bg-[#334EAC]/20 rounded-2xl border border-[#334EAC]/30">
-            <h4 className="text-sm font-bold uppercase tracking-wider text-[#FFF9F0] mb-4">
-              Additional Metadata
-            </h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {metadata.metadata.map(
-                ([key, value]: readonly [string, string], idx: number) => (
-                  <div key={`${key}-${idx}`} className="text-sm">
-                    <span className="text-[#7096D1]">{key}: </span>
-                    <span className="text-[#BAD6EB] font-medium">{value}</span>
-                  </div>
-                ),
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Decorative element */}
-        <div className="absolute -right-10 -top-10 w-64 h-64 bg-[#334EAC]/20 rounded-full blur-3xl pointer-events-none"></div>
-      </div>
-    </div>
-  );
-};
-
-// Detail Item Component
-const DetailItem: React.FC<{
-  label: string;
-  value: string;
-  mono?: boolean;
-  small?: boolean;
-  fullWidth?: boolean;
-}> = ({ label, value, mono, small, fullWidth }) => (
-  <div className={fullWidth ? "md:col-span-2" : ""}>
-    <p className="text-xs font-medium uppercase tracking-wider text-[#7096D1] mb-2">
-      {label}
-    </p>
-    <p
-      className={`text-[#FFF9F0] ${small ? "text-sm" : ""} ${
-        mono ? "font-mono break-all" : "font-medium"
-      }`}
-    >
-      {value}
-    </p>
-  </div>
-);
-
-// Compliance Status Badge Component
-const ComplianceStatusBadge: React.FC<{
-  status: ComplianceStatus | undefined;
-}> = ({ status }) => {
-  if (!status) {
-    return (
-      <span className="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-semibold border bg-[#334EAC]/30 text-[#7096D1] border-[#334EAC]/30">
-        Unknown
-      </span>
-    );
-  }
-
-  const statusTag = status.tag;
-
-  const getStatusStyles = () => {
-    switch (statusTag) {
-      case "Approved":
-        return "bg-green-500/20 text-green-400 border-green-500/20";
-      case "Pending":
-        return "bg-yellow-500/20 text-yellow-400 border-yellow-500/20";
-      case "Rejected":
-        return "bg-red-500/20 text-red-400 border-red-500/20";
-      default:
-        return "bg-[#334EAC]/30 text-[#7096D1] border-[#334EAC]/30";
-    }
-  };
-
-  return (
-    <span
-      className={`inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-semibold border ${getStatusStyles()}`}
-    >
-      {formatComplianceStatus(status)}
-    </span>
   );
 };
 

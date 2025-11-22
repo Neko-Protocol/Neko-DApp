@@ -19,19 +19,18 @@ const AppLayout: React.FC = () => (
       color: "#081F5C",
     }}
   >
-    {/* aqui le cambiamos el background luego */}
     <Navbar />
     <Outlet />
     <Layout.Footer>
       <span style={{ color: "#334EAC" }}>
-        © {new Date().getFullYear()} My App. Licensed under the{" "}
+        © {new Date().getFullYear()} Neko Protocol. Licensed under the{" "}
         <a
-          href="http://www.apache.org/licenses/LICENSE-2.0"
+          href="https://opensource.org/license/mit"
           target="_blank"
           rel="noopener noreferrer"
-          style={{ color: "#39bfb7", fontWeight: "bold" }}
+          style={{ color: "#0325cbff", fontWeight: "bold" }}
         >
-          Apache License, Version 2.0
+          MIT License
         </a>
         .
       </span>
