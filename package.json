@@ -6,8 +6,9 @@
   "scripts": {
     "dev": "npm start",
     "start": "concurrently --kill-others-on-fail --names stellar,vite -c gray,green --pad-prefix \"stellar scaffold watch --build-clients\" \"vite\"",
-    "build": "npm run generate:oracle-binding && npm run build --workspace=packages/oracle && tsc -b && vite build",
-    "generate:oracle-binding": "soroban contract bindings typescript --rpc-url https://soroban-testnet.stellar.org --network-passphrase \"Test SDF Network ; September 2015\" --id CCF2U62KGK7ZSS6G6SJLR43JZXCDUC4VWW3SAIVWN5OVJL3AU7ILOYZ2 --output-dir ./packages/oracle --overwrite || echo 'Warning: Could not generate oracle binding. Using existing binding.'",
+    "build": "npm run generate:oracle-binding && (npm run build:oracle || true) && tsc -b && vite build",
+    "build:oracle": "if [ -d packages/oracle ]; then npm run build --workspace=packages/oracle 2>/dev/null || (cd packages/oracle && npm install && npm run build); else echo 'Warning: Oracle package directory not found. Skipping oracle build.'; fi",
+    "generate:oracle-binding": "stellar contract bindings typescript --rpc-url https://soroban-testnet.stellar.org --network-passphrase \"Test SDF Network ; September 2015\" --contract-id CCF2U62KGK7ZSS6G6SJLR43JZXCDUC4VWW3SAIVWN5OVJL3AU7ILOYZ2 --output-dir ./packages/oracle --overwrite || echo 'Warning: Could not generate oracle binding. Using existing binding if available.'",
     "install:contracts": "npm install --workspace=packages && npm run build --workspace=packages",
     "preview": "vite preview",
     "lint": "eslint .",

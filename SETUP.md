@@ -36,34 +36,46 @@ Si no están instalados, instala Rust:
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 ```
 
-### 3. Soroban CLI
+### 3. Stellar CLI
 
 Necesario para generar los bindings de los contratos.
 
-**Instalación en Linux/macOS:**
+**Instalación:**
+
+La forma más fácil es usar el instalador oficial:
 
 ```bash
-curl -L https://github.com/stellar/soroban-tools/releases/download/v22.8.0/soroban-22.8.0-x86_64-unknown-linux-gnu.tar.gz | tar -xz
-sudo mv soroban /usr/local/bin/
+curl -sSLO https://github.com/stellar/stellar-cli/releases/latest/download/stellar-cli-x86_64-unknown-linux-gnu.tar.gz
+tar -xzf stellar-cli-*.tar.gz
+sudo mv stellar /usr/local/bin/
 ```
 
-**Instalación en macOS (Apple Silicon):**
+**Para macOS (Intel):**
 
 ```bash
-curl -L https://github.com/stellar/soroban-tools/releases/download/v22.8.0/soroban-22.8.0-aarch64-apple-darwin.tar.gz | tar -xz
-sudo mv soroban /usr/local/bin/
+curl -sSLO https://github.com/stellar/stellar-cli/releases/latest/download/stellar-cli-x86_64-apple-darwin.tar.gz
+tar -xzf stellar-cli-*.tar.gz
+sudo mv stellar /usr/local/bin/
+```
+
+**Para macOS (Apple Silicon):**
+
+```bash
+curl -sSLO https://github.com/stellar/stellar-cli/releases/latest/download/stellar-cli-aarch64-apple-darwin.tar.gz
+tar -xzf stellar-cli-*.tar.gz
+sudo mv stellar /usr/local/bin/
 ```
 
 **Instalación con Cargo (alternativa):**
 
 ```bash
-cargo install --locked soroban-cli
+cargo install --git https://github.com/stellar/stellar-cli --locked stellar-cli
 ```
 
 Verificar instalación:
 
 ```bash
-soroban --version
+stellar --version
 ```
 
 ### 4. Git
@@ -167,16 +179,25 @@ npm run preview
 
 ## Solución de Problemas
 
-### Error: "soroban: command not found"
+### Error: "stellar: command not found"
 
-- Asegúrate de que Soroban CLI esté instalado y en tu PATH
-- Verifica con: `soroban --version`
+- Asegúrate de que Stellar CLI esté instalado y en tu PATH
+- Verifica con: `stellar --version`
 - Si está instalado pero no se encuentra, agrega `/usr/local/bin` a tu PATH
 
 ### Error: "Cannot find module 'oracle'"
 
+- Asegúrate de que Stellar CLI esté instalado: `stellar --version`
 - Ejecuta: `npm run generate:oracle-binding`
-- Luego: `npm run build --workspace=packages/oracle`
+- Luego: `npm run build:oracle` o `npm run build --workspace=packages/oracle`
+
+### Error: "No workspaces found: --workspace=packages/oracle"
+
+- Esto ocurre cuando el binding del oracle no se generó correctamente
+- Verifica que Stellar CLI esté instalado: `stellar --version`
+- Ejecuta manualmente: `npm run generate:oracle-binding`
+- Verifica que el directorio `packages/oracle` exista después de la generación
+- Si el directorio no existe, el comando de generación falló (revisa los logs de error)
 
 ### Error: "Cannot find module '../../../../contracts/oracle'"
 
@@ -185,11 +206,11 @@ npm run preview
 
 ### Error de permisos en Linux/macOS
 
-Si tienes problemas con permisos al mover `soroban`:
+Si tienes problemas con permisos al mover `stellar`:
 
 ```bash
-sudo chmod +x soroban
-sudo mv soroban /usr/local/bin/
+sudo chmod +x stellar
+sudo mv stellar /usr/local/bin/
 ```
 
 ### Problemas con Workspaces de npm

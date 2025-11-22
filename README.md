@@ -21,8 +21,7 @@ Before getting started, ensure you have:
 - [Node.js](https://nodejs.org/) (v18 or higher)
 - [npm](https://www.npmjs.com/) (v9 or higher)
 - [Rust](https://www.rust-lang.org/tools/install) (v1.70 or higher)
-- [Soroban CLI](https://soroban.stellar.org/docs/getting-started/setup#install-the-soroban-cli) (v22.8.0 or higher)
-- [Stellar CLI](https://developers.stellar.org/docs/tools/developer-tools) (optional, for contract development)
+- [Stellar CLI](https://developers.stellar.org/docs/tools/developer-tools) (v23.1.0 or higher, required for oracle bindings)
 - [Scaffold Stellar CLI Plugin](https://github.com/AhaLabs/scaffold-stellar) (optional, for contract development)
 
 **📖 Para una guía detallada paso a paso, consulta [SETUP.md](./SETUP.md)**
@@ -36,33 +35,42 @@ Before getting started, ensure you have:
    cd Neko-DApp
    ```
 
-2. **Install Soroban CLI** (si no está instalado):
+2. **Install Stellar CLI** (required for generating oracle contract bindings):
 
    **Linux:**
 
    ```bash
-   curl -L https://github.com/stellar/soroban-tools/releases/download/v22.8.0/soroban-22.8.0-x86_64-unknown-linux-gnu.tar.gz | tar -xz
-   sudo mv soroban /usr/local/bin/
+   curl -sSLO https://github.com/stellar/stellar-cli/releases/latest/download/stellar-cli-x86_64-unknown-linux-gnu.tar.gz
+   tar -xzf stellar-cli-*.tar.gz
+   sudo mv stellar /usr/local/bin/
    ```
 
    **macOS (Intel):**
 
    ```bash
-   curl -L https://github.com/stellar/soroban-tools/releases/download/v22.8.0/soroban-22.8.0-x86_64-apple-darwin.tar.gz | tar -xz
-   sudo mv soroban /usr/local/bin/
+   curl -sSLO https://github.com/stellar/stellar-cli/releases/latest/download/stellar-cli-x86_64-apple-darwin.tar.gz
+   tar -xzf stellar-cli-*.tar.gz
+   sudo mv stellar /usr/local/bin/
    ```
 
    **macOS (Apple Silicon):**
 
    ```bash
-   curl -L https://github.com/stellar/soroban-tools/releases/download/v22.8.0/soroban-22.8.0-aarch64-apple-darwin.tar.gz | tar -xz
-   sudo mv soroban /usr/local/bin/
+   curl -sSLO https://github.com/stellar/stellar-cli/releases/latest/download/stellar-cli-aarch64-apple-darwin.tar.gz
+   tar -xzf stellar-cli-*.tar.gz
+   sudo mv stellar /usr/local/bin/
    ```
 
    **Alternativa (con Cargo):**
 
    ```bash
-   cargo install --locked soroban-cli
+   cargo install --git https://github.com/stellar/stellar-cli --locked stellar-cli
+   ```
+
+   Verificar instalación:
+
+   ```bash
+   stellar --version
    ```
 
 3. **Install dependencies:**
