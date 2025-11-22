@@ -3,13 +3,13 @@ import { Chart as ChartJS, ArcElement, Tooltip, Legend } from "chart.js";
 import { Doughnut } from "react-chartjs-2";
 import { useWallet } from "../../../hooks/useWallet";
 
+// Register Chart.js components - TypeScript incorrectly infers ChartJS as error type
+// but it works correctly at runtime
+
+ChartJS.register(ArcElement, Tooltip, Legend);
+
 const MainStats: React.FC = () => {
   const { balances, isFetchingBalances, address } = useWallet();
-
-  // Register Chart.js components once when component mounts
-  React.useEffect(() => {
-    ChartJS.register(ArcElement, Tooltip, Legend);
-  }, []);
 
   // Get XLM balance for total value
   const xlmBalance = balances.xlm?.balance
