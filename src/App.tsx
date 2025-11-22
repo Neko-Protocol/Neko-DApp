@@ -17,6 +17,7 @@ const AppLayout: React.FC = () => (
     style={{
       minHeight: "100vh",
       color: "#081F5C",
+      overflowX: "hidden",
     }}
   >
     <Navbar />
