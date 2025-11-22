@@ -4,7 +4,7 @@ import { Routes, Route, Outlet } from "react-router-dom";
 import Home from "./pages/Home";
 import Debugger from "./pages/Debugger.tsx";
 import Navbar from "./components/modules/ui/Navbar.tsx";
-import Dashboard from "./components/modules/Dashboard/pages/Dashboard.tsx";
+import Dashboard from "./components/modules/dashboard/pages/Dashboard";
 import Borrow from "./components/modules/borrow/pages/Borrow.tsx";
 import Lend from "./components/modules/lend/pages/Lend.tsx";
 import Pools from "./components/modules/pools/pages/Pools.tsx";
