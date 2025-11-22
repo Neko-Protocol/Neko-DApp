@@ -105,7 +105,17 @@ npm install
 
 Este comando instalará todas las dependencias del proyecto, incluyendo los workspaces (paquetes de contratos).
 
-### Paso 3: Generar Bindings de Contratos
+### Paso 3: Asegurar que el Archivo de Contrato Oracle Existe
+
+El archivo `src/contracts/oracle.ts` se crea automáticamente durante el build. Si necesitas crearlo manualmente:
+
+```bash
+npm run ensure:oracle-contract
+```
+
+Este script crea el archivo helper para el contrato oracle si no existe.
+
+### Paso 4: Generar Bindings de Contratos
 
 El proyecto genera automáticamente los bindings del contrato oracle. Si necesitas generarlos manualmente:
 
@@ -115,7 +125,7 @@ npm run generate:oracle-binding
 
 Este comando genera los bindings TypeScript del contrato oracle desde la red de testnet.
 
-### Paso 4: Construir el Paquete Oracle
+### Paso 5: Construir el Paquete Oracle
 
 Después de generar los bindings, necesitas construir el paquete:
 
@@ -132,7 +142,7 @@ O usar el script helper:
 npm run build:oracle
 ```
 
-### Paso 5: Reinstalar Dependencias (si es necesario)
+### Paso 6: Reinstalar Dependencias (si es necesario)
 
 Después de construir el paquete oracle, puede ser necesario reinstalar las dependencias del workspace principal para que npm reconozca el paquete:
 
@@ -142,7 +152,7 @@ npm install
 
 **Nota:** El script `build:oracle` maneja automáticamente el caso cuando el workspace no existe, mostrando un warning en lugar de fallar.
 
-### Paso 6: Verificar que Todo Funciona
+### Paso 7: Verificar que Todo Funciona
 
 ```bash
 npm run build

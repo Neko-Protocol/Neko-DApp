@@ -20,7 +20,8 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true,
     "paths": {
-      "oracle": ["./packages/oracle/dist/index.d.ts"]
+      "oracle": ["./packages/oracle/dist/index.d.ts"],
+      "@contracts/*": ["./src/contracts/*"]
     }
   },
   "include": ["src"]
