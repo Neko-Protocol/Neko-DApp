@@ -142,12 +142,12 @@ const OracleVisualizer: React.FC = () => {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {assets
-                .filter((asset) => {
+                .filter((asset: Asset) => {
                   const assetStr = formatAsset(asset);
                   return assetStr !== "0";
                 })
                 .slice(0, 6)
-                .map((asset, index) => (
+                .map((asset: Asset, index: number) => (
                   <AssetPriceCard
                     key={index}
                     asset={asset}
@@ -177,7 +177,7 @@ const OracleVisualizer: React.FC = () => {
               </p>
             </div>
             <div className="grid grid-cols-1 gap-6">
-              {rwaAssets.map((assetId) => (
+              {rwaAssets.map((assetId: string) => (
                 <RWAAssetCard key={assetId} assetId={assetId} />
               ))}
             </div>
@@ -323,21 +323,28 @@ const AssetPriceCard: React.FC<{
                 Recent Prices ({priceHistory.length})
               </p>
               <div className="space-y-2 max-h-32 overflow-y-auto">
-                {priceHistory.slice(0, 5).map((price, idx) => (
-                  <div
-                    key={idx}
-                    className="flex justify-between text-sm items-center"
-                  >
-                    <span className="font-medium text-black">
-                      {formatPrice(price.price)}
-                    </span>
-                    <span className="text-xs text-gray-500">
-                      {new Date(
-                        Number(price.timestamp) * 1000,
-                      ).toLocaleTimeString()}
-                    </span>
-                  </div>
-                ))}
+                {priceHistory
+                  .slice(0, 5)
+                  .map(
+                    (
+                      price: { price: bigint; timestamp: bigint },
+                      idx: number,
+                    ) => (
+                      <div
+                        key={idx}
+                        className="flex justify-between text-sm items-center"
+                      >
+                        <span className="font-medium text-black">
+                          {formatPrice(price.price)}
+                        </span>
+                        <span className="text-xs text-gray-500">
+                          {new Date(
+                            Number(price.timestamp) * 1000,
+                          ).toLocaleTimeString()}
+                        </span>
+                      </div>
+                    ),
+                  )}
               </div>
             </div>
           )}

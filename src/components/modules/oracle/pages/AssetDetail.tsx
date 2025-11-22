@@ -28,7 +28,7 @@ const AssetDetail: React.FC = () => {
   // Find the asset that matches the symbol
   const asset = React.useMemo(() => {
     if (!assets || !symbolUpper) return null;
-    return assets.find((a) => {
+    return assets.find((a: Asset) => {
       const assetStr = formatAsset(a);
       return assetStr.toUpperCase() === symbolUpper;
     });

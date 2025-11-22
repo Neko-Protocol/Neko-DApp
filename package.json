@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "npm start",
     "start": "concurrently --kill-others-on-fail --names stellar,vite -c gray,green --pad-prefix \"stellar scaffold watch --build-clients\" \"vite\"",
-    "build": "tsc -b && vite build",
+    "build": "npm run generate:oracle-binding && npm run build --workspace=packages/oracle && tsc -b && vite build",
+    "generate:oracle-binding": "soroban contract bindings typescript --rpc-url https://soroban-testnet.stellar.org --network-passphrase \"Test SDF Network ; September 2015\" --id CCF2U62KGK7ZSS6G6SJLR43JZXCDUC4VWW3SAIVWN5OVJL3AU7ILOYZ2 --output-dir ./packages/oracle --overwrite || echo 'Warning: Could not generate oracle binding. Using existing binding.'",
     "install:contracts": "npm install --workspace=packages && npm run build --workspace=packages",
     "preview": "vite preview",
     "lint": "eslint .",
@@ -39,7 +40,8 @@
     "recharts": "^3.4.1",
     "tailwindcss": "^4.1.17",
     "three": "^0.181.2",
-    "zod": "^4.1.11"
+    "zod": "^4.1.11",
+    "oracle": "workspace:*"
   },
   "devDependencies": {
     "@eslint/js": "^9.36.0",
