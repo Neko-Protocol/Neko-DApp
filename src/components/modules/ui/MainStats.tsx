@@ -1,32 +1,75 @@
 import React from "react";
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from "chart.js";
 import { Doughnut } from "react-chartjs-2";
-
-ChartJS.register(ArcElement, Tooltip, Legend);
+import { useWallet } from "../../../hooks/useWallet";
 
 const MainStats: React.FC = () => {
-  const holdings = [
-    { name: "Tesla", value: 1345.67 },
-    { name: "Apple", value: 2150.32 },
-    { name: "Microsoft", value: 1820.45 },
-    { name: "Amazon", value: 950.89 },
-    { name: "Google", value: 1580.23 },
-  ];
+  const { balances, isFetchingBalances, address } = useWallet();
+
+  // Register Chart.js components once when component mounts
+  React.useEffect(() => {
+    ChartJS.register(ArcElement, Tooltip, Legend);
+  }, []);
+
+  // Get XLM balance for total value
+  const xlmBalance = balances.xlm?.balance
+    ? parseFloat(balances.xlm.balance.replace(/,/g, ""))
+    : 0;
+
+  // Convert balances to holdings format for chart
+  const holdings = React.useMemo(() => {
+    return Object.entries(balances)
+      .filter(([, balance]) => {
+        // Filter out zero balances
+        const balanceNum = parseFloat(
+          balance.balance?.replace(/,/g, "") ?? "0",
+        );
+        return balanceNum > 0;
+      })
+      .map(([, balance]) => {
+        const balanceNum = parseFloat(
+          balance.balance?.replace(/,/g, "") ?? "0",
+        );
+        let assetName = "Unknown";
+
+        if (balance.asset_type === "native") {
+          assetName = "XLM";
+        } else if (balance.asset_type === "liquidity_pool_shares") {
+          assetName = "LP Shares";
+        } else if (balance.asset_code) {
+          assetName = balance.asset_code;
+        }
+
+        return {
+          name: assetName,
+          value: balanceNum,
+        };
+      })
+      .sort((a, b) => b.value - a.value); // Sort by value descending
+  }, [balances]);
 
   const totalValue = holdings.reduce((sum, holding) => sum + holding.value, 0);
+
+  // Color palette for chart - reuse colors if we have more assets than colors
+  const chartColors = [
+    "#68f9f2ff", // Planetary
+    "#31c1c6ff", // Slightly lighter Planetary
+    "#1dd1b3ff", // Darker Planetary
+    "#1daca9ff", // Planetary
+    "#2bb8d7ff", // Slightly lighter Planetary
+    "#39bfb7ff", // Accent color
+    "#7096D1ff", // Text color variant
+    "#334EACff", // Border color variant
+  ];
 
   const chartData = {
     labels: holdings.map((h) => h.name),
     datasets: [
       {
         data: holdings.map((h) => h.value),
-        backgroundColor: [
-          "#68f9f2ff", // Planetary
-          "#31c1c6ff", // Slightly lighter Planetary
-          "#1dd1b3ff", // Darker Planetary
-          "#1daca9ff", // Planetary
-          "#2bb8d7ff", // Slightly lighter Planetary
-        ],
+        backgroundColor: holdings.map(
+          (_, index) => chartColors[index % chartColors.length],
+        ),
         borderWidth: 3,
         borderColor: "#294cab",
         hoverOffset: 8,
@@ -62,11 +105,17 @@ const MainStats: React.FC = () => {
         padding: 16,
         cornerRadius: 8,
         callbacks: {
-          label: function (context: { parsed: number }) {
+          label: function (context: {
+            parsed: number;
+            label: string;
+            dataIndex: number;
+          }) {
             const value = context.parsed;
-            return ` $${value.toLocaleString("en-US", {
+            const label = context.label;
+            // Show both asset name and balance value
+            return `${label}: ${value.toLocaleString("en-US", {
               minimumFractionDigits: 2,
-              maximumFractionDigits: 2,
+              maximumFractionDigits: 7,
             })}`;
           },
         },
@@ -99,30 +148,43 @@ const MainStats: React.FC = () => {
                 Total Balance
               </p>
               <h1 className="text-5xl font-bold text-[#FFF9F0] tracking-tight">
-                $
-                {totalValue.toLocaleString("en-US", {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                })}
+                {xlmBalance > 0 ? (
+                  <>
+                    {balances.xlm?.balance ?? "0"}{" "}
+                    <span className="text-2xl text-[#7096D1]">XLM</span>
+                  </>
+                ) : (
+                  "$0.00"
+                )}
               </h1>
               <div className="flex items-center gap-2 mt-3">
-                <div className="flex items-center bg-[#39bfb7]/10 px-2 py-1 rounded-lg">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-4 w-4 text-[#39bfb7] mr-1"
-                    viewBox="0 0 20 20"
-                    fill="currentColor"
-                  >
-                    <path
-                      fillRule="evenodd"
-                      d="M12 7a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0V8.414l-4.293 4.293a1 1 0 01-1.414 0L8 10.414l-4.293 4.293a1 1 0 01-1.414-1.414l5-5a1 1 0 011.414 0L11 10.586 14.586 7H12z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
-                  <span className="text-[#39bfb7] font-bold text-sm">
-                    +2.5%
-                  </span>
-                </div>
+                {isFetchingBalances && (
+                  <div className="flex items-center bg-[#39bfb7]/10 px-2 py-1 rounded-lg">
+                    <div className="w-2 h-2 bg-[#39bfb7] rounded-full animate-pulse mr-1"></div>
+                    <span className="text-[#39bfb7] font-bold text-sm">
+                      Updating...
+                    </span>
+                  </div>
+                )}
+                {!isFetchingBalances && xlmBalance > 0 && (
+                  <div className="flex items-center bg-[#39bfb7]/10 px-2 py-1 rounded-lg">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-4 w-4 text-[#39bfb7] mr-1"
+                      viewBox="0 0 20 20"
+                      fill="currentColor"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M12 7a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0V8.414l-4.293 4.293a1 1 0 01-1.414 0L8 10.414l-4.293 4.293a1 1 0 01-1.414-1.414l5-5a1 1 0 011.414 0L11 10.586 14.586 7H12z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                    <span className="text-[#39bfb7] font-bold text-sm">
+                      +2.5%
+                    </span>
+                  </div>
+                )}
                 <span className="text-[#7096D1] text-sm font-medium">
                   past 24h
                 </span>
@@ -154,26 +216,52 @@ const MainStats: React.FC = () => {
         {/* Right Card: App Holdings Graph */}
         <div className="rounded-3xl bg-[#294cab] p-8 shadow-lg border border-[#334EAC]/50 relative overflow-hidden flex flex-col min-h-[320px]">
           <div className="relative z-10 flex-1 flex flex-col">
-            <h2 className="text-xl font-bold text-[#FFF9F0] mb-6 tracking-wide">
-              App Holdings
-            </h2>
-            <div className="flex-1 relative min-h-[200px]">
-              <Doughnut data={chartData} options={chartOptions} />
-              {/* Center Text Overlay */}
-              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none pr-[100px]">
-                {/* pr-[100px] to offset the legend on the right */}
-                <span className="text-[#BAD6EB] text-xs font-medium uppercase tracking-wide">
-                  Total
-                </span>
-                <span className="text-[#FFF9F0] text-2xl font-bold mt-1">
-                  $
-                  {totalValue.toLocaleString("en-US", {
-                    notation: "compact",
-                    maximumFractionDigits: 1,
-                  })}
-                </span>
-              </div>
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-bold text-[#FFF9F0] tracking-wide">
+                Wallet Holdings
+              </h2>
+              {isFetchingBalances && (
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-[#39bfb7] rounded-full animate-pulse"></div>
+                  <span className="text-[#7096D1] text-xs">Updating...</span>
+                </div>
+              )}
             </div>
+            {!address ? (
+              <div className="flex-1 flex items-center justify-center">
+                <p className="text-[#7096D1] text-sm text-center">
+                  Connect your wallet to view holdings
+                </p>
+              </div>
+            ) : holdings.length === 0 ? (
+              <div className="flex-1 flex items-center justify-center">
+                <div className="text-center">
+                  <p className="text-[#7096D1] text-sm mb-2">
+                    No holdings found
+                  </p>
+                  <p className="text-[#7096D1] text-xs">
+                    Fund your account to see balances here
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="flex-1 relative min-h-[200px]">
+                <Doughnut data={chartData} options={chartOptions} />
+                {/* Center Text Overlay */}
+                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none pr-[100px]">
+                  {/* pr-[100px] to offset the legend on the right */}
+                  <span className="text-[#BAD6EB] text-xs font-medium uppercase tracking-wide">
+                    Total Assets
+                  </span>
+                  <span className="text-[#FFF9F0] text-2xl font-bold mt-1">
+                    {totalValue.toLocaleString("en-US", {
+                      notation: "compact",
+                      maximumFractionDigits: 1,
+                    })}
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
           {/* Decorative background element */}
           <div className="absolute -left-10 -bottom-10 w-48 h-48 bg-[#334EAC]/10 rounded-full blur-2xl pointer-events-none"></div>
