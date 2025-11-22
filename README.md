@@ -1,10 +1,10 @@
-# Neko Protocol dApp
+<img width="2940" height="770" alt="image" src="https://github.com/user-attachments/assets/c8adcc67-4f7d-453e-804a-1cf14be0e582" />
 
-A modern DeFi protocol built on Stellar blockchain, featuring liquidity pools, lending, borrowing, and portfolio management.
+# DApp
 
-![Neko Protocol](public/Neko.svg)
+A DeFi protocol built on Stellar blockchain, featuring liquidity pools, lending, borrowing, and portfolio management.
 
-## 🌟 Features
+## Features
 
 - **Dashboard**: Real-time portfolio analytics and performance metrics
 - **Liquidity Pools**: Manage and track NFT-based liquidity positions
@@ -12,16 +12,7 @@ A modern DeFi protocol built on Stellar blockchain, featuring liquidity pools, l
 - **Token Swap**: Seamless token exchange interface
 - **Portfolio Management**: Track your assets and returns across all positions
 
-## 🎨 Design
-
-The dApp features a modern dark blue theme with:
-
-- **Primary Colors**: Deep navy (#081F5C), planetary blue (#334EAC), and universe blue (#7096D1)
-- **Accent**: Teal highlights (#39bfb7) for active states
-- **Typography**: Clean, readable interface with Inter font family
-- **Components**: Built with Material-UI and custom Tailwind CSS styling
-
-## 🚀 Quick Start
+## Quick Start
 
 ### Prerequisites
 
@@ -36,37 +27,35 @@ Before getting started, ensure you have:
 ### Installation
 
 1. Clone the repository:
-   \`\`\`bash
+   ```bash
    git clone https://github.com/Neko-Protocol/neko-dapp.git
    cd neko-dapp
-   \`\`\`
+   ```
 
-2. Install dependencies:
-   \`\`\`bash
+3. Install dependencies:
+   ```bash
    npm install
-   \`\`\`
+   ```
 
-3. Set up environment variables:
-   \`\`\`bash
+4. Set up environment variables:
+   ```bash
    cp .env.example .env
-   \`\`\`
+   ```
 
-Edit \`.env\` to configure your network settings.
+Edit `.env` to configure your network settings.
 
 4. Start the development server:
-   \`\`\`bash
+   ```bash
    npm run dev
-   \`\`\`
+   ```
 
-The app will be available at \`http://localhost:5173\`
+The app will be available at `http://localhost:5173`
 
-## 📁 Project Structure
+## Project Structure
 
-\`\`\`
+```
 neko-dapp/
 ├── contracts/ # Stellar smart contracts
-│ ├── fungible-allowlist/ # Fungible token allowlist contract
-│ └── nft-enumerable/ # NFT enumerable contract
 ├── packages/ # Auto-generated contract clients
 ├── src/
 │ ├── components/
@@ -91,18 +80,17 @@ neko-dapp/
 ├── public/ # Static assets
 ├── environments.toml # Environment configurations
 └── package.json
-\`\`\`
+```
 
-## 🛠 Available Scripts
+## Available Scripts
 
-- \`npm run dev\` - Start development server with hot reload
-- \`npm run build\` - Build for production
-- \`npm run preview\` - Preview production build
-- \`npm run lint\` - Run ESLint
-- \`npm run format\` - Format code with Prettier
-- \`npm run install:contracts\` - Install and build contract packages
+- `npm run dev` - Start development server with hot reload
+- `npm run build` - Build for production
+- `npm run preview` - Preview production build
+- `npm run lint` - Run ESLint
+- `npm run format` - Format code with Prettier
 
-## 🔧 Technology Stack
+## Technology Stack
 
 ### Frontend
 
@@ -111,7 +99,6 @@ neko-dapp/
 - **Routing**: React Router v7
 - **Styling**: Tailwind CSS 4 + Material-UI
 - **Charts**: Chart.js with react-chartjs-2
-- **3D Graphics**: Three.js with React Three Fiber
 
 ### Blockchain
 
@@ -120,65 +107,52 @@ neko-dapp/
 - **Wallet**: Stellar Wallets Kit (@creit.tech/stellar-wallets-kit)
 - **Smart Contracts**: Rust with Soroban
 
-### Development
-
-- **Type Safety**: TypeScript 5.9
-- **Linting**: ESLint with TypeScript support
-- **Formatting**: Prettier
-- **Git Hooks**: Husky + lint-staged
-
-## 🌐 Deployment
+## Deployment
 
 ### Contract Deployment
 
 1. Publish your contracts to the registry:
-   \`\`\`bash
+   ```bash
    stellar registry publish
-   \`\`\`
+   ```
 
 2. Deploy contract instances:
-   \`\`\`bash
+   ```bash
    stellar registry deploy \\
    --deployed-name my-contract \\
    --published-name my-contract \\
    -- \\
    --param1 value1
-   \`\`\`
+   ```
 
 3. Create local aliases:
-   \`\`\`bash
+   ```bash
    stellar registry create-alias my-contract
-   \`\`\`
+   ```
 
 ### Frontend Deployment
 
 Build the frontend for production:
-\`\`\`bash
+```bash
 npm run build
-\`\`\`
+```
 
-Deploy the contents of the \`dist/\` directory to your hosting platform of choice (Vercel, Netlify, AWS, etc.).
+Deploy the contents of the `dist/` directory to your hosting platform of choice (Vercel, Netlify, AWS, etc.).
 
-## 🧪 Environment Configuration
+## Environment Configuration
 
-The project uses \`environments.toml\` for network-specific configurations:
+The project uses `environments.toml` for network-specific configurations:
 
 - **local**: Local Stellar network for development
 - **testnet**: Stellar testnet
 - **mainnet**: Stellar mainnet (production)
 
-Configure your active environment in \`.env\`:
-\`\`\`env
+Configure your active environment in `.env`:
+```env
 STELLAR_SCAFFOLD_ENV=local
-\`\`\`
+```
 
-## 📊 Key Components
-
-### Dashboard
-
-- **MainStats**: Portfolio overview with balance, returns, and performance metrics
-- **GraphicStats**: Visual performance charts and app holdings
-- **AssetBreakdown**: Detailed table of liquidity pool positions
+## Key Components
 
 ### DeFi Features
 
@@ -187,39 +161,33 @@ STELLAR_SCAFFOLD_ENV=local
 - **Borrow**: Borrow against collateral
 - **Pools**: Manage liquidity positions
 
-## 🤝 Contributing
+## Contributing
 
 Contributions are welcome! Please follow these steps:
 
 1. Fork the repository
-2. Create a feature branch (\`git checkout -b feature/amazing-feature\`)
-3. Commit your changes (\`git commit -m 'Add amazing feature'\`)
-4. Push to the branch (\`git push origin feature/amazing-feature\`)
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
 
 Please ensure your code:
 
-- Passes all linting checks (\`npm run lint\`)
-- Is formatted with Prettier (\`npm run format\`)
+- Passes all linting checks (`npm run lint`)
+- Is formatted with Prettier (`npm run format`)
 - Includes appropriate TypeScript types
 - Follows the existing code style
 
-## 📝 License
+## License
 
-This project is licensed under the [Apache License, Version 2.0](http://www.apache.org/licenses/LICENSE-2.0).
+This project is licensed under the MIT License.
 
-Copyright © 2025 Neko Protocol
-
-## 🔗 Links
+## Links
 
 - [Stellar Documentation](https://developers.stellar.org/)
 - [Soroban Smart Contracts](https://developers.stellar.org/docs/build/smart-contracts)
 - [Scaffold Stellar](https://github.com/theahaco/scaffold-stellar)
 
-## 💬 Support
+## Support
 
 For questions and support, please open an issue on GitHub or reach out to the team.
-
----
-
-Built with ❤️ using [Scaffold Stellar](https://github.com/theahaco/scaffold-stellar)
