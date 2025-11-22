@@ -8,6 +8,7 @@ import Dashboard from "./components/modules/dashboard/pages/Dashboard";
 import Borrow from "./components/modules/borrow/pages/Borrow";
 import Lend from "./components/modules/lend/pages/Lend";
 import Pools from "./components/modules/pools/pages/Pools";
+import PoolDetail from "./components/modules/pools/pages/PoolDetail";
 import Swap from "./components/modules/swap/pages/Swap";
 import Oracle from "./components/modules/oracle/pages/Oracle";
 import AssetDetail from "./components/modules/oracle/pages/AssetDetail";
@@ -17,21 +18,21 @@ const AppLayout: React.FC = () => (
     style={{
       minHeight: "100vh",
       color: "#081F5C",
+      overflowX: "hidden",
     }}
   >
-    {/* aqui le cambiamos el background luego */}
     <Navbar />
     <Outlet />
     <Layout.Footer>
       <span style={{ color: "#334EAC" }}>
-        © {new Date().getFullYear()} My App. Licensed under the{" "}
+        © {new Date().getFullYear()} Neko Protocol. Licensed under the{" "}
         <a
-          href="http://www.apache.org/licenses/LICENSE-2.0"
+          href="https://opensource.org/license/mit"
           target="_blank"
           rel="noopener noreferrer"
-          style={{ color: "#39bfb7", fontWeight: "bold" }}
+          style={{ color: "#0325cbff", fontWeight: "bold" }}
         >
-          Apache License, Version 2.0
+          MIT License
         </a>
         .
       </span>
@@ -49,6 +50,7 @@ function App() {
         <Route path="/lend" element={<Lend />} />
         <Route path="/borrow" element={<Borrow />} />
         <Route path="/pools" element={<Pools />} />
+        <Route path="/pools/:contractid" element={<PoolDetail />} />
         <Route path="/oracle" element={<Oracle />} />
         <Route path="/asset/:symbol" element={<AssetDetail />} />
         <Route path="/debug" element={<Debugger />} />

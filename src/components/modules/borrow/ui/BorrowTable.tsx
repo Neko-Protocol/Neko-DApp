@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   Table,
   TableBody,
@@ -14,10 +14,10 @@ import {
   Box,
   Typography,
   Button,
+  Modal,
 } from "@mui/material";
 import { Info } from "@mui/icons-material";
 import { ThemeProvider, createTheme } from "@mui/material/styles";
-import { useNavigate } from "react-router-dom";
 
 interface AssetData {
   id: string;
@@ -49,8 +49,9 @@ const lightTheme = createTheme({
   },
 });
 
-const AssetBreakdown: React.FC = () => {
-  const navigate = useNavigate();
+const BorrowTable: React.FC = () => {
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedAsset, setSelectedAsset] = useState<AssetData | null>(null);
 
   const assets: AssetData[] = [
     {
@@ -79,9 +80,19 @@ const AssetBreakdown: React.FC = () => {
     },
   ];
 
+  const handleBorrowClick = (asset: AssetData) => {
+    setSelectedAsset(asset);
+    setIsModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setSelectedAsset(null);
+  };
+
   return (
     <ThemeProvider theme={lightTheme}>
-      <Box sx={{ width: "100%", px: 3, pt: 4 }}>
+      <Box sx={{ width: "100%", px: 3 }}>
         <TableContainer
           component={Paper}
           sx={{
@@ -137,6 +148,7 @@ const AssetBreakdown: React.FC = () => {
                     </Tooltip>
                   </Box>
                 </TableCell>
+                <TableCell>ACTIONS</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -232,38 +244,90 @@ const AssetBreakdown: React.FC = () => {
                       {asset.liquidity}
                     </Typography>
                   </TableCell>
+                  <TableCell>
+                    <Button
+                      onClick={() => handleBorrowClick(asset)}
+                      variant="contained"
+                      sx={{
+                        backgroundColor: "#081F5C",
+                        color: "#ffffff",
+                        borderRadius: "12px",
+                        px: 3,
+                        py: 1,
+                        textTransform: "none",
+                        fontSize: "0.875rem",
+                        fontWeight: 600,
+                        boxShadow: "0 2px 4px rgba(0, 0, 0, 0.1)",
+                        "&:hover": {
+                          backgroundColor: "#334EAC",
+                        },
+                      }}
+                    >
+                      Borrow
+                    </Button>
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
         </TableContainer>
-        <Box sx={{ display: "flex", justifyContent: "center", mt: 3 }}>
-          <Button
-            onClick={() => {
-              void navigate("/pools");
-            }}
-            variant="contained"
+
+        {/* Modal */}
+        <Modal
+          open={isModalOpen}
+          onClose={handleCloseModal}
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <Box
             sx={{
-              backgroundColor: "#081F5C",
-              color: "#ffffff",
-              borderRadius: "12px",
-              px: 4,
-              py: 1.5,
-              textTransform: "none",
-              fontSize: "1rem",
-              fontWeight: 600,
-              boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
-              "&:hover": {
-                backgroundColor: "#334EAC",
-              },
+              backgroundColor: "#ffffff",
+              borderRadius: "24px",
+              boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1)",
+              maxWidth: "600px",
+              width: "90%",
+              p: 4,
+              outline: "none",
             }}
           >
-            Checkout all Pools
-          </Button>
-        </Box>
+            <Box
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                mb: 3,
+              }}
+            >
+              <Typography
+                variant="h5"
+                sx={{ color: "#081F5C", fontWeight: 700 }}
+              >
+                Borrow {selectedAsset?.pool.token1} /{" "}
+                {selectedAsset?.pool.token2}
+              </Typography>
+              <IconButton
+                onClick={handleCloseModal}
+                sx={{
+                  color: "#7096D1",
+                  "&:hover": {
+                    color: "#081F5C",
+                    backgroundColor: "rgba(51, 78, 172, 0.1)",
+                  },
+                }}
+              >
+                <Typography sx={{ fontSize: "1.5rem", fontWeight: 700 }}>
+                  ×
+                </Typography>
+              </IconButton>
+            </Box>
+          </Box>
+        </Modal>
       </Box>
     </ThemeProvider>
   );
 };
 
-export default AssetBreakdown;
+export default BorrowTable;
