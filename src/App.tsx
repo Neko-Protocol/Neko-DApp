@@ -9,6 +9,8 @@ import Borrow from "./components/modules/borrow/pages/Borrow.tsx";
 import Lend from "./components/modules/lend/pages/Lend.tsx";
 import Pools from "./components/modules/pools/pages/Pools.tsx";
 import Swap from "./components/modules/swap/pages/Swap.tsx";
+import Oracle from "./components/modules/oracle/pages/Oracle.tsx";
+import AssetDetail from "./components/modules/oracle/pages/AssetDetail.tsx";
 
 const AppLayout: React.FC = () => (
   <main
@@ -47,6 +49,8 @@ function App() {
         <Route path="/lend" element={<Lend />} />
         <Route path="/borrow" element={<Borrow />} />
         <Route path="/pools" element={<Pools />} />
+        <Route path="/oracle" element={<Oracle />} />
+        <Route path="/asset/:symbol" element={<AssetDetail />} />
         <Route path="/debug" element={<Debugger />} />
         <Route path="/debug/:contractName" element={<Debugger />} />
       </Route>
