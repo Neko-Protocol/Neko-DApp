@@ -1,0 +1,24 @@
+[package]
+name = "rwa-oracle"
+description = "RWA Oracle for Real-World Asset metadata and price feeds"
+version = "0.0.0"
+authors = ["Matias Aguilar <aaguilar1x@gmail.com>"]
+license = "Apache-2.0"
+edition.workspace = true
+repository.workspace = true
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+doctest = false
+
+[dependencies]
+soroban-sdk = { workspace = true }
+
+[dev-dependencies]
+soroban-sdk = { workspace = true, features = ["testutils"] }
+
+[package.metadata.stellar]
+contract = true
+cargo_inherit = true
+

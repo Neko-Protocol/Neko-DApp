@@ -36,18 +36,10 @@ lerna-debug.log*
 .DS_Store
 
 # generated contract clients
-packages/*
+
 # if you have other workspace packages, add them here
-!packages/.gitkeep
+
 # allow oracle bindings (pre-generated)
-!packages/oracle/
-packages/oracle/*
-!packages/oracle/src/
-packages/oracle/src/*
-!packages/oracle/src/index.ts
-!packages/oracle/package.json
-!packages/oracle/tsconfig.json
-!packages/oracle/README.md
 
 # generated contract client imports
 src/contracts/*
