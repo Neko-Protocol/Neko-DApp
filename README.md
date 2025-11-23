@@ -1,6 +1,5 @@
 <img width="2940" height="770" alt="image" src="https://github.com/user-attachments/assets/c8adcc67-4f7d-453e-804a-1cf14be0e582" />
-
-[check our whitepaper](https://docs.google.com/document/d/1a0oLaen3oTCVS3Ir9NitemQVNZ5T42euSKetHcweOGM/edit?usp=sharing)
+Check documents below.
 
 # DApp
 
@@ -219,6 +218,13 @@ STELLAR_SCAFFOLD_ENV=local
 - **Lend**: Supply assets to lending pools
 - **Borrow**: Borrow against collateral
 - **Pools**: Manage liquidity positions
+
+## Documents
+- [Whitepaper](https://docs.google.com/document/d/1a0oLaen3oTCVS3Ir9NitemQVNZ5T42euSKetHcweOGM/edit?usp=sharing)
+- [Day 1 - Project Initialization](https://www.notion.so/Day-1-Project-Initialization-2b007cea0302803082baef18395afb83)
+- [Day 2 - Technical Foundation](https://www.notion.so/Day-2-Technical-Foundation-from-Neko-Protocol-2b007cea03028046ab83eef7dd5c8167)
+- [Day 3 - Functional Progress](https://www.notion.so/Day-3-Functional-Progress-for-Neko-Protocol-2b007cea0302803292e3d6737f19ada2?source=copy_link)
+- [Empathy Map](https://www.notion.so/Empathy-Map-Neko-Protocol-2b107cea03028073a062dce30998c2bb)
 
 ## Contributing
 
