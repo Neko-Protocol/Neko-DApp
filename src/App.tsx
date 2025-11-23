@@ -1,7 +1,6 @@
 import { Layout } from "@stellar/design-system";
 import "./App.module.css";
 import { Routes, Route, Outlet } from "react-router-dom";
-import Home from "./pages/Home";
 import Debugger from "./pages/Debugger.tsx";
 import Navbar from "./components/modules/ui/Navbar.tsx";
 import Dashboard from "./components/modules/dashboard/pages/Dashboard";
@@ -44,7 +43,7 @@ function App() {
   return (
     <Routes>
       <Route element={<AppLayout />}>
-        <Route path="/" element={<Home />} />
+        <Route path="/" element={<Dashboard />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/swap" element={<Swap />} />
         <Route path="/lend" element={<Lend />} />
