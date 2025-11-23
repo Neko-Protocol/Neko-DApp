@@ -467,6 +467,31 @@ export interface Client {
   }) => Promise<AssembledTransaction<Array<string>>>;
 
   /**
+   * Construct and simulate a get_asset_id_from_token transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
+   * Get asset Symbol from token contract address
+   * This allows other contracts to query the oracle without needing to call the token contract
+   */
+  get_asset_id_from_token: (
+    { token_address }: { token_address: string },
+    options?: {
+      /**
+       * The fee to pay for the transaction. Default: BASE_FEE
+       */
+      fee?: number;
+
+      /**
+       * The maximum amount of time to wait for the transaction to complete. Default: DEFAULT_TIMEOUT
+       */
+      timeoutInSeconds?: number;
+
+      /**
+       * Whether to automatically simulate the transaction when constructing the AssembledTransaction. Default: true
+       */
+      simulate?: boolean;
+    },
+  ) => Promise<AssembledTransaction<Result<string>>>;
+
+  /**
    * Construct and simulate a add_assets transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
    */
   add_assets: (
@@ -712,6 +737,7 @@ export class Client extends ContractClient {
         "AAAAAAAAACdHZXQgdG9rZW5pemF0aW9uIGluZm9ybWF0aW9uIGZvciBhbiBSV0EAAAAAFWdldF90b2tlbml6YXRpb25faW5mbwAAAAAAAAEAAAAAAAAACGFzc2V0X2lkAAAAEQAAAAEAAAPpAAAH0AAAABBUb2tlbml6YXRpb25JbmZvAAAAAw==",
         "AAAAAAAAAClDaGVjayBpZiBhbiBhc3NldCBpcyByZWd1bGF0ZWQgKFNFUC0wMDA4KQAAAAAAAAxpc19yZWd1bGF0ZWQAAAABAAAAAAAAAAhhc3NldF9pZAAAABEAAAABAAAD6QAAAAEAAAAD",
         "AAAAAAAAACBHZXQgYWxsIHJlZ2lzdGVyZWQgUldBIGFzc2V0IElEcwAAABJnZXRfYWxsX3J3YV9hc3NldHMAAAAAAAAAAAABAAAD6gAAABE=",
+        "AAAAAAAAAIdHZXQgYXNzZXQgU3ltYm9sIGZyb20gdG9rZW4gY29udHJhY3QgYWRkcmVzcwpUaGlzIGFsbG93cyBvdGhlciBjb250cmFjdHMgdG8gcXVlcnkgdGhlIG9yYWNsZSB3aXRob3V0IG5lZWRpbmcgdG8gY2FsbCB0aGUgdG9rZW4gY29udHJhY3QAAAAAF2dldF9hc3NldF9pZF9mcm9tX3Rva2VuAAAAAAEAAAAAAAAADXRva2VuX2FkZHJlc3MAAAAAAAATAAAAAQAAA+kAAAARAAAAAw==",
         "AAAAAAAAAAAAAAAKYWRkX2Fzc2V0cwAAAAAAAQAAAAAAAAAGYXNzZXRzAAAAAAPqAAAH0AAAAAVBc3NldAAAAAAAAAA=",
         "AAAAAAAAAAAAAAAPc2V0X2Fzc2V0X3ByaWNlAAAAAAMAAAAAAAAACGFzc2V0X2lkAAAH0AAAAAVBc3NldAAAAAAAAAAAAAAFcHJpY2UAAAAAAAALAAAAAAAAAAl0aW1lc3RhbXAAAAAAAAAGAAAAAA==",
         "AAAAAAAAAAAAAAAGYXNzZXRzAAAAAAAAAAAAAQAAA+oAAAfQAAAABUFzc2V0AAAA",
@@ -744,6 +770,7 @@ export class Client extends ContractClient {
     get_tokenization_info: this.txFromJSON<Result<TokenizationInfo>>,
     is_regulated: this.txFromJSON<Result<boolean>>,
     get_all_rwa_assets: this.txFromJSON<Array<string>>,
+    get_asset_id_from_token: this.txFromJSON<Result<string>>,
     add_assets: this.txFromJSON<null>,
     set_asset_price: this.txFromJSON<null>,
     assets: this.txFromJSON<Array<Asset>>,
