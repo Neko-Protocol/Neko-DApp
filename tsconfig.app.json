@@ -18,7 +18,11 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
-    "noUncheckedSideEffectImports": true
+    "noUncheckedSideEffectImports": true,
+    "paths": {
+      "oracle": ["./packages/oracle/dist/index.d.ts"],
+      "@contracts/*": ["./src/contracts/*"]
+    }
   },
   "include": ["src"]
 }

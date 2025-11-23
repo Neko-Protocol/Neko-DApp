@@ -11,6 +11,7 @@ const Navbar: React.FC = () => {
     { name: "Swap", path: "/swap" },
     { name: "Borrow", path: "/borrow" },
     { name: "Lend", path: "/lend" },
+    { name: "Oracle", path: "/oracle" },
   ];
 
   return (
@@ -20,7 +21,7 @@ const Navbar: React.FC = () => {
         <div className="flex items-center gap-3">
           <Link to="/" className="flex items-center gap-3">
             <img src={Neko} alt="Neko Logo" className="h-14 w-auto" />
-            <span className="text-3xl font-bold text-[#081F5C] tracking-wide">
+            <span className="text-3xl font-klein text-[#081F5C] tracking-wide">
               Neko
             </span>
           </Link>

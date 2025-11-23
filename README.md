@@ -1,5 +1,7 @@
 <img width="2940" height="770" alt="image" src="https://github.com/user-attachments/assets/c8adcc67-4f7d-453e-804a-1cf14be0e582" />
 
+[check our whitepaper](https://docs.google.com/document/d/1a0oLaen3oTCVS3Ir9NitemQVNZ5T42euSKetHcweOGM/edit?usp=sharing)
+
 # DApp
 
 A DeFi protocol built on Stellar blockchain, featuring liquidity pools, lending, borrowing, and portfolio management.
@@ -18,38 +20,89 @@ A DeFi protocol built on Stellar blockchain, featuring liquidity pools, lending,
 
 Before getting started, ensure you have:
 
-- [Node.js](https://nodejs.org/) (v22 or higher)
-- [npm](https://www.npmjs.com/)
-- [Rust](https://www.rust-lang.org/tools/install)
-- [Stellar CLI](https://developers.stellar.org/docs/tools/developer-tools)
-- [Scaffold Stellar CLI Plugin](https://github.com/AhaLabs/scaffold-stellar)
+- [Node.js](https://nodejs.org/) (v18 or higher)
+- [npm](https://www.npmjs.com/) (v9 or higher)
+- [Rust](https://www.rust-lang.org/tools/install) (v1.70 or higher)
+- [Stellar CLI](https://developers.stellar.org/docs/tools/developer-tools) (v23.1.0 or higher, required for oracle bindings)
+- [Scaffold Stellar CLI Plugin](https://github.com/AhaLabs/scaffold-stellar) (optional, for contract development)
+
+**📖 Para una guía detallada paso a paso, consulta [SETUP.md](./SETUP.md)**
 
 ### Installation
 
-1. Clone the repository:
+1. **Clone the repository:**
+
    ```bash
-   git clone https://github.com/Neko-Protocol/neko-dapp.git
-   cd neko-dapp
+   git clone https://github.com/Neko-Protocol/Neko-DApp.git
+   cd Neko-DApp
    ```
 
-3. Install dependencies:
+2. **Install Stellar CLI** (required for generating oracle contract bindings):
+
+   **Linux:**
+
+   ```bash
+   curl -sSLO https://github.com/stellar/stellar-cli/releases/latest/download/stellar-cli-x86_64-unknown-linux-gnu.tar.gz
+   tar -xzf stellar-cli-*.tar.gz
+   sudo mv stellar /usr/local/bin/
+   ```
+
+   **macOS (Intel):**
+
+   ```bash
+   curl -sSLO https://github.com/stellar/stellar-cli/releases/latest/download/stellar-cli-x86_64-apple-darwin.tar.gz
+   tar -xzf stellar-cli-*.tar.gz
+   sudo mv stellar /usr/local/bin/
+   ```
+
+   **macOS (Apple Silicon):**
+
+   ```bash
+   curl -sSLO https://github.com/stellar/stellar-cli/releases/latest/download/stellar-cli-aarch64-apple-darwin.tar.gz
+   tar -xzf stellar-cli-*.tar.gz
+   sudo mv stellar /usr/local/bin/
+   ```
+
+   **Alternativa (con Cargo):**
+
+   ```bash
+   cargo install --git https://github.com/stellar/stellar-cli --locked stellar-cli
+   ```
+
+   Verificar instalación:
+
+   ```bash
+   stellar --version
+   ```
+
+3. **Install dependencies:**
+
    ```bash
    npm install
    ```
 
-4. Set up environment variables:
+4. **Generate Oracle contract bindings** (se hace automáticamente en el build, pero puedes hacerlo manualmente):
+
    ```bash
-   cp .env.example .env
+   npm run generate:oracle-binding
    ```
 
-Edit `.env` to configure your network settings.
+5. **Build contract packages:**
 
-4. Start the development server:
    ```bash
+   npm run build --workspace=packages/oracle
+   ```
+
+6. **Start the development server:**
+   ```bash
+   npm start
+   # o alternativamente:
    npm run dev
    ```
 
 The app will be available at `http://localhost:5173`
+
+**Nota:** El contrato Oracle se obtiene directamente desde la red de testnet. No necesita estar en el directorio `contracts/` ya que los bindings se generan automáticamente.
 
 ## Project Structure
 
@@ -84,11 +137,13 @@ neko-dapp/
 
 ## Available Scripts
 
-- `npm run dev` - Start development server with hot reload
-- `npm run build` - Build for production
+- `npm start` / `npm run dev` - Start development server with hot reload
+- `npm run build` - Build for production (genera bindings del oracle, construye paquetes, compila TypeScript y construye la app)
+- `npm run generate:oracle-binding` - Genera los bindings TypeScript del contrato oracle
 - `npm run preview` - Preview production build
 - `npm run lint` - Run ESLint
 - `npm run format` - Format code with Prettier
+- `npm run install:contracts` - Instala y construye todos los paquetes de contratos
 
 ## Technology Stack
 
@@ -112,11 +167,13 @@ neko-dapp/
 ### Contract Deployment
 
 1. Publish your contracts to the registry:
+
    ```bash
    stellar registry publish
    ```
 
 2. Deploy contract instances:
+
    ```bash
    stellar registry deploy \\
    --deployed-name my-contract \\
@@ -133,6 +190,7 @@ neko-dapp/
 ### Frontend Deployment
 
 Build the frontend for production:
+
 ```bash
 npm run build
 ```
@@ -148,6 +206,7 @@ The project uses `environments.toml` for network-specific configurations:
 - **mainnet**: Stellar mainnet (production)
 
 Configure your active environment in `.env`:
+
 ```env
 STELLAR_SCAFFOLD_ENV=local
 ```

@@ -8,7 +8,6 @@ const Dashboard: React.FC = () => {
       <div className="w-full px-4 py-2">
         <MainStats />
         <AssetBreakdown />
-        {/* add borrow/lending thing */}
       </div>
     </div>
   );

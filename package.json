@@ -6,12 +6,16 @@
   "scripts": {
     "dev": "npm start",
     "start": "concurrently --kill-others-on-fail --names stellar,vite -c gray,green --pad-prefix \"stellar scaffold watch --build-clients\" \"vite\"",
-    "build": "tsc -b && vite build",
+    "build": "export PATH=\"/tmp:$PATH\" && npm run ensure:oracle-contract && npm run generate:oracle-binding && npm run build:oracle && tsc -b && vite build",
+    "build:oracle": "cd packages/oracle && npm install && npm run build && cd ../..",
+    "generate:oracle-binding": "mkdir -p packages/oracle && (which stellar > /dev/null 2>&1 && stellar contract bindings typescript --network testnet --contract-id CCF2U62KGK7ZSS6G6SJLR43JZXCDUC4VWW3SAIVWN5OVJL3AU7ILOYZ2 --output-dir ./packages/oracle --overwrite || echo 'Warning: Could not generate oracle binding. Using existing binding if available.')",
+    "ensure:oracle-contract": "node -e \"const fs = require('fs'); const path = require('path'); const filePath = path.join(process.cwd(), 'src/contracts/oracle.ts'); if (!fs.existsSync(filePath)) { fs.writeFileSync(filePath, \\\"import * as Client from 'oracle';\\\\nimport { rpcUrl, networkPassphrase } from './util';\\\\n\\\\nexport default new Client.Client({\\\\n  networkPassphrase: networkPassphrase,\\\\n  contractId: Client.networks.testnet.contractId,\\\\n  rpcUrl,\\\\n  allowHttp: true,\\\\n  publicKey: undefined,\\\\n});\\\\n\\\", 'utf8'); console.log('Created src/contracts/oracle.ts'); }\"",
+    "vercel:install": "bash -c 'set -e; mkdir -p packages/oracle; npm run ensure:oracle-contract; npm run generate:oracle-binding || echo \"Warning: Stellar CLI failed, using existing bindings\"; if [ ! -f \"packages/oracle/src/index.ts\" ]; then echo \"Error: No oracle bindings found at packages/oracle/src/index.ts. Please commit generated bindings.\"; exit 1; fi; cd packages/oracle; npm install --ignore-scripts; npm run build; cd ../..; npm install --ignore-scripts'",
     "install:contracts": "npm install --workspace=packages && npm run build --workspace=packages",
     "preview": "vite preview",
     "lint": "eslint .",
     "format": "prettier . --write",
-    "prepare": "husky"
+    "prepare": "husky || true"
   },
   "workspaces": [
     "packages/*"
@@ -37,9 +41,11 @@
     "react-chartjs-2": "^5.3.1",
     "react-dom": "^19.1.1",
     "react-router-dom": "^7.9.3",
+    "recharts": "^3.4.1",
     "tailwindcss": "^4.1.17",
     "three": "^0.181.2",
-    "zod": "^4.1.11"
+    "zod": "^4.1.11",
+    "oracle": "file:./packages/oracle"
   },
   "devDependencies": {
     "@eslint/js": "^9.36.0",
