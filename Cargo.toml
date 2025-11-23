@@ -1,5 +1,9 @@
 [workspace]
-members = ["contracts/*"]
+members = [
+  "contracts/rwa-lending",
+  "contracts/rwa-oracle",
+  "contracts/rwa-token",
+]
 resolver = "2"
 
 [workspace.package]
