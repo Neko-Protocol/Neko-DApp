@@ -4,7 +4,7 @@
 
 Check documents below.
 
-# DApp
+# Neko DApp
 
 A DeFi protocol built on Stellar blockchain, featuring liquidity pools, lending, borrowing, and portfolio management.
 
@@ -15,6 +15,7 @@ A DeFi protocol built on Stellar blockchain, featuring liquidity pools, lending,
 - **Lending & Borrowing**: Participate in DeFi lending markets
 - **Token Swap**: Seamless token exchange interface
 - **Portfolio Management**: Track your assets and returns across all positions
+- **Oracle Integration**: Real-time price feeds for RWA (Real-World Assets) tokens
 
 ## Quick Start
 
@@ -23,20 +24,17 @@ A DeFi protocol built on Stellar blockchain, featuring liquidity pools, lending,
 Before getting started, ensure you have:
 
 - [Node.js](https://nodejs.org/) (v18 or higher)
-- [npm](https://www.npmjs.com/) (v9 or higher)
+- [npm](https://www.npmjs.com/) (v10.2.3 or higher)
 - [Rust](https://www.rust-lang.org/tools/install) (v1.70 or higher)
 - [Stellar CLI](https://developers.stellar.org/docs/tools/developer-tools) (v23.1.0 or higher, required for oracle bindings)
-- [Scaffold Stellar CLI Plugin](https://github.com/AhaLabs/scaffold-stellar) (optional, for contract development)
-
-**📖 Para una guía detallada paso a paso, consulta [SETUP.md](./SETUP.md)**
 
 ### Installation
 
 1. **Clone the repository:**
 
    ```bash
-   git clone https://github.com/Neko-Protocol/Neko-DApp.git
-   cd Neko-DApp
+   git clone https://github.com/Neko-Protocol/Neko-DAppV2.git
+   cd Neko-DAppV2
    ```
 
 2. **Install Stellar CLI** (required for generating oracle contract bindings):
@@ -65,13 +63,13 @@ Before getting started, ensure you have:
    sudo mv stellar /usr/local/bin/
    ```
 
-   **Alternativa (con Cargo):**
+   **Alternative (with Cargo):**
 
    ```bash
    cargo install --git https://github.com/stellar/stellar-cli --locked stellar-cli
    ```
 
-   Verificar instalación:
+   Verify installation:
 
    ```bash
    stellar --version
@@ -83,79 +81,116 @@ Before getting started, ensure you have:
    npm install
    ```
 
-4. **Generate Oracle contract bindings** (se hace automáticamente en el build, pero puedes hacerlo manualmente):
+4. **Build contract packages:**
 
    ```bash
-   npm run generate:oracle-binding
+   npm run build
    ```
 
-5. **Build contract packages:**
+   This will build all contract packages in the monorepo.
 
-   ```bash
-   npm run build --workspace=packages/oracle
+5. **Set up environment variables:**
+
+   Create a `.env.local` file in `apps/web-app/`:
+
+   ```env
+   # Stellar Network Configuration
+   NEXT_PUBLIC_STELLAR_NETWORK=TESTNET
+   NEXT_PUBLIC_STELLAR_NETWORK_PASSPHRASE="Test SDF Network ; September 2015"
+   NEXT_PUBLIC_STELLAR_RPC_URL=https://soroban-testnet.stellar.org
+   NEXT_PUBLIC_STELLAR_HORIZON_URL=https://horizon-testnet.stellar.org
+
+   # SoroSwap ApiKey
+   NEXT_PUBLIC_SOROSWAP_API_KEY=your_api_key_here
    ```
 
 6. **Start the development server:**
+
    ```bash
-   npm start
-   # o alternativamente:
    npm run dev
    ```
 
-The app will be available at `http://localhost:5173`
-
-**Nota:** El contrato Oracle se obtiene directamente desde la red de testnet. No necesita estar en el directorio `contracts/` ya que los bindings se generan automáticamente.
+   The app will be available at `http://localhost:3000`
 
 ## Project Structure
 
+This is a monorepo managed with [Turborepo](https://turbo.build/repo) and npm workspaces:
+
 ```
 neko-dapp/
-├── contracts/ # Stellar smart contracts
-├── packages/ # Auto-generated contract clients
-├── src/
-│ ├── components/
-│ │ ├── modules/
-│ │ │ ├── borrow/ # Borrow interface
-│ │ │ ├── dashboard/ # Dashboard views
-│ │ │ ├── lend/ # Lending interface
-│ │ │ ├── pools/ # Pool management
-│ │ │ ├── swap/ # Token swap
-│ │ │ └── ui/ # Shared UI components
-│ │ ├── ConnectAccount.tsx
-│ │ ├── NetworkPill.tsx
-│ │ └── WalletButton.tsx
-│ ├── contracts/ # Contract interaction helpers
-│ ├── debug/ # Contract debugging tools
-│ ├── hooks/ # Custom React hooks
-│ ├── pages/ # Main pages
-│ ├── providers/ # Context providers
-│ ├── util/ # Utility functions
-│ ├── App.tsx
-│ └── main.tsx
-├── public/ # Static assets
-├── environments.toml # Environment configurations
-└── package.json
+├── apps/
+│   ├── web-app/              # Next.js web application
+│   │   ├── src/
+│   │   │   ├── app/          # Next.js App Router pages
+│   │   │   │   ├── dashboard/ # Dashboard routes
+│   │   │   │   └── (marketing)/ # Marketing pages
+│   │   │   ├── features/     # Feature-based modules
+│   │   │   │   ├── borrowing/ # Borrow feature
+│   │   │   │   ├── lending/   # Lend feature
+│   │   │   │   ├── stocks/    # Oracle/Stocks feature
+│   │   │   │   ├── swap/      # Token swap feature
+│   │   │   │   ├── pools/     # Pool management
+│   │   │   │   ├── wallet/    # Wallet integration
+│   │   │   │   └── dashboard/ # Dashboard feature
+│   │   │   ├── components/    # Shared UI components
+│   │   │   │   ├── ui/        # Reusable UI components
+│   │   │   │   ├── charts/     # Chart components
+│   │   │   │   └── navigation/ # Navigation components
+│   │   │   ├── lib/           # Shared utilities
+│   │   │   │   ├── helpers/   # Helper functions
+│   │   │   │   └── constants/ # Constants and config
+│   │   │   ├── hooks/         # Custom React hooks
+│   │   │   ├── providers/     # Context providers
+│   │   │   └── stores/        # Zustand stores
+│   │   └── public/            # Static assets
+│   └── contracts/             # Stellar smart contracts (Rust)
+│       └── stellar-contracts/
+│           ├── rwa-lending/   # RWA Lending contract
+│           ├── rwa-oracle/    # RWA Oracle contract
+│           └── rwa-token/     # RWA Token contract
+├── packages/
+│   ├── config/                # Shared configuration
+│   │   ├── eslint.config.mjs  # ESLint config
+│   │   ├── tailwind.config.ts # Tailwind config
+│   │   └── tsconfig.json     # TypeScript config
+│   └── contracts/             # Contract client packages
+│       ├── oracle/            # Oracle contract client
+│       ├── rwa-lending/       # RWA Lending client
+│       └── rwa-oracle/        # RWA Oracle client
+├── turbo.json                 # Turborepo configuration
+└── package.json               # Root package.json
 ```
 
 ## Available Scripts
 
-- `npm start` / `npm run dev` - Start development server with hot reload
-- `npm run build` - Build for production (genera bindings del oracle, construye paquetes, compila TypeScript y construye la app)
-- `npm run generate:oracle-binding` - Genera los bindings TypeScript del contrato oracle
-- `npm run preview` - Preview production build
-- `npm run lint` - Run ESLint
+### Root Level
+
+- `npm run dev` - Start all development servers (web app)
+- `npm run build` - Build all packages and apps for production
+- `npm run start` - Start production servers
+- `npm run lint` - Run ESLint across all packages
 - `npm run format` - Format code with Prettier
-- `npm run install:contracts` - Instala y construye todos los paquetes de contratos
+- `npm run format:check` - Check code formatting
+
+### Web App Specific
+
+- `cd apps/web-app && npm run dev` - Start Next.js dev server with Turbopack
+- `cd apps/web-app && npm run build` - Build Next.js app for production
+- `cd apps/web-app && npm run start` - Start Next.js production server
+- `cd apps/web-app && npm run lint` - Run ESLint
 
 ## Technology Stack
 
 ### Frontend
 
-- **Framework**: React 19 with TypeScript
-- **Build Tool**: Vite
-- **Routing**: React Router v7
-- **Styling**: Tailwind CSS 4 + Material-UI
-- **Charts**: Chart.js with react-chartjs-2
+- **Framework**: Next.js 16 with React 19
+- **Build Tool**: Turbopack (Next.js built-in)
+- **Routing**: Next.js App Router
+- **Styling**: Tailwind CSS 4 + Stellar Design System
+- **State Management**: Zustand
+- **Data Fetching**: React Query (TanStack Query)
+- **Charts**: Chart.js with react-chartjs-2, Recharts
+- **UI Components**: Material-UI, Stellar Design System
 
 ### Blockchain
 
@@ -163,6 +198,29 @@ neko-dapp/
 - **SDK**: @stellar/stellar-sdk
 - **Wallet**: Stellar Wallets Kit (@creit.tech/stellar-wallets-kit)
 - **Smart Contracts**: Rust with Soroban
+- **Contract Clients**: TypeScript bindings for contracts
+
+### Monorepo
+
+- **Build System**: Turborepo
+- **Package Manager**: npm workspaces
+- **Code Quality**: ESLint, Prettier, Husky
+
+## Architecture
+
+The project follows a feature-based architecture:
+
+- **Features**: Self-contained modules for each major feature (lending, borrowing, stocks, etc.)
+- **Components**: Shared UI components used across features
+- **Lib**: Shared utilities, helpers, and constants
+- **Hooks**: Reusable React hooks
+- **Providers**: Context providers for global state
+
+Each feature contains:
+
+- `components/` - Feature-specific components
+- `hooks/` - Feature-specific hooks
+- `utils/` - Feature-specific utilities
 
 ## Deployment
 
@@ -197,30 +255,69 @@ Build the frontend for production:
 npm run build
 ```
 
-Deploy the contents of the `dist/` directory to your hosting platform of choice (Vercel, Netlify, AWS, etc.).
+This will build the Next.js app. Deploy the contents of `apps/web-app/.next` directory to your hosting platform of choice (Vercel, Netlify, AWS, etc.).
+
+**Recommended**: Deploy to [Vercel](https://vercel.com/) for optimal Next.js support.
 
 ## Environment Configuration
 
-The project uses `environments.toml` for network-specific configurations:
+The project uses environment variables with the `NEXT_PUBLIC_` prefix for client-side access.
 
-- **local**: Local Stellar network for development
-- **testnet**: Stellar testnet
-- **mainnet**: Stellar mainnet (production)
-
-Configure your active environment in `.env`:
+Create `apps/web-app/.env.local`:
 
 ```env
-STELLAR_SCAFFOLD_ENV=local
+# Stellar Network Configuration
+NEXT_PUBLIC_STELLAR_NETWORK=TESTNET
+NEXT_PUBLIC_STELLAR_NETWORK_PASSPHRASE="Test SDF Network ; September 2015"
+NEXT_PUBLIC_STELLAR_RPC_URL=https://soroban-testnet.stellar.org
+NEXT_PUBLIC_STELLAR_HORIZON_URL=https://horizon-testnet.stellar.org
+
+# SoroSwap ApiKey
+NEXT_PUBLIC_SOROSWAP_API_KEY=your_api_key_here
 ```
+
+Available networks:
+
+- **TESTNET**: Stellar testnet (default for development)
+- **FUTURENET**: Stellar futurenet
+- **PUBLIC**: Stellar mainnet (production)
+- **LOCAL**: Local Stellar network for development
 
 ## Key Components
 
 ### DeFi Features
 
-- **Swap**: Token exchange interface
+- **Swap**: Token exchange interface using SoroSwap SDK
 - **Lend**: Supply assets to lending pools
 - **Borrow**: Borrow against collateral
 - **Pools**: Manage liquidity positions
+- **Oracle**: Real-time price feeds for RWA tokens
+
+### Contract Packages
+
+The `packages/contracts/` directory contains TypeScript clients for smart contracts:
+
+- `@neko/oracle` - Oracle contract client
+- `@neko/rwa-lending` - RWA Lending contract client
+- `@neko/rwa-oracle` - RWA Oracle contract client
+
+These packages are automatically linked via npm workspaces.
+
+## Development
+
+### Adding a New Feature
+
+1. Create a new directory in `apps/web-app/src/features/`
+2. Add feature-specific components, hooks, and utilities
+3. Create a route in `apps/web-app/src/app/dashboard/` if needed
+4. Update navigation in `apps/web-app/src/components/navigation/Navbar.tsx`
+
+### Adding a New Contract Package
+
+1. Create a new directory in `packages/contracts/`
+2. Add `package.json` with name `@neko/your-contract`
+3. Create TypeScript bindings in `src/index.ts`
+4. Build with `npm run build` from root
 
 ## Documents
 
@@ -246,6 +343,7 @@ Please ensure your code:
 - Is formatted with Prettier (`npm run format`)
 - Includes appropriate TypeScript types
 - Follows the existing code style
+- Uses conventional commits (feat, fix, chore, etc.)
 
 ## License
 
@@ -255,7 +353,8 @@ This project is licensed under the MIT License.
 
 - [Stellar Documentation](https://developers.stellar.org/)
 - [Soroban Smart Contracts](https://developers.stellar.org/docs/build/smart-contracts)
-- [Scaffold Stellar](https://github.com/theahaco/scaffold-stellar)
+- [Next.js Documentation](https://nextjs.org/docs)
+- [Turborepo Documentation](https://turbo.build/repo/docs)
 
 ## Support
 
