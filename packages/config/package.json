@@ -1,0 +1,15 @@
+{
+  "name": "@neko/config",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./eslint": "./eslint.config.mjs",
+    "./postcss": "./postcss.config.mjs",
+    "./tsconfig.json": "./tsconfig.json",
+    "./tailwind": "./tailwind.config.ts"
+  },
+  "devDependencies": {
+    "tailwindcss": "^4"
+  }
+}

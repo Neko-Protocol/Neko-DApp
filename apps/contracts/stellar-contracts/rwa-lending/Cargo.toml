@@ -1,0 +1,26 @@
+[package]
+name = "rwa-lending"
+description = "RWA Lending contract - A Blend-based lending/borrowing protocol for Real-World Assets"
+version = "1.0.0"
+authors = ["OppiaLabs <contact@oppiasotfwarelabs.com>"]
+license = "Apache-2.0"
+edition.workspace = true
+repository.workspace = true
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+doctest = false
+
+[dependencies]
+soroban-sdk = { workspace = true }
+rwa-oracle = { path = "../rwa-oracle" }
+rwa-token = { path = "../rwa-token" }
+
+[dev-dependencies]
+soroban-sdk = { workspace = true, features = ["testutils"] }
+
+[package.metadata.stellar]
+contract = true
+cargo_inherit = true
+
