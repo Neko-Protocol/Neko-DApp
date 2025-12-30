@@ -10,6 +10,14 @@ import React, {
 import { useWallet } from "@/hooks/useWallet";
 import { useTokenBalance } from "@/hooks/useTokenBalance";
 import { useTokenPrice } from "@/hooks/useTokenPrice";
+import { useEVMTokenPrice } from "@/hooks/useEVMTokenPrice";
+import { useWalletType } from "@/hooks/useWalletType";
+import {
+  useAccount,
+  usePublicClient,
+  useWalletClient,
+  useChainId,
+} from "wagmi";
 import {
   TOKENS,
   type Token,
@@ -26,6 +34,14 @@ import {
   getExplorerUrl,
   getTokenIcon,
 } from "@/lib/helpers/swapUtils";
+import {
+  getUniswapQuote,
+  executeUniswapSwap,
+  ensureTokenApproval,
+  EVM_TOKENS,
+  type UniswapQuoteRequest,
+  type UniswapSwapRequest,
+} from "@/lib/helpers/uniswap";
 import TokenSelectorModal from "../ui/TokenSelectorModal";
 import { Tooltip, IconButton } from "@mui/material";
 import {
@@ -35,15 +51,36 @@ import {
   AttachMoney,
   TrendingDown,
 } from "@mui/icons-material";
+import { Token as UniswapToken } from "@uniswap/sdk-core";
 
 const Swap: React.FC = () => {
-  const { address, network, networkPassphrase, signTransaction } = useWallet();
+  // Wallet detection
+  const {
+    walletType,
+    isEvmConnected,
+    isStellarConnected,
+    evmAddress,
+    stellarAddress,
+  } = useWalletType();
+  const {
+    address: stellarWalletAddress,
+    network,
+    networkPassphrase,
+    signTransaction,
+  } = useWallet();
+  const publicClient = usePublicClient();
+  const { data: walletClient } = useWalletClient();
+  const chainId = useChainId();
+
+  // Use the appropriate address based on wallet type
+  const address = walletType === "evm" ? evmAddress : stellarWalletAddress;
 
   // Swap state
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [swapMode, setSwapMode] = useState<"evm" | "stellar">("stellar"); // Default to Stellar
 
-  // Get available tokens for current network
+  // Get available tokens for current network (Stellar only)
   const availableTokens = getAvailableTokens();
   const tokenCodes = Object.keys(availableTokens);
 
@@ -53,8 +90,28 @@ const Swap: React.FC = () => {
   const defaultTokenOut =
     availableTokens[tokenCodes[1]]?.contract || TOKENS.USDC || "";
 
-  const [tokenIn, setTokenIn] = useState<Token | string>(defaultTokenIn);
-  const [tokenOut, setTokenOut] = useState<Token | string>(defaultTokenOut);
+  // For EVM, use Uniswap tokens
+  const [tokenIn, setTokenIn] = useState<Token | string | UniswapToken>(
+    defaultTokenIn
+  );
+  const [tokenOut, setTokenOut] = useState<Token | string | UniswapToken>(
+    defaultTokenOut
+  );
+
+  // Update swap mode based on connected wallet
+  useEffect(() => {
+    if (walletType === "evm") {
+      setSwapMode("evm");
+      // Set default EVM tokens
+      setTokenIn("ETH");
+      setTokenOut("USDC");
+    } else if (walletType === "stellar") {
+      setSwapMode("stellar");
+      // Set default Stellar tokens
+      setTokenIn(defaultTokenIn);
+      setTokenOut(defaultTokenOut);
+    }
+  }, [walletType, defaultTokenIn, defaultTokenOut]);
   const [amountIn, setAmountIn] = useState<string>("");
   const [amountOut, setAmountOut] = useState<string>("0.0");
   const [isLoadingQuote, setIsLoadingQuote] = useState<boolean>(false);
@@ -71,15 +128,51 @@ const Swap: React.FC = () => {
   const quoteTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  // Get token balance for "from" token
+  // Get token balance for "from" token (Stellar only for now)
   const { balance: tokenInBalance, isLoading: isLoadingBalance } =
-    useTokenBalance(tokenIn);
+    useTokenBalance(
+      swapMode === "stellar"
+        ? (tokenIn as Token | string | undefined)
+        : undefined
+    );
 
-  // Get token prices in USD
-  const { price: tokenInPrice, isLoading: isLoadingPrice } =
-    useTokenPrice(tokenIn);
-  const { price: tokenOutPrice, isLoading: isLoadingOutPrice } =
-    useTokenPrice(tokenOut);
+  // Get token prices in USD (Stellar or EVM based on swap mode)
+  const { price: stellarTokenInPrice, isLoading: isLoadingStellarPrice } =
+    useTokenPrice(
+      swapMode === "stellar"
+        ? (tokenIn as Token | string | undefined)
+        : undefined
+    );
+  const { price: stellarTokenOutPrice, isLoading: isLoadingStellarOutPrice } =
+    useTokenPrice(
+      swapMode === "stellar"
+        ? (tokenOut as Token | string | undefined)
+        : undefined
+    );
+
+  // Get EVM token prices
+  const { price: evmTokenInPrice, isLoading: isLoadingEvmPrice } =
+    useEVMTokenPrice(
+      swapMode === "evm"
+        ? (tokenIn as UniswapToken | string | undefined)
+        : undefined
+    );
+  const { price: evmTokenOutPrice, isLoading: isLoadingEvmOutPrice } =
+    useEVMTokenPrice(
+      swapMode === "evm"
+        ? (tokenOut as UniswapToken | string | undefined)
+        : undefined
+    );
+
+  // Use the appropriate price based on swap mode
+  const tokenInPrice =
+    swapMode === "evm" ? evmTokenInPrice : stellarTokenInPrice;
+  const tokenOutPrice =
+    swapMode === "evm" ? evmTokenOutPrice : stellarTokenOutPrice;
+  const isLoadingPrice =
+    swapMode === "evm" ? isLoadingEvmPrice : isLoadingStellarPrice;
+  const isLoadingOutPrice =
+    swapMode === "evm" ? isLoadingEvmOutPrice : isLoadingStellarOutPrice;
 
   // Calculate USD value
   const usdValue =
@@ -130,8 +223,20 @@ const Swap: React.FC = () => {
   }, [amountIn, amountOut, tokenInPrice, tokenOutPrice]);
 
   // Helper function to get token identifier (for comparison)
-  const getTokenId = (token: Token | string): string => {
+  const getTokenId = (token: Token | string | UniswapToken): string => {
+    // Handle Uniswap Token
+    if (
+      token instanceof UniswapToken ||
+      (typeof token === "object" && "symbol" in token && "address" in token)
+    ) {
+      return (token as UniswapToken).symbol || "";
+    }
+
     if (typeof token === "string") {
+      // Check if it's an EVM token symbol
+      if (EVM_TOKENS[token]) {
+        return token;
+      }
       // Token is already a string (contract address)
       // Find which token code matches this contract address
       for (const [code, info] of Object.entries(availableTokens)) {
@@ -157,6 +262,14 @@ const Swap: React.FC = () => {
     return "";
   };
 
+  // Helper function to get token icon (works for both EVM and Stellar)
+  const getTokenIconUrl = (
+    token: Token | string | UniswapToken
+  ): string | null => {
+    // getTokenIcon now handles both Stellar and EVM tokens
+    return getTokenIcon(token as Token | string | UniswapToken);
+  };
+
   // Check if API key is configured on mount
   useEffect(() => {
     setApiKeyConfigured(hasApiKey());
@@ -174,9 +287,63 @@ const Swap: React.FC = () => {
       trimmedAmount === "0" ||
       trimmedAmount === "0." ||
       isNaN(parsedAmount) ||
-      parsedAmount <= 0 ||
-      !apiKeyConfigured
+      parsedAmount <= 0
     ) {
+      setAmountOut("0.0");
+      setIsLoadingQuote(false);
+      return;
+    }
+
+    // EVM swap quote
+    if (swapMode === "evm" && publicClient && chainId) {
+      try {
+        const tokenInSymbol: string =
+          typeof tokenIn === "string"
+            ? tokenIn
+            : tokenIn instanceof UniswapToken
+              ? tokenIn.symbol || "ETH"
+              : "ETH";
+        const tokenOutSymbol: string =
+          typeof tokenOut === "string"
+            ? tokenOut
+            : tokenOut instanceof UniswapToken
+              ? tokenOut.symbol || "USDC"
+              : "USDC";
+        const quoteRequest: UniswapQuoteRequest = {
+          tokenIn: tokenInSymbol,
+          tokenOut: tokenOutSymbol,
+          amountIn: trimmedAmount,
+        };
+
+        const quote = await getUniswapQuote(
+          quoteRequest,
+          chainId,
+          publicClient
+        );
+        setAmountOut(quote.amountOut || "0.0");
+        setError(null);
+      } catch (error) {
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
+
+        if (
+          errorMessage.includes("No liquidity pool") ||
+          errorMessage.includes("Pool not found") ||
+          errorMessage.includes("No pool") ||
+          errorMessage.includes("pool may not exist")
+        ) {
+          setError(errorMessage);
+        }
+
+        setAmountOut("0.0");
+      } finally {
+        setIsLoadingQuote(false);
+      }
+      return;
+    }
+
+    // Stellar swap quote
+    if (swapMode === "stellar" && !apiKeyConfigured) {
       setAmountOut("0.0");
       setIsLoadingQuote(false);
       return;
@@ -199,8 +366,8 @@ const Swap: React.FC = () => {
     setIsLoadingQuote(true);
     try {
       const quoteRequest: QuoteRequest = {
-        assetIn: tokenIn,
-        assetOut: tokenOut,
+        assetIn: tokenIn as Token | string,
+        assetOut: tokenOut as Token | string,
         amount: trimmedAmount,
         tradeType: "EXACT_IN",
         protocols: ["soroswap"], // Only SOROSWAP for faster live quotes
@@ -291,7 +458,16 @@ const Swap: React.FC = () => {
         setIsLoadingQuote(false);
       }
     }
-  }, [address, amountIn, tokenIn, tokenOut, apiKeyConfigured]);
+  }, [
+    address,
+    amountIn,
+    tokenIn,
+    tokenOut,
+    apiKeyConfigured,
+    swapMode,
+    publicClient,
+    chainId,
+  ]);
 
   // Debounced live quote update
   useEffect(() => {
@@ -318,7 +494,14 @@ const Swap: React.FC = () => {
       parsedAmount > 0;
 
     // If no amount or invalid, reset and don't fetch quote
-    if (!isValid || !address || !apiKeyConfigured) {
+    if (!isValid || !address) {
+      setAmountOut("0.0");
+      setIsLoadingQuote(false);
+      return;
+    }
+
+    // For Stellar, also check API key
+    if (swapMode === "stellar" && !apiKeyConfigured) {
       setAmountOut("0.0");
       setIsLoadingQuote(false);
       return;
@@ -352,7 +535,15 @@ const Swap: React.FC = () => {
       // Reset loading state on cleanup to prevent stuck state
       setIsLoadingQuote(false);
     };
-  }, [amountIn, tokenIn, tokenOut, address, apiKeyConfigured, fetchLiveQuote]);
+  }, [
+    amountIn,
+    tokenIn,
+    tokenOut,
+    address,
+    apiKeyConfigured,
+    fetchLiveQuote,
+    swapMode,
+  ]);
 
   const handleOpenTokenSelector = (type: "from" | "to") => {
     setTokenSelectorType(type);
@@ -405,70 +596,165 @@ const Swap: React.FC = () => {
 
   // Complete swap flow: Get quote -> Build -> Sign -> Send
   const handleSwap = async () => {
-    if (
-      !amountIn ||
-      parseFloat(amountIn) <= 0 ||
-      !address ||
-      !networkPassphrase
-    ) {
+    if (!amountIn || parseFloat(amountIn) <= 0 || !address) {
       return;
     }
 
     setIsLoading(true);
     setError(null);
     try {
-      // Step 1: Get quote
-      const quoteRequest: QuoteRequest = {
-        assetIn: tokenIn,
-        assetOut: tokenOut,
-        amount: amountIn,
-        tradeType: "EXACT_IN",
-      };
+      // EVM swap flow
+      if (
+        swapMode === "evm" &&
+        walletClient &&
+        publicClient &&
+        chainId &&
+        evmAddress
+      ) {
+        // Step 1: Get quote
+        const tokenInSymbol: string =
+          typeof tokenIn === "string"
+            ? tokenIn
+            : tokenIn instanceof UniswapToken
+              ? (tokenIn.symbol ?? "ETH")
+              : "ETH";
+        const tokenOutSymbol: string =
+          typeof tokenOut === "string"
+            ? tokenOut
+            : tokenOut instanceof UniswapToken
+              ? (tokenOut.symbol ?? "USDC")
+              : "USDC";
 
-      const newQuote = await getQuote(quoteRequest);
+        const quoteRequest: UniswapQuoteRequest = {
+          tokenIn: tokenInSymbol,
+          tokenOut: tokenOutSymbol,
+          amountIn: amountIn,
+        };
 
-      // Step 2: Build transaction
-      const buildRequest = {
-        quote: newQuote,
-        from: address,
-        to: address,
-      };
+        let quote;
+        try {
+          quote = await getUniswapQuote(quoteRequest, chainId, publicClient);
+        } catch (quoteError) {
+          const errorMessage =
+            quoteError instanceof Error
+              ? quoteError.message
+              : String(quoteError);
+          setError(errorMessage);
+          setIsLoading(false);
+          return;
+        }
 
-      const buildResult = await buildTransaction(buildRequest);
+        if (tokenInSymbol && tokenInSymbol !== "ETH") {
+          const tokenInObj = EVM_TOKENS[tokenInSymbol];
+          if (tokenInObj) {
+            await ensureTokenApproval(
+              tokenInObj.address as `0x${string}`,
+              amountIn,
+              tokenInObj.decimals,
+              chainId,
+              walletClient,
+              publicClient
+            );
+          }
+        }
 
-      // Step 3: Sign transaction
-      const signedResult = await signTransaction(buildResult.xdr, {
-        networkPassphrase: networkPassphrase,
-        address: address,
-      });
+        const swapRequest: UniswapSwapRequest = {
+          tokenIn: tokenInSymbol,
+          tokenOut: tokenOutSymbol,
+          amountIn: amountIn,
+          amountOutMinimum: quote.amountOutMinimum,
+          recipient: evmAddress,
+        };
 
-      // Extract signed XDR from result
-      const signedXdrString =
-        signedResult.signedTxXdr ||
-        (typeof signedResult === "string"
-          ? signedResult
-          : JSON.stringify(signedResult));
+        const swapResult = await executeUniswapSwap(
+          swapRequest,
+          chainId,
+          walletClient
+        );
 
-      // Step 4: Send transaction
-      const sendRequest = {
-        xdr: signedXdrString,
-        launchtube: false,
-      };
-
-      const sendResult = await sendTransaction(sendRequest);
-
-      if (sendResult.txHash) {
-        setTxHash(sendResult.txHash);
-        // Reset swap state after successful send
-        resetSwap();
-        setAmountIn("");
-        setAmountOut("0.0");
+        if (swapResult.txHash) {
+          setTxHash(swapResult.txHash);
+          resetSwap();
+          setAmountIn("");
+          setAmountOut("0.0");
+        }
+        return;
       }
+
+      if (swapMode === "stellar" && networkPassphrase) {
+        // Step 1: Get quote
+        const quoteRequest: QuoteRequest = {
+          assetIn: tokenIn as Token | string,
+          assetOut: tokenOut as Token | string,
+          amount: amountIn,
+          tradeType: "EXACT_IN",
+        };
+
+        const newQuote = await getQuote(quoteRequest);
+
+        const buildRequest = {
+          quote: newQuote,
+          from: address,
+          to: address,
+        };
+
+        const buildResult = await buildTransaction(buildRequest);
+
+        let signedResult;
+        try {
+          signedResult = await signTransaction(buildResult.xdr, {
+            networkPassphrase: networkPassphrase,
+            address: address,
+          });
+        } catch (error) {
+          const errorMessage =
+            error instanceof Error ? error.message : String(error);
+          const errorString = errorMessage.toLowerCase();
+          if (
+            errorString.includes("user denied") ||
+            errorString.includes("user rejected") ||
+            errorString.includes("user cancelled") ||
+            errorString.includes("user canceled") ||
+            errorString.includes("cancelled") ||
+            errorString.includes("canceled")
+          ) {
+            throw new Error("USER_REJECTED");
+          }
+          throw error;
+        }
+
+        const signedXdrString =
+          signedResult.signedTxXdr ||
+          (typeof signedResult === "string"
+            ? signedResult
+            : JSON.stringify(signedResult));
+
+        const sendRequest = {
+          xdr: signedXdrString,
+          launchtube: false,
+        };
+
+        const sendResult = await sendTransaction(sendRequest);
+
+        if (sendResult.txHash) {
+          setTxHash(sendResult.txHash);
+          resetSwap();
+          setAmountIn("");
+          setAmountOut("0.0");
+        }
+        return;
+      }
+
+      throw new Error("Wallet not connected or invalid swap mode");
     } catch (error) {
+      if (error instanceof Error && error.message === "USER_REJECTED") {
+        setIsLoading(false);
+        return;
+      }
+
       const errorMessage =
         error instanceof Error ? error.message : "Failed to complete swap";
       setError(errorMessage);
-      console.error("Swap error:", error);
     } finally {
       setIsLoading(false);
     }
@@ -491,10 +777,47 @@ const Swap: React.FC = () => {
         </button>
       </div>
 
+      {/* Wallet Type Selector - Only show if both wallet types are available */}
+      {(isEvmConnected || isStellarConnected) && (
+        <div className="flex gap-2 mb-4 p-1 bg-gray-800 rounded-lg">
+          <button
+            onClick={() => setSwapMode("stellar")}
+            disabled={!isStellarConnected}
+            className={`flex-1 px-4 py-2 rounded-lg font-semibold text-sm transition-all ${
+              swapMode === "stellar"
+                ? "bg-[#334EAC] text-white"
+                : "text-gray-400 hover:text-gray-300"
+            } disabled:opacity-50 disabled:cursor-not-allowed`}
+          >
+            Stellar
+          </button>
+          <button
+            onClick={() => setSwapMode("evm")}
+            disabled={!isEvmConnected}
+            className={`flex-1 px-4 py-2 rounded-lg font-semibold text-sm transition-all ${
+              swapMode === "evm"
+                ? "bg-[#334EAC] text-white"
+                : "text-gray-400 hover:text-gray-300"
+            } disabled:opacity-50 disabled:cursor-not-allowed`}
+          >
+            EVM
+          </button>
+        </div>
+      )}
+
       {!address && (
         <div className="bg-gray-800 border border-gray-700 rounded-2xl p-6 mb-6">
           <p className="text-gray-300 text-center">
             Please connect your wallet to start swapping
+          </p>
+        </div>
+      )}
+
+      {address && swapMode === "evm" && !walletClient && (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-2xl p-6 mb-6">
+          <p className="text-yellow-800 text-center text-sm">
+            Wallet client not available. Please ensure your EVM wallet is
+            properly connected.
           </p>
         </div>
       )}
@@ -508,7 +831,7 @@ const Swap: React.FC = () => {
               From
             </label>
             <div
-              className="relative"
+              className="relative overflow-hidden"
               style={{
                 height: "70px",
                 marginBottom: "15px",
@@ -537,10 +860,22 @@ const Swap: React.FC = () => {
                 }}
                 className={`w-full bg-transparent border-none outline-none text-white focus:ring-0 p-0 m-0 leading-tight absolute ${
                   amountIn && parseFloat(amountIn) > 0
-                    ? "text-6xl font-bold"
+                    ? "text-5xl sm:text-6xl font-bold"
                     : "text-4xl font-semibold text-transparent"
                 }`}
-                style={{ height: "55px", top: "0", paddingTop: "4px" }}
+                style={{
+                  height: "55px",
+                  top: "0",
+                  paddingTop: "4px",
+                  maxWidth: "calc(100% - 140px)", // Leave space for token selector button
+                  fontSize:
+                    amountIn && amountIn.length > 12
+                      ? "clamp(1.5rem, 4vw, 3rem)" // Responsive font size for long numbers
+                      : undefined,
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                }}
                 disabled={!address || isLoading}
               />
               {amountIn && parseFloat(amountIn) > 0 && (
@@ -561,15 +896,15 @@ const Swap: React.FC = () => {
                 disabled={isLoading}
                 className="flex items-center gap-2 bg-[#334EAC] hover:bg-[#3351aca5] text-white px-4 py-2.5 rounded-xl font-semibold transition-all duration-200 shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {getTokenIcon(tokenIn) ? (
+                {getTokenIconUrl(tokenIn) ? (
                   <img
-                    src={getTokenIcon(tokenIn)!}
+                    src={getTokenIconUrl(tokenIn)!}
                     alt={getTokenId(tokenIn)}
-                    className="w-5 h-5 rounded-full"
+                    className="w-5 h-5 rounded-full object-contain"
                   />
                 ) : (
                   <div className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center text-xs font-bold">
-                    {getTokenId(tokenIn)[0]}
+                    {getTokenId(tokenIn)[0] || "?"}
                   </div>
                 )}
                 <span>{getTokenId(tokenIn)}</span>
@@ -641,7 +976,7 @@ const Swap: React.FC = () => {
               To
             </label>
             <div className="flex items-center justify-between gap-3">
-              <div className="flex-1">
+              <div className="flex-1 min-w-0 overflow-hidden">
                 <div className="text-3xl font-bold text-white min-h-12 flex items-center gap-2">
                   {isLoadingQuote ? (
                     <span className="text-gray-400 text-sm animate-pulse">
@@ -649,7 +984,7 @@ const Swap: React.FC = () => {
                     </span>
                   ) : amountOut && amountOut !== "0.0" ? (
                     <>
-                      <span>{amountOut}</span>
+                      <span className="truncate">{amountOut}</span>
                       {swapValueAnalysis?.isSuspiciouslyLow &&
                         !isLoadingOutPrice && (
                           <Tooltip
@@ -768,11 +1103,11 @@ const Swap: React.FC = () => {
                 className="flex items-center gap-2 bg-[#334EAC] hover:bg-[#3351aca5] text-white px-5 py-3 rounded-xl font-semibold text-sm transition-all duration-200 shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
                 style={{ marginTop: "-10px" }}
               >
-                {getTokenIcon(tokenOut) ? (
+                {getTokenIconUrl(tokenOut) ? (
                   <img
-                    src={getTokenIcon(tokenOut)!}
+                    src={getTokenIconUrl(tokenOut)!}
                     alt={getTokenId(tokenOut) || "Token"}
-                    className="w-6 h-6 rounded-full"
+                    className="w-6 h-6 rounded-full object-contain"
                   />
                 ) : (
                   <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center text-xs font-bold">
@@ -847,12 +1182,20 @@ const Swap: React.FC = () => {
                 </span>
               </div>
               <a
-                href={getExplorerUrl(txHash, network)}
+                href={
+                  swapMode === "evm"
+                    ? `https://etherscan.io/tx/${txHash}`
+                    : getExplorerUrl(txHash, network)
+                }
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-2 text-sm text-green-700 hover:text-green-800 font-semibold"
               >
-                <span>View on Stellar Expert</span>
+                <span>
+                  {swapMode === "evm"
+                    ? "View on Etherscan"
+                    : "View on Stellar Expert"}
+                </span>
                 <svg
                   width="16"
                   height="16"
@@ -878,7 +1221,10 @@ const Swap: React.FC = () => {
         isOpen={tokenSelectorOpen}
         onClose={() => setTokenSelectorOpen(false)}
         onSelectToken={handleSelectToken}
-        selectedToken={tokenSelectorType === "from" ? tokenIn : tokenOut}
+        selectedToken={
+          (tokenSelectorType === "from" ? tokenIn : tokenOut) as Token | string
+        }
+        swapMode={swapMode}
       />
     </div>
   );

@@ -4,85 +4,196 @@ import React, { useState, useMemo, useEffect, useCallback } from "react";
 import { useWallet } from "@/hooks/useWallet";
 import { getAvailableTokens, type Token } from "@/lib/helpers/soroswap";
 import { getTokenIcon } from "@/lib/helpers/swapUtils";
+import { EVM_TOKENS } from "@/lib/helpers/uniswap";
+import { Token as UniswapToken } from "@uniswap/sdk-core";
 
 interface TokenSelectorModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSelectToken: (token: Token | string) => void;
   selectedToken?: Token | string;
+  swapMode?: "evm" | "stellar";
 }
+
+interface TokenItemProps {
+  code: string;
+  name: string;
+  icon: string | null;
+  balance: string;
+  usdValue: string;
+  isSelected: boolean;
+  onClick: () => void;
+  swapMode: "evm" | "stellar";
+  showBalance?: boolean;
+}
+
+const TokenItem: React.FC<TokenItemProps> = ({
+  code,
+  name,
+  icon,
+  balance,
+  usdValue,
+  isSelected,
+  onClick,
+  swapMode,
+  showBalance = true,
+}) => {
+  const displayIcon = icon;
+
+  const formatBalance = (balance: string): string => {
+    const num = parseFloat(balance);
+    if (num === 0) return "0";
+    if (num < 0.000001) return num.toExponential(2);
+    if (num < 0.001) return num.toFixed(6);
+    if (num < 1) return num.toFixed(4);
+    if (num < 1000) return num.toFixed(2);
+    return num.toLocaleString(undefined, { maximumFractionDigits: 2 });
+  };
+
+  return (
+    <button
+      onClick={onClick}
+      disabled={isSelected}
+      className={`w-full flex items-center gap-3 p-3 rounded-xl transition-colors ${
+        isSelected
+          ? "bg-[#334EAC]/20 cursor-not-allowed border border-[#334EAC]/30"
+          : "bg-white hover:bg-gray-50 border border-transparent hover:border-gray-300"
+      }`}
+    >
+      {displayIcon ? (
+        <img
+          src={displayIcon}
+          alt={code}
+          className="w-10 h-10 rounded-full shrink-0 shadow-md object-contain p-1"
+        />
+      ) : (
+        <div className="w-10 h-10 rounded-full bg-linear-to-br from-[#334EAC] to-[#081F5C] flex items-center justify-center text-white font-bold text-sm shrink-0 shadow-md">
+          {code[0]}
+        </div>
+      )}
+
+      <div className={`flex-1 text-left ${showBalance ? "min-w-0" : ""}`}>
+        <div
+          className={`font-semibold text-gray-900 ${showBalance ? "truncate" : ""} text-sm`}
+        >
+          {name}
+        </div>
+        <div className="text-xs text-gray-500 mt-0.5">{code}</div>
+      </div>
+
+      {showBalance && (
+        <div className="text-right shrink-0">
+          <div className="font-semibold text-gray-900 text-sm">${usdValue}</div>
+          <div className="text-xs text-gray-500 mt-0.5">
+            {formatBalance(balance)}
+          </div>
+        </div>
+      )}
+    </button>
+  );
+};
 
 const TokenSelectorModal: React.FC<TokenSelectorModalProps> = ({
   isOpen,
   onClose,
   onSelectToken,
   selectedToken,
+  swapMode = "stellar",
 }) => {
   const { balances } = useWallet();
-  const availableTokens = getAvailableTokens();
-  const tokenCodes = Object.keys(availableTokens);
+  const availableTokens = swapMode === "stellar" ? getAvailableTokens() : {};
+  const tokenCodes =
+    swapMode === "stellar"
+      ? Object.keys(availableTokens)
+      : Object.keys(EVM_TOKENS);
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Get token identifier for comparison
-  const getTokenId = (token: Token | string): string => {
-    if (typeof token === "string") {
-      for (const [code, info] of Object.entries(availableTokens)) {
-        if (info.contract === token) {
-          return code;
-        }
+  const getTokenId = (token: Token | string | UniswapToken): string => {
+    if (swapMode === "evm") {
+      if (
+        token instanceof UniswapToken ||
+        (typeof token === "object" && "symbol" in token && "address" in token)
+      ) {
+        return (token as UniswapToken).symbol || "";
       }
-      return token;
-    }
-    if (token.type === "native") return "XLM";
-    if (token.contract) {
-      for (const [code, info] of Object.entries(availableTokens)) {
-        if (info.contract === token.contract) {
-          return code;
+      if (typeof token === "string") {
+        if (EVM_TOKENS[token]) {
+          return token;
         }
+        const evmToken = Object.values(EVM_TOKENS).find(
+          (t) => t.address.toLowerCase() === token.toLowerCase()
+        );
+        return evmToken?.symbol || token;
       }
-      return token.contract;
+      return "";
+    } else {
+      if (typeof token === "string") {
+        for (const [code, info] of Object.entries(availableTokens)) {
+          if (info.contract === token) {
+            return code;
+          }
+        }
+        return token;
+      }
+      if (typeof token === "object" && "type" in token) {
+        const stellarToken = token as Token;
+        if (stellarToken.type === "native") return "XLM";
+        if (stellarToken.contract) {
+          for (const [code, info] of Object.entries(availableTokens)) {
+            if (info.contract === stellarToken.contract) {
+              return code;
+            }
+          }
+          return stellarToken.contract;
+        }
+        return stellarToken.code || "";
+      }
+      return "";
     }
-    return token.code || "";
   };
 
-  // Filter tokens based on search query
   const filteredTokens = useMemo(() => {
     const query = searchQuery.toLowerCase();
     return tokenCodes.filter((code) => {
-      const token = availableTokens[code];
-      return (
-        code.toLowerCase().includes(query) ||
-        token.name.toLowerCase().includes(query)
-      );
+      if (swapMode === "evm") {
+        const token = EVM_TOKENS[code];
+        return (
+          code.toLowerCase().includes(query) ||
+          (token?.name?.toLowerCase().includes(query) ?? false) ||
+          (token?.symbol?.toLowerCase().includes(query) ?? false)
+        );
+      } else {
+        const token = availableTokens[code];
+        return (
+          code.toLowerCase().includes(query) ||
+          token.name.toLowerCase().includes(query)
+        );
+      }
     });
-  }, [searchQuery, availableTokens, tokenCodes]);
+  }, [searchQuery, availableTokens, tokenCodes, swapMode]);
 
-  // Get token balance from wallet balances
   const getTokenBalance = useCallback(
     (code: string): { balance: string; usdValue: string } => {
-      // For XLM (native)
+      if (swapMode === "evm") {
+        return { balance: "0", usdValue: "0" };
+      }
+
       if (code === "XLM" && balances.xlm) {
         const balance = parseFloat(
           balances.xlm.balance?.replace(/,/g, "") || "0"
         );
-        // Simplified USD value calculation (should fetch real price)
-        const usdValue = balance * 0.1; // Placeholder conversion rate
+        const usdValue = balance * 0.1;
         return {
           balance: balance.toString(),
           usdValue: usdValue.toFixed(2),
         };
       }
 
-      // For other tokens, check if they exist in balances
-      // Note: Contract tokens might need special handling
-      // For now, return 0 but this should be implemented based on your token contract structure
-
       return { balance: "0", usdValue: "0" };
     },
-    [balances]
+    [balances, swapMode]
   );
 
-  // Get user's tokens (tokens with balance > 0, including excluded token so it can be selected for swap)
   const userTokens = useMemo(() => {
     return filteredTokens.filter((code) => {
       const { balance } = getTokenBalance(code);
@@ -90,20 +201,27 @@ const TokenSelectorModal: React.FC<TokenSelectorModalProps> = ({
     });
   }, [filteredTokens, getTokenBalance]);
 
-  // Get popular tokens (excluding user tokens, but including excluded token so it can be selected for swap)
   const popularTokens = useMemo(() => {
     return filteredTokens.filter((code) => {
       const { balance } = getTokenBalance(code);
       const isUserToken = parseFloat(balance) > 0;
-      // Don't exclude the token - allow it to be selected for swapping
       return !isUserToken;
     });
   }, [filteredTokens, getTokenBalance]);
 
   const handleTokenClick = (tokenCode: string) => {
-    const token = availableTokens[tokenCode].contract;
-    onSelectToken(token);
-    setSearchQuery(""); // Reset search on selection
+    if (swapMode === "evm") {
+      const token = EVM_TOKENS[tokenCode];
+      if (token) {
+        onSelectToken(tokenCode);
+      } else {
+        onSelectToken(tokenCode);
+      }
+    } else {
+      const token = availableTokens[tokenCode].contract;
+      onSelectToken(token);
+    }
+    setSearchQuery("");
     onClose();
   };
 
@@ -117,14 +235,12 @@ const TokenSelectorModal: React.FC<TokenSelectorModalProps> = ({
     return num.toLocaleString(undefined, { maximumFractionDigits: 2 });
   };
 
-  // Reset search when modal closes
   useEffect(() => {
     if (!isOpen) {
       setSearchQuery("");
     }
   }, [isOpen]);
 
-  // Prevent body scroll when modal is open
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = "hidden";
@@ -140,15 +256,12 @@ const TokenSelectorModal: React.FC<TokenSelectorModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      {/* Backdrop */}
       <div
         className="absolute inset-0 bg-black/70 backdrop-blur-sm"
         onClick={onClose}
       />
 
-      {/* Modal - Gray theme */}
       <div className="relative w-full max-w-md bg-gray-100 border border-gray-300 rounded-2xl shadow-2xl max-h-[85vh] flex flex-col overflow-hidden">
-        {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-300">
           <h2 className="text-xl font-bold text-gray-900">Select a token</h2>
           <button
@@ -171,7 +284,6 @@ const TokenSelectorModal: React.FC<TokenSelectorModalProps> = ({
           </button>
         </div>
 
-        {/* Search Bar */}
         <div className="p-4 border-b border-gray-300">
           <div className="relative">
             <svg
@@ -197,9 +309,7 @@ const TokenSelectorModal: React.FC<TokenSelectorModalProps> = ({
           </div>
         </div>
 
-        {/* Token List */}
         <div className="flex-1 overflow-y-auto p-4">
-          {/* Your Tokens Section */}
           {userTokens.length > 0 && (
             <div className="mb-6">
               <h3 className="text-xs font-semibold text-gray-500 mb-3 px-2 uppercase tracking-wider">
@@ -207,63 +317,46 @@ const TokenSelectorModal: React.FC<TokenSelectorModalProps> = ({
               </h3>
               <div className="space-y-1">
                 {userTokens.map((code) => {
-                  const token = availableTokens[code];
                   const isSelected = selectedToken
                     ? getTokenId(selectedToken) === code
                     : false;
                   const { balance, usdValue } = getTokenBalance(code);
 
+                  const tokenInfo =
+                    swapMode === "evm"
+                      ? EVM_TOKENS[code]
+                      : availableTokens[code];
+                  const tokenName =
+                    swapMode === "evm"
+                      ? (tokenInfo as UniswapToken)?.name || code
+                      : (tokenInfo as { name: string })?.name || code;
+                  const tokenIcon =
+                    swapMode === "evm"
+                      ? getTokenIcon(tokenInfo as UniswapToken | string)
+                      : (tokenInfo as { contract?: string })?.contract
+                        ? getTokenIcon(
+                            (tokenInfo as { contract: string }).contract
+                          )
+                        : null;
+
                   return (
-                    <button
+                    <TokenItem
                       key={code}
+                      code={code}
+                      name={tokenName}
+                      icon={tokenIcon}
+                      balance={balance}
+                      usdValue={usdValue}
+                      isSelected={isSelected}
                       onClick={() => handleTokenClick(code)}
-                      disabled={isSelected}
-                      className={`w-full flex items-center gap-3 p-3 rounded-xl transition-colors ${
-                        isSelected
-                          ? "bg-[#334EAC]/20 cursor-not-allowed border border-[#334EAC]/30"
-                          : "bg-white hover:bg-gray-50 border border-transparent hover:border-gray-300"
-                      }`}
-                    >
-                      {/* Token Icon */}
-                      {getTokenIcon(token.contract) ? (
-                        <img
-                          src={getTokenIcon(token.contract)!}
-                          alt={code}
-                          className="w-10 h-10 rounded-full shrink-0 shadow-md object-cover"
-                        />
-                      ) : (
-                        <div className="w-10 h-10 rounded-full bg-linear-to-br from-[#334EAC] to-[#081F5C] flex items-center justify-center text-white font-bold text-sm shrink-0 shadow-md">
-                          {code[0]}
-                        </div>
-                      )}
-
-                      {/* Token Info */}
-                      <div className="flex-1 text-left min-w-0">
-                        <div className="font-semibold text-gray-900 truncate text-sm">
-                          {token.name}
-                        </div>
-                        <div className="text-xs text-gray-500 mt-0.5">
-                          {code}
-                        </div>
-                      </div>
-
-                      {/* Balance */}
-                      <div className="text-right shrink-0">
-                        <div className="font-semibold text-gray-900 text-sm">
-                          ${usdValue}
-                        </div>
-                        <div className="text-xs text-gray-500 mt-0.5">
-                          {formatBalance(balance)}
-                        </div>
-                      </div>
-                    </button>
+                      swapMode={swapMode}
+                    />
                   );
                 })}
               </div>
             </div>
           )}
 
-          {/* Popular Tokens Section */}
           {popularTokens.length > 0 && (
             <div>
               <h3 className="text-xs font-semibold text-gray-500 mb-3 px-2 uppercase tracking-wider">
@@ -271,52 +364,46 @@ const TokenSelectorModal: React.FC<TokenSelectorModalProps> = ({
               </h3>
               <div className="flex flex-col gap-3">
                 {popularTokens.map((code) => {
-                  const token = availableTokens[code];
                   const isSelected = selectedToken
                     ? getTokenId(selectedToken) === code
                     : false;
 
-                  return (
-                    <button
-                      key={code}
-                      onClick={() => handleTokenClick(code)}
-                      disabled={isSelected}
-                      className={`w-full flex items-center gap-3 p-3 rounded-xl transition-colors ${
-                        isSelected
-                          ? "bg-[#334EAC]/20 cursor-not-allowed border border-[#334EAC]/30"
-                          : "bg-white hover:bg-gray-50 border border-transparent hover:border-gray-300"
-                      }`}
-                    >
-                      {/* Token Icon */}
-                      {getTokenIcon(token.contract) ? (
-                        <img
-                          src={getTokenIcon(token.contract)!}
-                          alt={code}
-                          className="w-10 h-10 rounded-full shrink-0 shadow-md object-cover"
-                        />
-                      ) : (
-                        <div className="w-10 h-10 rounded-full bg-linear-to-br from-[#334EAC] to-[#081F5C] flex items-center justify-center text-white font-bold text-sm shrink-0 shadow-md">
-                          {code[0]}
-                        </div>
-                      )}
+                  const tokenInfo =
+                    swapMode === "evm"
+                      ? EVM_TOKENS[code]
+                      : availableTokens[code];
+                  const tokenName =
+                    swapMode === "evm"
+                      ? (tokenInfo as UniswapToken)?.name || code
+                      : (tokenInfo as { name: string })?.name || code;
+                  const tokenIcon =
+                    swapMode === "evm"
+                      ? getTokenIcon(tokenInfo as UniswapToken | string)
+                      : (tokenInfo as { contract?: string })?.contract
+                        ? getTokenIcon(
+                            (tokenInfo as { contract: string }).contract
+                          )
+                        : null;
 
-                      {/* Token Info */}
-                      <div className="flex-1 text-left">
-                        <div className="font-semibold text-gray-900 text-sm">
-                          {token.name}
-                        </div>
-                        <div className="text-xs text-gray-500 mt-0.5">
-                          {code}
-                        </div>
-                      </div>
-                    </button>
+                  return (
+                    <TokenItem
+                      key={code}
+                      code={code}
+                      name={tokenName}
+                      icon={tokenIcon}
+                      balance="0"
+                      usdValue="0"
+                      isSelected={isSelected}
+                      onClick={() => handleTokenClick(code)}
+                      swapMode={swapMode}
+                      showBalance={false}
+                    />
                   );
                 })}
               </div>
             </div>
           )}
 
-          {/* No Results */}
           {filteredTokens.length === 0 && (
             <div className="text-center py-12">
               <p className="text-gray-500 text-sm">No tokens found</p>
