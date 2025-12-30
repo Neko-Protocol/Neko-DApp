@@ -5,6 +5,8 @@ import { ConnectButton, useAccountModal } from "@rainbow-me/rainbowkit";
 import { useAccount, useDisconnect } from "wagmi";
 import { useWallet } from "@/hooks/useWallet";
 import { connectWallet, disconnectWallet } from "@/lib/helpers/wallet";
+import { HoverBorderGradient } from "@/components/ui/hover-border-gradient";
+import { Copy, Check } from "lucide-react";
 
 interface WalletSelectorModalProps {
   isOpen: boolean;
@@ -20,6 +22,7 @@ export const WalletSelectorModal: React.FC<WalletSelectorModalProps> = ({
   const { openAccountModal } = useAccountModal();
   const { disconnect: disconnectEvm } = useDisconnect();
   const [isConnectingStellar, setIsConnectingStellar] = useState(false);
+  const [copied, setCopied] = useState(false);
   const prevEvmStateRef = useRef(isEvmConnected);
   const prevStellarStateRef = useRef(!!stellarAddress);
 
@@ -28,6 +31,9 @@ export const WalletSelectorModal: React.FC<WalletSelectorModalProps> = ({
     if (isOpen) {
       prevEvmStateRef.current = isEvmConnected;
       prevStellarStateRef.current = !!stellarAddress;
+    } else {
+      // Reset connecting state when modal closes
+      setIsConnectingStellar(false);
     }
   }, [isOpen, isEvmConnected, stellarAddress]);
 
@@ -87,6 +93,16 @@ export const WalletSelectorModal: React.FC<WalletSelectorModalProps> = ({
     }
   };
 
+  const handleCopyAddress = async (address: string) => {
+    try {
+      await navigator.clipboard.writeText(address);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (error) {
+      console.error("Failed to copy address:", error);
+    }
+  };
+
   if (!isOpen) return null;
 
   // If a wallet is connected, show connection status
@@ -135,14 +151,27 @@ export const WalletSelectorModal: React.FC<WalletSelectorModalProps> = ({
             <div className="p-6">
               <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-xl border border-gray-300">
                 <div className={`w-3 h-3 rounded-full ${indicatorColor}`}></div>
-                <div className="flex-1">
+                <div className="flex-1 min-w-0">
                   <div className="text-sm font-semibold text-gray-900">
                     {walletType} Wallet
                   </div>
-                  <div className="text-xs font-mono text-gray-600 mt-1">
+                  <div className="text-xs font-mono text-gray-600 mt-1 break-all">
                     {connectedAddress}
                   </div>
                 </div>
+                {stellarAddress && (
+                  <button
+                    onClick={() => handleCopyAddress(connectedAddress || "")}
+                    className="shrink-0 p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-200 rounded-lg transition-colors"
+                    title={copied ? "Copied!" : "Copy address"}
+                  >
+                    {copied ? (
+                      <Check className="w-4 h-4" />
+                    ) : (
+                      <Copy className="w-4 h-4" />
+                    )}
+                  </button>
+                )}
               </div>
 
               <div className="mt-4 flex gap-2">
@@ -211,70 +240,58 @@ export const WalletSelectorModal: React.FC<WalletSelectorModalProps> = ({
         </div>
 
         {/* Wallet Options */}
-        <div className="p-6 space-y-4">
+        <div className="p-6 space-y-4 flex flex-col items-center">
           {/* EVM Wallet Option */}
-          <div className="border border-gray-300 rounded-xl p-4 hover:border-[#334EAC] transition-colors">
-            <div className="mb-3">
-              <h3 className="text-lg font-semibold text-gray-900 mb-1">
-                EVM Wallets
-              </h3>
-              <p className="text-sm text-gray-500">
-                Connect with MetaMask, WalletConnect, Coinbase, and more
-              </p>
-            </div>
-            <ConnectButton.Custom>
-              {({ account, chain, openConnectModal, mounted }) => {
-                const ready = mounted;
-                const isDisabled = !ready || !!stellarAddress;
-                return (
-                  <>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        openConnectModal();
-                      }}
-                      disabled={isDisabled}
-                      className="w-full bg-[#334EAC] hover:bg-[#081F5C] text-white font-bold py-3 px-4 rounded-lg transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      Connect EVM Wallet
-                    </button>
-                    {stellarAddress && (
-                      <p className="text-xs text-red-600 mt-2 text-center">
-                        Please disconnect your Stellar wallet first
-                      </p>
-                    )}
-                  </>
-                );
-              }}
-            </ConnectButton.Custom>
-          </div>
+          <ConnectButton.Custom>
+            {({ account, chain, openConnectModal, mounted }) => {
+              const ready = mounted;
+              const isDisabled = !ready || !!stellarAddress;
+              return (
+                <HoverBorderGradient
+                  containerClassName="rounded-full w-[240px]"
+                  as="button"
+                  className="dark:bg-black bg-white text-black dark:text-white flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
+                    e.stopPropagation();
+                    if (!isDisabled) {
+                      openConnectModal();
+                    }
+                  }}
+                  disabled={isDisabled}
+                >
+                  <img
+                    src="/wallets/ethereum-eth-logo.png"
+                    alt="Ethereum"
+                    className="w-6 h-6 shrink-0"
+                  />
+                  <span className="whitespace-nowrap">Connect EVM Wallet</span>
+                </HoverBorderGradient>
+              );
+            }}
+          </ConnectButton.Custom>
 
           {/* Stellar Wallet Option */}
-          <div className="border border-gray-300 rounded-xl p-4 hover:border-[#334EAC] transition-colors">
-            <div className="mb-3">
-              <h3 className="text-lg font-semibold text-gray-900 mb-1">
-                Stellar Wallet
-              </h3>
-              <p className="text-sm text-gray-500">
-                Connect with Freighter, Albedo, or other Stellar wallets
-              </p>
-            </div>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
+          <HoverBorderGradient
+            containerClassName="rounded-full w-[240px]"
+            as="button"
+            className="dark:bg-black bg-white text-black dark:text-white flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
+              e.stopPropagation();
+              if (!isConnectingStellar && !isEvmConnected) {
                 void handleConnectStellar();
-              }}
-              disabled={isConnectingStellar || isEvmConnected}
-              className="w-full bg-[#081F5C] hover:bg-[#334EAC] text-white font-bold py-3 px-4 rounded-lg transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
+              }
+            }}
+            disabled={isConnectingStellar || isEvmConnected}
+          >
+            <img
+              src="/wallets/stellar-xlm-logo.png"
+              alt="Stellar"
+              className="w-6 h-6 shrink-0"
+            />
+            <span className="whitespace-nowrap">
               {isConnectingStellar ? "Connecting..." : "Connect Stellar Wallet"}
-            </button>
-            {isEvmConnected && (
-              <p className="text-xs text-red-600 mt-2 text-center">
-                Please disconnect your EVM wallet first
-              </p>
-            )}
-          </div>
+            </span>
+          </HoverBorderGradient>
         </div>
       </div>
     </div>
