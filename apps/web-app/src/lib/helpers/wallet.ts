@@ -55,6 +55,9 @@ export const connectWallet = async () => {
 export const disconnectWallet = async () => {
   await kit.disconnect();
   storage.removeItem("walletId");
+  storage.removeItem("walletAddress");
+  storage.removeItem("walletNetwork");
+  storage.removeItem("networkPassphrase");
 };
 
 // Create Horizon server instance lazily (only when needed and in browser)
