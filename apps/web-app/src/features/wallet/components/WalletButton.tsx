@@ -2,26 +2,42 @@
 
 import { useState } from "react";
 import { Button, Modal } from "@stellar/design-system";
+import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { useWallet } from "@/hooks/useWallet";
+import { useWalletType } from "@/hooks/useWalletType";
 import { connectWallet, disconnectWallet } from "@/lib/helpers/wallet";
 
 export const WalletButton = () => {
   const [showDisconnectModal, setShowDisconnectModal] = useState(false);
-  const { address, isPending } = useWallet();
+  const { address: stellarAddress, isPending } = useWallet();
+  const { walletType, isStellarConnected } = useWalletType();
   const buttonLabel = isPending ? "Connecting..." : "Connect Wallet";
 
-  if (!address) {
+  // If EVM wallet is connected, show RainbowKit's ConnectButton
+  if (walletType === "evm") {
+    return <ConnectButton />;
+  }
+
+  // If Stellar wallet is connected or no wallet connected, show Stellar wallet UI
+  if (!stellarAddress) {
     return (
-      <button
-        onClick={() => void connectWallet()}
-        disabled={isPending}
-        className="bg-[#081F5C] hover:bg-[#334EAC] text-[#FFF9F0] font-bold py-4 px-6 rounded-full transition-colors duration-200 shadow-md flex items-center gap-2 border border-[#334EAC]/30"
-      >
-        {buttonLabel}
-      </button>
+      <div className="flex items-center gap-2">
+        {/* EVM Wallet Button (RainbowKit) */}
+        <ConnectButton />
+
+        {/* Stellar Wallet Button */}
+        <button
+          onClick={() => void connectWallet()}
+          disabled={isPending}
+          className="bg-[#081F5C] hover:bg-[#334EAC] text-[#FFF9F0] font-bold py-4 px-6 rounded-full transition-colors duration-200 shadow-md flex items-center gap-2 border border-[#334EAC]/30"
+        >
+          {buttonLabel}
+        </button>
+      </div>
     );
   }
 
+  // Stellar wallet is connected - show disconnect modal
   return (
     <div
       style={{
@@ -47,7 +63,7 @@ export const WalletButton = () => {
                   className="text-[#39bfb7]"
                   style={{ lineBreak: "anywhere" }}
                 >
-                  {address}
+                  {stellarAddress}
                 </code>
                 . Do you want to disconnect?
               </span>
@@ -78,14 +94,21 @@ export const WalletButton = () => {
         </Modal>
       </div>
 
-      <div
-        className="bg-[#081F5C] hover:bg-[#334EAC] text-[#FFF9F0] px-6 py-4 rounded-full cursor-pointer transition-colors duration-200 flex items-center gap-2 border border-[#334EAC]/30"
-        onClick={() => setShowDisconnectModal(true)}
-      >
-        <div className="w-2 h-2 rounded-full bg-[#39bfb7]"></div>
-        <span className="font-mono text-sm">
-          {address.substring(0, 4)}...{address.substring(address.length - 4)}
-        </span>
+      <div className="flex items-center gap-2">
+        {/* EVM Wallet Button (RainbowKit) - always available */}
+        <ConnectButton />
+
+        {/* Stellar Wallet Button */}
+        <div
+          className="bg-[#081F5C] hover:bg-[#334EAC] text-[#FFF9F0] px-6 py-4 rounded-full cursor-pointer transition-colors duration-200 flex items-center gap-2 border border-[#334EAC]/30"
+          onClick={() => setShowDisconnectModal(true)}
+        >
+          <div className="w-2 h-2 rounded-full bg-[#39bfb7]"></div>
+          <span className="font-mono text-sm">
+            {stellarAddress.substring(0, 4)}...
+            {stellarAddress.substring(stellarAddress.length - 4)}
+          </span>
+        </div>
       </div>
     </div>
   );
