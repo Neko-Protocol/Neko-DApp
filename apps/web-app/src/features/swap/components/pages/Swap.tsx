@@ -18,6 +18,7 @@ import {
   useWalletClient,
   useChainId,
 } from "wagmi";
+import { parseUnits, formatUnits } from "viem";
 import {
   TOKENS,
   type Token,
@@ -35,13 +36,13 @@ import {
   getTokenIcon,
 } from "@/lib/helpers/swapUtils";
 import {
-  getUniswapQuote,
-  executeUniswapSwap,
-  ensureTokenApproval,
+  getCowSwapQuote,
+  executeCowSwap,
+  getCowSwapExplorerUrl,
   EVM_TOKENS,
-  type UniswapQuoteRequest,
-  type UniswapSwapRequest,
-} from "@/lib/helpers/uniswap";
+  type CowSwapQuoteRequest,
+  type CowSwapSwapRequest,
+} from "@/lib/helpers/cowswap";
 import TokenSelectorModal from "../ui/TokenSelectorModal";
 import { Tooltip, IconButton } from "@mui/material";
 import {
@@ -294,7 +295,7 @@ const Swap: React.FC = () => {
       return;
     }
 
-    // EVM swap quote
+    // EVM swap quote (CoW Swap) - Using OrderBookApi for faster quotes
     if (swapMode === "evm" && publicClient && chainId) {
       try {
         const tokenInSymbol: string =
@@ -309,32 +310,47 @@ const Swap: React.FC = () => {
             : tokenOut instanceof UniswapToken
               ? tokenOut.symbol || "USDC"
               : "USDC";
-        const quoteRequest: UniswapQuoteRequest = {
+
+        const tokenInObj = EVM_TOKENS[tokenInSymbol];
+        if (!tokenInObj) {
+          setAmountOut("0.0");
+          setIsLoadingQuote(false);
+          return;
+        }
+
+        const amountInWei = parseUnits(
+          trimmedAmount,
+          tokenInObj.decimals
+        ).toString();
+
+        const quoteRequest: CowSwapQuoteRequest = {
           tokenIn: tokenInSymbol,
           tokenOut: tokenOutSymbol,
-          amountIn: trimmedAmount,
+          amountIn: amountInWei,
         };
 
-        const quote = await getUniswapQuote(
+        const quote = await getCowSwapQuote(
           quoteRequest,
           chainId,
-          publicClient
+          publicClient,
+          walletClient
         );
-        setAmountOut(quote.amountOut || "0.0");
+
+        const tokenOutObj = EVM_TOKENS[tokenOutSymbol];
+        if (tokenOutObj) {
+          const amountOutFormatted = formatUnits(
+            BigInt(quote.amountOut),
+            tokenOutObj.decimals
+          );
+          setAmountOut(amountOutFormatted || "0.0");
+        } else {
+          setAmountOut(quote.amountOut || "0.0");
+        }
         setError(null);
       } catch (error) {
         const errorMessage =
           error instanceof Error ? error.message : String(error);
-
-        if (
-          errorMessage.includes("No liquidity pool") ||
-          errorMessage.includes("Pool not found") ||
-          errorMessage.includes("No pool") ||
-          errorMessage.includes("pool may not exist")
-        ) {
-          setError(errorMessage);
-        }
-
+        setError(errorMessage);
         setAmountOut("0.0");
       } finally {
         setIsLoadingQuote(false);
@@ -516,10 +532,13 @@ const Swap: React.FC = () => {
       abortControllerRef.current = null;
     }
 
-    // Set new timeout for debounced quote fetch - reduced to 100ms for faster response
+    // Show loading state immediately for better UX
+    setIsLoadingQuote(true);
+
+    // Set new timeout for debounced quote fetch - 50ms for fast response
     quoteTimeoutRef.current = setTimeout(() => {
       void fetchLiveQuote();
-    }, 100); // 100ms debounce - faster response
+    }, 50); // 50ms debounce - very fast response
 
     // Cleanup on unmount or when dependencies change
     return () => {
@@ -603,7 +622,7 @@ const Swap: React.FC = () => {
     setIsLoading(true);
     setError(null);
     try {
-      // EVM swap flow
+      // EVM swap flow (CoW Swap)
       if (
         swapMode === "evm" &&
         walletClient &&
@@ -611,7 +630,6 @@ const Swap: React.FC = () => {
         chainId &&
         evmAddress
       ) {
-        // Step 1: Get quote
         const tokenInSymbol: string =
           typeof tokenIn === "string"
             ? tokenIn
@@ -625,15 +643,32 @@ const Swap: React.FC = () => {
               ? (tokenOut.symbol ?? "USDC")
               : "USDC";
 
-        const quoteRequest: UniswapQuoteRequest = {
+        const tokenInObj = EVM_TOKENS[tokenInSymbol];
+        if (!tokenInObj) {
+          setError("Token not found");
+          setIsLoading(false);
+          return;
+        }
+
+        const amountInWei = parseUnits(
+          amountIn,
+          tokenInObj.decimals
+        ).toString();
+
+        const quoteRequest: CowSwapQuoteRequest = {
           tokenIn: tokenInSymbol,
           tokenOut: tokenOutSymbol,
-          amountIn: amountIn,
+          amountIn: amountInWei,
         };
 
         let quote;
         try {
-          quote = await getUniswapQuote(quoteRequest, chainId, publicClient);
+          quote = await getCowSwapQuote(
+            quoteRequest,
+            chainId,
+            publicClient,
+            walletClient
+          );
         } catch (quoteError) {
           const errorMessage =
             quoteError instanceof Error
@@ -644,39 +679,37 @@ const Swap: React.FC = () => {
           return;
         }
 
-        if (tokenInSymbol && tokenInSymbol !== "ETH") {
-          const tokenInObj = EVM_TOKENS[tokenInSymbol];
-          if (tokenInObj) {
-            await ensureTokenApproval(
-              tokenInObj.address as `0x${string}`,
-              amountIn,
-              tokenInObj.decimals,
-              chainId,
-              walletClient,
-              publicClient
-            );
-          }
-        }
-
-        const swapRequest: UniswapSwapRequest = {
+        const swapRequest: CowSwapSwapRequest = {
           tokenIn: tokenInSymbol,
           tokenOut: tokenOutSymbol,
-          amountIn: amountIn,
+          amountIn: amountInWei,
           amountOutMinimum: quote.amountOutMinimum,
           recipient: evmAddress,
         };
 
-        const swapResult = await executeUniswapSwap(
-          swapRequest,
-          chainId,
-          walletClient
-        );
+        try {
+          const swapResult = await executeCowSwap(
+            swapRequest,
+            chainId,
+            publicClient,
+            walletClient
+          );
 
-        if (swapResult.txHash) {
-          setTxHash(swapResult.txHash);
-          resetSwap();
-          setAmountIn("");
-          setAmountOut("0.0");
+          if (swapResult.orderId) {
+            setTxHash(swapResult.orderId);
+            resetSwap();
+            setAmountIn("");
+            setAmountOut("0.0");
+          }
+        } catch (swapError) {
+          if (
+            swapError instanceof Error &&
+            swapError.message === "USER_REJECTED"
+          ) {
+            setIsLoading(false);
+            return;
+          }
+          throw swapError;
         }
         return;
       }
@@ -1183,9 +1216,11 @@ const Swap: React.FC = () => {
               </div>
               <a
                 href={
-                  swapMode === "evm"
-                    ? `https://etherscan.io/tx/${txHash}`
-                    : getExplorerUrl(txHash, network)
+                  swapMode === "evm" && chainId
+                    ? getCowSwapExplorerUrl(txHash, chainId)
+                    : swapMode === "evm"
+                      ? `https://etherscan.io/tx/${txHash}`
+                      : getExplorerUrl(txHash, network)
                 }
                 target="_blank"
                 rel="noopener noreferrer"
@@ -1193,7 +1228,7 @@ const Swap: React.FC = () => {
               >
                 <span>
                   {swapMode === "evm"
-                    ? "View on Etherscan"
+                    ? "View on CoW Explorer"
                     : "View on Stellar Expert"}
                 </span>
                 <svg

@@ -163,9 +163,10 @@ export const ERC20_ABI = [
 // TOKEN CONSTANTS
 // ========================================
 export const EVM_TOKENS: Record<string, Token> = {
+  // ETH uses WETH address for CoW Protocol compatibility (CoW doesn't support native ETH)
   ETH: new Token(
     ChainId.MAINNET,
-    "0x0000000000000000000000000000000000000000",
+    "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
     18,
     "ETH",
     "Ether"

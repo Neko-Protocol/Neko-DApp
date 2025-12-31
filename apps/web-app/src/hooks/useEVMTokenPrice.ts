@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Token } from "@uniswap/sdk-core";
-import { EVM_TOKENS } from "@/lib/constants/uniswap";
+import { EVM_TOKENS } from "@/lib/constants/uniswapConfig";
 
 const EVM_TOKEN_PRICE_MAP: Record<string, string> = {
   ETH: "ethereum",

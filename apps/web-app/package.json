@@ -9,6 +9,8 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@cowprotocol/cow-sdk": "^7.2.9",
+    "@cowprotocol/sdk-viem-adapter": "^0.3.0",
     "@creit.tech/stellar-wallets-kit": "^1.0.0",
     "@emotion/react": "^11.11.0",
     "@emotion/styled": "^11.11.0",

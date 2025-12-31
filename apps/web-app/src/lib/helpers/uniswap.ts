@@ -21,13 +21,13 @@ import {
   PERMIT2_ABI,
   ERC20_ABI,
   EVM_TOKENS,
-} from "../constants/uniswap";
+} from "../constants/uniswapConfig";
 import type {
   UniswapQuoteRequest,
   UniswapQuoteResponse,
   UniswapSwapRequest,
   UniswapSwapResponse,
-} from "../types/uniswap";
+} from "../types/uniswapTypes";
 
 export {
   UNISWAP_V4_CONTRACTS,
@@ -36,13 +36,13 @@ export {
   PERMIT2_ABI,
   ERC20_ABI,
   EVM_TOKENS,
-} from "../constants/uniswap";
+} from "../constants/uniswapConfig";
 export type {
   UniswapQuoteRequest,
   UniswapQuoteResponse,
   UniswapSwapRequest,
   UniswapSwapResponse,
-} from "../types/uniswap";
+} from "../types/uniswapTypes";
 
 export const isUserRejectionError = (error: unknown): boolean => {
   if (!error) return false;
