@@ -1,60 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Token } from "@uniswap/sdk-core";
 import { EVM_TOKENS } from "@/lib/constants/evmConfig";
-
-const EVM_TOKEN_PRICE_MAP: Record<string, string> = {
-  ETH: "ethereum",
-  USDC: "usd-coin",
-  USDT: "tether",
-  NVDA: "nvidia-ondo-tokenized-stock",
-  TSLA: "tesla-ondo-tokenized-stock",
-  AAPL: "apple-ondo-tokenized-stock",
-  MSFT: "microsoft-ondo-tokenized-stock",
-  AMZN: "amazon-ondo-tokenized-stock",
-  META: "meta-platforms-ondo-tokenized-stock",
-  SPOT: "spotify-ondo-tokenized-stock",
-  MA: "mastercard-ondo-tokenized-stock",
-  NFLX: "netflix-ondo-tokenized-stock",
-};
-
-const fetchEVMTokenPrice = async (tokenSymbol: string): Promise<number> => {
-  const coinGeckoId = EVM_TOKEN_PRICE_MAP[tokenSymbol];
-
-  if (!coinGeckoId) {
-    if (tokenSymbol === "USDC" || tokenSymbol === "USDT") return 1.0;
-    return 0;
-  }
-
-  try {
-    const url = `/api/coingecko/price?ids=${coinGeckoId}&vs_currencies=usd`;
-
-    const response = await fetch(url, {
-      method: "GET",
-    });
-
-    if (!response.ok) {
-      if (response.status === 429) {
-        return 0;
-      }
-
-      throw new Error(
-        `Failed to fetch price: ${response.status} ${response.statusText}`
-      );
-    }
-
-    const data = (await response.json()) as {
-      [key: string]: { usd?: number } | undefined;
-    };
-
-    const price = data[coinGeckoId]?.usd || 0;
-
-    return price;
-  } catch (error) {
-    if (tokenSymbol === "USDC" || tokenSymbol === "USDT") return 1.0;
-    if (tokenSymbol === "ETH") return 3000;
-    return 0;
-  }
-};
+import { priceService } from "@/lib/services";
 
 export const useEVMTokenPrice = (
   token: Token | string | undefined
@@ -80,16 +27,19 @@ export const useEVMTokenPrice = (
   const tokenSymbol = getTokenSymbol();
 
   const {
-    data: price = 0,
+    data: priceResult,
     isLoading,
     error,
-  } = useQuery<number, Error>({
+  } = useQuery({
     queryKey: ["evmTokenPrice", tokenSymbol, token],
     queryFn: async () => {
       if (!tokenSymbol) {
-        return 0;
+        return { price: 0, source: "invalid" };
       }
-      return await fetchEVMTokenPrice(tokenSymbol);
+      return await priceService.getTokenPrice(tokenSymbol, {
+        enableFallbacks: true,
+        timeout: 5000,
+      });
     },
     enabled: Boolean(tokenSymbol && token),
     refetchInterval: 60000,
@@ -99,7 +49,7 @@ export const useEVMTokenPrice = (
   });
 
   return {
-    price,
+    price: priceResult?.price || 0,
     isLoading,
     error: error ? error.message : null,
   };
