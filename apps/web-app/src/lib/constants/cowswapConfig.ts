@@ -15,7 +15,24 @@ export const CHAIN_ID_MAPPING: Record<number, SupportedChainId> = {
 // CoW Explorer URLs by chain ID
 export const COW_EXPLORER_BASE_URL = "https://explorer.cow.fi/orders";
 
-// WETH address for Ethereum Mainnet (CoW Protocol doesn't support native ETH)
+// Native token address used by CoW Protocol (ETH Flow)
+// This special address represents native ETH/BNB in CoW Protocol
+export const NATIVE_TOKEN_ADDRESS =
+  "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE";
+
+// Wrapped native token addresses by chain (for fallback/compatibility)
+export const WRAPPED_NATIVE_TOKENS: Record<number, string> = {
+  1: "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2", // WETH on Ethereum
+  56: "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c", // WBNB on BNB Chain
+};
+
+// Native token symbols by chain
+export const NATIVE_TOKEN_SYMBOLS: Record<number, string> = {
+  1: "ETH",
+  56: "BNB",
+};
+
+// Default WETH address (Ethereum Mainnet - for backwards compatibility)
 export const WETH_ADDRESS = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2";
 
 // Default address for quotes when wallet is not connected
@@ -26,3 +43,41 @@ export const QUOTE_TIMEOUT_MS = 5000;
 
 // App code for CoW Protocol
 export const COW_APP_CODE = "NEKO_DAPP";
+
+// EthFlow contract addresses by chain
+// These contracts allow selling native ETH without wrapping to WETH first
+export const ETH_FLOW_CONTRACTS: Record<number, string> = {
+  1: "0x40A50cf069e992AA4536211B23F286eF88752187", // Ethereum Mainnet
+};
+
+// EthFlow contract ABI (only the functions we need)
+export const ETH_FLOW_ABI = [
+  {
+    inputs: [
+      {
+        components: [
+          {
+            internalType: "contract IERC20",
+            name: "buyToken",
+            type: "address",
+          },
+          { internalType: "address", name: "receiver", type: "address" },
+          { internalType: "uint256", name: "sellAmount", type: "uint256" },
+          { internalType: "uint256", name: "buyAmount", type: "uint256" },
+          { internalType: "bytes32", name: "appData", type: "bytes32" },
+          { internalType: "uint256", name: "feeAmount", type: "uint256" },
+          { internalType: "uint32", name: "validTo", type: "uint32" },
+          { internalType: "bool", name: "partiallyFillable", type: "bool" },
+          { internalType: "int64", name: "quoteId", type: "int64" },
+        ],
+        internalType: "struct EthFlowOrder.Data",
+        name: "order",
+        type: "tuple",
+      },
+    ],
+    name: "createOrder",
+    outputs: [{ internalType: "bytes32", name: "orderHash", type: "bytes32" }],
+    stateMutability: "payable",
+    type: "function",
+  },
+] as const;

@@ -6,6 +6,7 @@ import {
   optimism,
   arbitrum,
   base,
+  bsc,
 } from "wagmi/chains";
 
 /**
@@ -31,6 +32,6 @@ if (!projectId && typeof window !== "undefined") {
 export const wagmiConfig = getDefaultConfig({
   appName: "Neko Protocol",
   projectId: projectId || "00000000000000000000000000000000", // Temporary fallback - user should set their own
-  chains: [mainnet, sepolia, polygon, optimism, arbitrum, base],
+  chains: [mainnet, bsc, polygon, optimism, arbitrum, base, sepolia],
   ssr: true, // Enable SSR support for Next.js
 });

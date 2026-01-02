@@ -9,6 +9,8 @@ import React, {
 } from "react";
 import { useWallet } from "@/hooks/useWallet";
 import { useTokenBalance } from "@/hooks/useTokenBalance";
+import { useEVMTokenBalance } from "@/hooks/useEVMTokenBalance";
+import { useGasCheck } from "@/hooks/useGasCheck";
 import { useTokenPrice } from "@/hooks/useTokenPrice";
 import { useEVMTokenPrice } from "@/hooks/useEVMTokenPrice";
 import { useWalletType } from "@/hooks/useWalletType";
@@ -17,6 +19,7 @@ import {
   usePublicClient,
   useWalletClient,
   useChainId,
+  useSwitchChain,
 } from "wagmi";
 import { parseUnits, formatUnits } from "viem";
 import {
@@ -39,10 +42,14 @@ import {
   getCowSwapQuote,
   executeCowSwap,
   getCowSwapExplorerUrl,
-  EVM_TOKENS,
   type CowSwapQuoteRequest,
   type CowSwapSwapRequest,
 } from "@/lib/helpers/cowswap";
+import {
+  getTokensForChain,
+  DEFAULT_CHAIN_ID,
+  SUPPORTED_CHAINS,
+} from "@/lib/constants/evmConfig";
 import TokenSelectorModal from "../ui/TokenSelectorModal";
 import { Tooltip, IconButton } from "@mui/material";
 import {
@@ -72,6 +79,7 @@ const Swap: React.FC = () => {
   const publicClient = usePublicClient();
   const { data: walletClient } = useWalletClient();
   const chainId = useChainId();
+  const { switchChainAsync } = useSwitchChain();
 
   // Use the appropriate address based on wallet type
   const address = walletType === "evm" ? evmAddress : stellarWalletAddress;
@@ -125,17 +133,70 @@ const Swap: React.FC = () => {
     "from"
   );
 
+  // EVM Chain selection state - sync with connected wallet chain
+  const [selectedEvmChainId, setSelectedEvmChainId] = useState<number>(
+    chainId || DEFAULT_CHAIN_ID
+  );
+
+  // Sync selectedEvmChainId with wallet chain when it changes
+  useEffect(() => {
+    if (chainId && chainId !== selectedEvmChainId && swapMode === "evm") {
+      setSelectedEvmChainId(chainId);
+      // Reset tokens for the new chain
+      const newChainTokens = getTokensForChain(chainId);
+      const tokenSymbols = Object.keys(newChainTokens);
+      const nativeToken =
+        tokenSymbols.find((s) => s === "ETH" || s === "BNB") || tokenSymbols[0];
+      const stableToken =
+        tokenSymbols.find((s) => s === "USDC") || tokenSymbols[1];
+      setTokenIn(nativeToken || tokenSymbols[0]);
+      setTokenOut(stableToken || tokenSymbols[1] || tokenSymbols[0]);
+    }
+  }, [chainId, swapMode]);
+
+  // Get EVM tokens for selected chain
+  const EVM_TOKENS = useMemo(
+    () => getTokensForChain(selectedEvmChainId),
+    [selectedEvmChainId]
+  );
+
+  // Get chain icon for badge display
+  const currentChainIcon = useMemo(() => {
+    const chain = SUPPORTED_CHAINS.find((c) => c.id === selectedEvmChainId);
+    return chain?.icon || null;
+  }, [selectedEvmChainId]);
+
   // Ref for debounce timer and request cancellation
   const quoteTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  // Get token balance for "from" token (Stellar only for now)
-  const { balance: tokenInBalance, isLoading: isLoadingBalance } =
+  // Get token balance for "from" token - Stellar
+  const { balance: stellarTokenInBalance, isLoading: isLoadingStellarBalance } =
     useTokenBalance(
       swapMode === "stellar"
         ? (tokenIn as Token | string | undefined)
         : undefined
     );
+
+  // Get token symbol for EVM balance lookup
+  const evmTokenSymbol = useMemo(() => {
+    if (swapMode !== "evm") return undefined;
+    if (typeof tokenIn === "string") return tokenIn;
+    if (typeof tokenIn === "object" && "symbol" in tokenIn) {
+      return (tokenIn as UniswapToken).symbol;
+    }
+    return undefined;
+  }, [swapMode, tokenIn]);
+
+  // Get token balance for "from" token - EVM
+  const { balance: evmTokenInBalance, isLoading: isLoadingEvmBalance } =
+    useEVMTokenBalance(evmTokenSymbol, selectedEvmChainId);
+
+  // Combined balance based on swap mode
+  const tokenInBalance =
+    swapMode === "evm" ? evmTokenInBalance : stellarTokenInBalance;
+  const isLoadingBalance =
+    swapMode === "evm" ? isLoadingEvmBalance : isLoadingStellarBalance;
 
   // Get token prices in USD (Stellar or EVM based on swap mode)
   const { price: stellarTokenInPrice, isLoading: isLoadingStellarPrice } =
@@ -174,6 +235,25 @@ const Swap: React.FC = () => {
     swapMode === "evm" ? isLoadingEvmPrice : isLoadingStellarPrice;
   const isLoadingOutPrice =
     swapMode === "evm" ? isLoadingEvmOutPrice : isLoadingStellarOutPrice;
+
+  // Check if selling native ETH (uses EthFlow)
+  const isSellingNativeETH = useMemo(() => {
+    if (swapMode !== "evm") return false;
+    const symbol =
+      typeof tokenIn === "string" ? tokenIn : (tokenIn as UniswapToken)?.symbol;
+    return symbol === "ETH" && selectedEvmChainId === 1;
+  }, [swapMode, tokenIn, selectedEvmChainId]);
+
+  // Gas check for EVM swaps
+  const {
+    hasEnoughGas,
+    nativeSymbol: gasSymbol,
+    isLoading: isLoadingGas,
+  } = useGasCheck(
+    isSellingNativeETH,
+    false, // needsApproval - we'd need to check this dynamically
+    swapMode === "evm" ? selectedEvmChainId : undefined
+  );
 
   // Calculate USD value
   const usdValue =
@@ -296,7 +376,7 @@ const Swap: React.FC = () => {
     }
 
     // EVM swap quote (CoW Swap) - Using OrderBookApi for faster quotes
-    if (swapMode === "evm" && publicClient && chainId) {
+    if (swapMode === "evm" && publicClient && selectedEvmChainId) {
       try {
         const tokenInSymbol: string =
           typeof tokenIn === "string"
@@ -331,7 +411,7 @@ const Swap: React.FC = () => {
 
         const quote = await getCowSwapQuote(
           quoteRequest,
-          chainId,
+          selectedEvmChainId,
           publicClient,
           walletClient
         );
@@ -482,7 +562,8 @@ const Swap: React.FC = () => {
     apiKeyConfigured,
     swapMode,
     publicClient,
-    chainId,
+    selectedEvmChainId,
+    EVM_TOKENS,
   ]);
 
   // Debounced live quote update
@@ -569,7 +650,55 @@ const Swap: React.FC = () => {
     setTokenSelectorOpen(true);
   };
 
-  const handleSelectToken = (token: Token | string) => {
+  const handleChainChange = async (newChainId: number) => {
+    if (newChainId !== selectedEvmChainId) {
+      try {
+        // Switch wallet chain first
+        if (isEvmConnected && switchChainAsync) {
+          await switchChainAsync({ chainId: newChainId });
+        }
+
+        setSelectedEvmChainId(newChainId);
+        // Reset tokens to defaults for the new chain
+        const newChainTokens = getTokensForChain(newChainId);
+        const tokenSymbols = Object.keys(newChainTokens);
+        // Set first token as native (ETH/BNB) and second as USDC if available
+        const nativeToken =
+          tokenSymbols.find((s) => s === "ETH" || s === "BNB") ||
+          tokenSymbols[0];
+        const stableToken =
+          tokenSymbols.find((s) => s === "USDC") || tokenSymbols[1];
+        setTokenIn(nativeToken || tokenSymbols[0]);
+        setTokenOut(stableToken || tokenSymbols[1] || tokenSymbols[0]);
+        setAmountIn("");
+        setAmountOut("0.0");
+        resetSwap();
+        setTxHash(null);
+      } catch (err: unknown) {
+        // Check if user rejected the request - this is not an error, just user cancellation
+        const errorMessage = err instanceof Error ? err.message : String(err);
+        const isUserRejection =
+          errorMessage.toLowerCase().includes("user rejected") ||
+          errorMessage.toLowerCase().includes("user denied") ||
+          errorMessage.includes("4001");
+
+        if (!isUserRejection) {
+          console.error("Failed to switch chain:", err);
+          setError(
+            "Failed to switch network. Please switch manually in your wallet."
+          );
+        }
+        // If user rejected, silently ignore - they can try again if they want
+      }
+    }
+  };
+
+  const handleSelectToken = (token: Token | string, chainId?: number) => {
+    // Update chain if provided
+    if (chainId && chainId !== selectedEvmChainId) {
+      void handleChainChange(chainId);
+    }
+
     if (tokenSelectorType === "from") {
       const newTokenId = getTokenId(token);
       const currentTokenOutId = getTokenId(tokenOut);
@@ -627,7 +756,7 @@ const Swap: React.FC = () => {
         swapMode === "evm" &&
         walletClient &&
         publicClient &&
-        chainId &&
+        selectedEvmChainId &&
         evmAddress
       ) {
         const tokenInSymbol: string =
@@ -665,7 +794,7 @@ const Swap: React.FC = () => {
         try {
           quote = await getCowSwapQuote(
             quoteRequest,
-            chainId,
+            selectedEvmChainId,
             publicClient,
             walletClient
           );
@@ -690,7 +819,7 @@ const Swap: React.FC = () => {
         try {
           const swapResult = await executeCowSwap(
             swapRequest,
-            chainId,
+            selectedEvmChainId,
             publicClient,
             walletClient
           );
@@ -929,17 +1058,26 @@ const Swap: React.FC = () => {
                 disabled={isLoading}
                 className="flex items-center gap-2 bg-[#334EAC] hover:bg-[#3351aca5] text-white px-4 py-2.5 rounded-xl font-semibold transition-all duration-200 shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {getTokenIconUrl(tokenIn) ? (
-                  <img
-                    src={getTokenIconUrl(tokenIn)!}
-                    alt={getTokenId(tokenIn)}
-                    className="w-5 h-5 rounded-full object-contain"
-                  />
-                ) : (
-                  <div className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center text-xs font-bold">
-                    {getTokenId(tokenIn)[0] || "?"}
-                  </div>
-                )}
+                <div className="relative">
+                  {getTokenIconUrl(tokenIn) ? (
+                    <img
+                      src={getTokenIconUrl(tokenIn)!}
+                      alt={getTokenId(tokenIn)}
+                      className="w-5 h-5 rounded-full object-contain"
+                    />
+                  ) : (
+                    <div className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center text-xs font-bold">
+                      {getTokenId(tokenIn)[0] || "?"}
+                    </div>
+                  )}
+                  {swapMode === "evm" && currentChainIcon && (
+                    <img
+                      src={currentChainIcon}
+                      alt="chain"
+                      className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border border-[#334EAC] object-contain bg-white"
+                    />
+                  )}
+                </div>
                 <span>{getTokenId(tokenIn)}</span>
                 <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
                   <path
@@ -1136,17 +1274,26 @@ const Swap: React.FC = () => {
                 className="flex items-center gap-2 bg-[#334EAC] hover:bg-[#3351aca5] text-white px-5 py-3 rounded-xl font-semibold text-sm transition-all duration-200 shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
                 style={{ marginTop: "-10px" }}
               >
-                {getTokenIconUrl(tokenOut) ? (
-                  <img
-                    src={getTokenIconUrl(tokenOut)!}
-                    alt={getTokenId(tokenOut) || "Token"}
-                    className="w-6 h-6 rounded-full object-contain"
-                  />
-                ) : (
-                  <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center text-xs font-bold">
-                    {getTokenId(tokenOut)?.[0] || "?"}
-                  </div>
-                )}
+                <div className="relative">
+                  {getTokenIconUrl(tokenOut) ? (
+                    <img
+                      src={getTokenIconUrl(tokenOut)!}
+                      alt={getTokenId(tokenOut) || "Token"}
+                      className="w-6 h-6 rounded-full object-contain"
+                    />
+                  ) : (
+                    <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center text-xs font-bold">
+                      {getTokenId(tokenOut)?.[0] || "?"}
+                    </div>
+                  )}
+                  {swapMode === "evm" && currentChainIcon && (
+                    <img
+                      src={currentChainIcon}
+                      alt="chain"
+                      className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border border-[#334EAC] object-contain bg-white"
+                    />
+                  )}
+                </div>
                 <span>{getTokenId(tokenOut) || "Select token"}</span>
                 <svg width="14" height="14" viewBox="0 0 12 12" fill="none">
                   <path
@@ -1185,6 +1332,14 @@ const Swap: React.FC = () => {
             >
               Enter Amount
             </button>
+          ) : swapMode === "evm" && !hasEnoughGas && !isLoadingGas ? (
+            <button
+              disabled
+              className="w-full bg-[#dc2626] text-white font-bold py-4 text-base rounded-xl cursor-not-allowed flex items-center justify-center gap-2"
+            >
+              <Warning className="w-5 h-5" />
+              Insufficient {gasSymbol} for Gas
+            </button>
           ) : (
             <button
               onClick={() => {
@@ -1216,11 +1371,9 @@ const Swap: React.FC = () => {
               </div>
               <a
                 href={
-                  swapMode === "evm" && chainId
-                    ? getCowSwapExplorerUrl(txHash, chainId)
-                    : swapMode === "evm"
-                      ? `https://etherscan.io/tx/${txHash}`
-                      : getExplorerUrl(txHash, network)
+                  swapMode === "evm"
+                    ? getCowSwapExplorerUrl(txHash, selectedEvmChainId)
+                    : getExplorerUrl(txHash, network)
                 }
                 target="_blank"
                 rel="noopener noreferrer"
@@ -1260,6 +1413,8 @@ const Swap: React.FC = () => {
           (tokenSelectorType === "from" ? tokenIn : tokenOut) as Token | string
         }
         swapMode={swapMode}
+        selectedChainId={selectedEvmChainId}
+        onChainChange={handleChainChange}
       />
     </div>
   );
