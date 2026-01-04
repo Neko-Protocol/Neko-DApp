@@ -39,7 +39,7 @@ export const WETH_ADDRESS = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2";
 export const DEFAULT_ADDRESS = "0x0000000000000000000000000000000000000000";
 
 // Timeout for quote requests in milliseconds
-export const QUOTE_TIMEOUT_MS = 5000;
+export const QUOTE_TIMEOUT_MS = 10000;
 
 // App code for CoW Protocol
 export const COW_APP_CODE = "NEKO_DAPP";
