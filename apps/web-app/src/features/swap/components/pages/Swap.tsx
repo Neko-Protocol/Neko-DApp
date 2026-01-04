@@ -509,9 +509,9 @@ const Swap: React.FC = () => {
 
           // Convert amountOut from smallest unit to human-readable format
           if (amountOutBigInt > BigInt(0)) {
-            const amountOutFormatted = fromSmallestUnit(amountOutStr, 7);
+            const amountOutFormatted = fromSmallestUnit(amountOutStr, 6);
 
-            const formatted = formatSwapAmount(amountOutFormatted, 7);
+            const formatted = formatSwapAmount(amountOutFormatted, 6);
 
             setAmountOut(formatted);
           } else {
@@ -1199,7 +1199,7 @@ const Swap: React.FC = () => {
                   Balance:{" "}
                   {isLoadingBalance
                     ? "..."
-                    : formatSwapAmount(tokenInBalance || "0", 7)}{" "}
+                    : formatSwapAmount(tokenInBalance || "0", 6)}{" "}
                   <button
                     onClick={() => {
                       if (tokenInBalance && parseFloat(tokenInBalance) > 0) {
