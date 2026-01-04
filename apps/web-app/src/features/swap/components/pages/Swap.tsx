@@ -435,7 +435,10 @@ const Swap: React.FC = () => {
           );
           setAmountOut(amountOutFormatted || "0.0");
         } else {
-          setAmountOut(quote.amountOut || "0.0");
+          // Fallback: format the amount even without token info
+          const amountOutStr = quote.amountOut.toString();
+          const amountOutFormatted = fromSmallestUnit(amountOutStr, 6);
+          setAmountOut(formatSwapAmount(amountOutFormatted, 6));
         }
         setError(null);
       } catch (error) {
@@ -1257,7 +1260,7 @@ const Swap: React.FC = () => {
                         </span>
                       ) : amountOut && amountOut !== "0.0" ? (
                         <>
-                          <span className="truncate">{amountOut}</span>
+                          <span className="truncate">{formatSwapAmount(amountOut, 6)}</span>
                           {swapValueAnalysis?.isSuspiciouslyLow &&
                             !isLoadingOutPrice && (
                               <Tooltip
