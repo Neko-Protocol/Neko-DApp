@@ -9,6 +9,7 @@ import {
   OrderKind,
   OrderBookApi,
   OrderQuoteSideKindSell,
+  OrderSigningUtils,
 } from "@cowprotocol/cow-sdk";
 import { ViemAdapter } from "@cowprotocol/sdk-viem-adapter";
 import { WalletClient, PublicClient } from "viem";
@@ -31,6 +32,18 @@ import type {
   CowSwapQuoteResponse,
   CowSwapSwapRequest,
   CowSwapSwapResponse,
+  CowSwapLimitOrderRequest,
+  CowSwapLimitOrderResponse,
+  CowSwapTwapOrderRequest,
+  CowSwapTwapOrderResponse,
+  CowSwapOrder,
+  CowSwapOrderWithPrice,
+  CowSwapCancelOrderRequest,
+  CowSwapCancelOrderResponse,
+  CowSwapOrderHistoryRequest,
+  CowSwapOrderHistoryResponse,
+  CowOrder,
+  CowTrade,
 } from "../types/cowswapTypes";
 
 export class CowSwapService {
@@ -389,10 +402,219 @@ export class CowSwapService {
   }
 
   /**
+   * Cancel an order using CoW Protocol API
+   */
+  /**
+   * Submit order cancellation request to CoW Protocol
+   */
+  private async submitOrderCancellation(
+    orderUids: string[],
+    signature: string,
+    chainId: number
+  ): Promise<boolean> {
+    // Use absolute URL for API calls from client-side
+    const baseUrl = typeof window !== "undefined" ? window.location.origin : "";
+    const cancelResponse = await fetch(`${baseUrl}/api/cow/orders`, {
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        orderUids,
+        signature,
+        signingScheme: "eip712",
+        chainId,
+      }),
+    });
+
+    return cancelResponse.ok;
+  }
+
+  /**
+   * Cancel an order - handles both on-chain and off-chain cancellation
+   */
+  async cancelOrder(
+    request: CowSwapCancelOrderRequest,
+    chainId: number,
+    walletClient: WalletClient
+  ): Promise<CowSwapCancelOrderResponse> {
+    try {
+      if (request.onChain) {
+        // On-chain cancellation - requires sending a transaction
+        // This would require implementing on-chain cancellation logic
+        return {
+          success: false,
+          message: "On-chain cancellation not yet implemented",
+        };
+      }
+
+      // Off-chain cancellation using API
+      const orderUids = [request.orderId];
+      const signature = await this.signOrderCancellation(
+        orderUids,
+        chainId,
+        walletClient
+      );
+
+      if (!signature) {
+        return {
+          success: false,
+          message: "Failed to sign cancellation message",
+        };
+      }
+
+      const success = await this.submitOrderCancellation(
+        orderUids,
+        signature,
+        chainId
+      );
+
+      return {
+        success,
+        message: success
+          ? "Cancellation request submitted"
+          : "Cancellation failed",
+      };
+    } catch (error) {
+      console.error("Error canceling order:", error);
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : "Unknown error",
+      };
+    }
+  }
+
+  /**
+   * Sign order cancellation message using EIP-712
+   */
+  private async signOrderCancellation(
+    orderUids: string[],
+    chainId: number,
+    walletClient: WalletClient
+  ): Promise<string | null> {
+    try {
+      // EIP-712 domain
+      const domain = {
+        name: "Gnosis Protocol",
+        version: "v2",
+        chainId,
+        verifyingContract:
+          "0x9008D19f58AAbD9eD0D60971565AA8510560ab41" as `0x${string}`, // GPv2Settlement contract
+      };
+
+      // EIP-712 types for OrderCancellations
+      const types = {
+        OrderCancellations: [{ name: "orderUids", type: "bytes[]" }],
+      };
+
+      // Message to sign
+      const message = {
+        orderUids,
+      };
+
+      // Sign using wallet client
+      const signature = await walletClient.signTypedData({
+        account: walletClient.account!,
+        domain,
+        types,
+        primaryType: "OrderCancellations",
+        message,
+      });
+
+      return signature;
+    } catch (error) {
+      console.error("Error signing cancellation:", error);
+      return null;
+    }
+  }
+
+  /**
    * Check if error indicates user rejection
    */
   isUserRejected(error: unknown): boolean {
     return this.isUserRejectionError(error);
+  }
+
+  /**
+   * Create a limit order using CoW Protocol
+   * Note: CoW Protocol handles limit orders differently than traditional exchanges.
+   * Limit orders in CoW Protocol are executed when solvers find matching opportunities.
+   */
+  async createLimitOrder(
+    request: CowSwapLimitOrderRequest,
+    chainId: number,
+    publicClient: PublicClient,
+    walletClient: WalletClient
+  ): Promise<CowSwapLimitOrderResponse> {
+    const tokenIn = this.getEVMToken(request.tokenIn, chainId);
+    const tokenOut = this.getEVMToken(request.tokenOut, chainId);
+    const supportedChainId = this.getChainIdMapping(chainId);
+    const sdk = this.getTradingSdk(
+      supportedChainId,
+      publicClient,
+      walletClient
+    );
+
+    // Calculate buy amount based on limit price
+    const sellAmount = BigInt(request.amountIn);
+    const limitPrice = parseFloat(request.limitPrice);
+
+    // Calculate the minimum buy amount based on limit price
+    // This represents the minimum amount the user wants to receive
+    const buyAmountMin =
+      (sellAmount * BigInt(Math.floor(limitPrice * 1e6))) / BigInt(1e6);
+
+    const parameters: any = {
+      kind: OrderKind.SELL,
+      sellToken: this.normalizeTokenAddressForSwap(
+        tokenIn.address,
+        chainId,
+        tokenIn.symbol
+      ),
+      sellTokenDecimals: tokenIn.decimals,
+      buyToken: this.normalizeTokenAddressForSwap(
+        tokenOut.address,
+        chainId,
+        tokenOut.symbol
+      ),
+      buyTokenDecimals: tokenOut.decimals,
+      amount: request.amountIn,
+      receiver: request.recipient,
+      // For limit orders, we set the buy amount to our limit price target
+      buyAmount: buyAmountMin.toString(),
+    };
+
+    try {
+      // Get quote and create order - CoW Protocol will handle the limit order logic
+      const { postSwapOrderFromQuote } = await sdk.getQuote(parameters);
+      const orderResult = await postSwapOrderFromQuote();
+
+      return {
+        orderId: orderResult.orderId || "",
+        explorerUrl: this.getExplorerUrl(orderResult.orderId || "", chainId),
+      };
+    } catch (error) {
+      if (this.isUserRejectionError(error)) {
+        throw new Error("USER_REJECTED");
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Create a TWAP (Time-Weighted Average Price) order
+   * Note: TWAP orders are not yet available in CoW Protocol SDK
+   */
+  async createTwapOrder(
+    request: CowSwapTwapOrderRequest,
+    chainId: number,
+    _publicClient: PublicClient,
+    _walletClient: WalletClient
+  ): Promise<CowSwapTwapOrderResponse> {
+    // TWAP orders are not yet available in CoW Protocol SDK
+    throw new Error(
+      "TWAP orders are currently not supported. Please use Swap or Limit orders instead."
+    );
   }
 }
 

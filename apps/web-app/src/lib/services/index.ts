@@ -10,6 +10,16 @@ export type {
   CowSwapQuoteResponse,
   CowSwapSwapRequest,
   CowSwapSwapResponse,
+  CowSwapLimitOrderRequest,
+  CowSwapLimitOrderResponse,
+  CowSwapTwapOrderRequest,
+  CowSwapTwapOrderResponse,
+  CowSwapOrder,
+  CowSwapOrderWithPrice,
+  CowSwapCancelOrderRequest,
+  CowSwapCancelOrderResponse,
+  CowSwapOrderHistoryRequest,
+  CowSwapOrderHistoryResponse,
 } from "../types/cowswapTypes";
 
 // Lending Service

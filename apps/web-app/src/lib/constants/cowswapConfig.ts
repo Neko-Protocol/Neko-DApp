@@ -81,3 +81,25 @@ export const ETH_FLOW_ABI = [
     type: "function",
   },
 ] as const;
+
+// CoW Protocol API URLs by chain ID
+export const COW_API_BASE_URLS: Record<number, string> = {
+  1: "https://api.cow.fi/mainnet", // Ethereum
+  100: "https://api.cow.fi/xdai", // Gnosis Chain
+  42161: "https://api.cow.fi/arbitrum_one", // Arbitrum One
+  8453: "https://api.cow.fi/base", // Base
+  43114: "https://api.cow.fi/avalanche", // Avalanche
+  137: "https://api.cow.fi/polygon", // Polygon
+  232: "https://api.cow.fi/lens", // Lens
+  56: "https://api.cow.fi/bnb", // BNB Chain
+  11155111: "https://api.cow.fi/sepolia", // Sepolia (testnet)
+};
+
+// CoW Protocol API endpoints
+export const COW_API_ENDPOINTS = {
+  ORDERS: "/api/v1/orders",
+  ORDER_BY_UID: (uid: string) => `/api/v1/orders/${uid}`,
+  ORDER_STATUS: (uid: string) => `/api/v1/orders/${uid}/status`,
+  TRADES: "/api/v1/trades",
+  TRANSACTIONS: (txHash: string) => `/api/v1/transactions/${txHash}/orders`,
+} as const;

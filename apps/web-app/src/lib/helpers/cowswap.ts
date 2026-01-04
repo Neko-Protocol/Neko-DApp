@@ -1,10 +1,20 @@
 import { WalletClient, PublicClient } from "viem";
 import { cowSwapService } from "../services";
+import { EVM_TOKENS } from "../constants/evmConfig";
 import type {
   CowSwapQuoteRequest,
   CowSwapQuoteResponse,
   CowSwapSwapRequest,
   CowSwapSwapResponse,
+  CowSwapLimitOrderRequest,
+  CowSwapLimitOrderResponse,
+  CowSwapTwapOrderRequest,
+  CowSwapTwapOrderResponse,
+  CowSwapOrderWithPrice,
+  CowSwapCancelOrderRequest,
+  CowSwapCancelOrderResponse,
+  CowSwapOrderHistoryRequest,
+  CowSwapOrderHistoryResponse,
 } from "../types/cowswapTypes";
 
 export { EVM_TOKENS } from "../constants/evmConfig";
@@ -13,6 +23,15 @@ export type {
   CowSwapQuoteResponse,
   CowSwapSwapRequest,
   CowSwapSwapResponse,
+  CowSwapLimitOrderRequest,
+  CowSwapLimitOrderResponse,
+  CowSwapTwapOrderRequest,
+  CowSwapTwapOrderResponse,
+  CowSwapOrderWithPrice,
+  CowSwapCancelOrderRequest,
+  CowSwapCancelOrderResponse,
+  CowSwapOrderHistoryRequest,
+  CowSwapOrderHistoryResponse,
 } from "../types/cowswapTypes";
 
 /**
@@ -59,4 +78,111 @@ export const executeCowSwap = async (
  */
 export const isUserRejectionError = (error: unknown): boolean => {
   return cowSwapService.isUserRejected(error);
+};
+
+/**
+ * Create a limit order using the service
+ */
+export const createCowSwapLimitOrder = async (
+  request: CowSwapLimitOrderRequest,
+  chainId: number,
+  publicClient: PublicClient,
+  walletClient: WalletClient
+): Promise<CowSwapLimitOrderResponse> => {
+  return cowSwapService.createLimitOrder(
+    request,
+    chainId,
+    publicClient,
+    walletClient
+  );
+};
+
+/**
+ * Create a TWAP order using the service
+ */
+export const createCowSwapTwapOrder = async (
+  request: CowSwapTwapOrderRequest,
+  chainId: number,
+  publicClient: PublicClient,
+  walletClient: WalletClient
+): Promise<CowSwapTwapOrderResponse> => {
+  return cowSwapService.createTwapOrder(
+    request,
+    chainId,
+    publicClient,
+    walletClient
+  );
+};
+
+/**
+ * Get open orders for a user
+ */
+export const getCowSwapOpenOrders = async (
+  owner: string,
+  chainId: number
+): Promise<CowSwapOrderWithPrice[]> => {
+  try {
+    // Call API route directly
+    const baseUrl = typeof window !== "undefined" ? window.location.origin : "";
+    const response = await fetch(
+      `${baseUrl}/api/cow/orders?owner=${owner}&chainId=${chainId}&limit=100`
+    );
+
+    if (!response.ok) {
+      console.error(
+        `Failed to fetch orders: ${response.status} ${response.statusText}`
+      );
+      return [];
+    }
+
+    const data = await response.json();
+    return data.orders || [];
+  } catch (error) {
+    console.error("Error getting open orders:", error);
+    return [];
+  }
+};
+
+/**
+ * Cancel an order
+ */
+export const cancelCowSwapOrder = async (
+  request: CowSwapCancelOrderRequest,
+  chainId: number,
+  walletClient: WalletClient
+): Promise<CowSwapCancelOrderResponse> => {
+  return cowSwapService.cancelOrder(request, chainId, walletClient);
+};
+
+/**
+ * Get order history for a user
+ */
+export const getCowSwapOrderHistory = async (
+  request: CowSwapOrderHistoryRequest,
+  chainId: number
+): Promise<CowSwapOrderHistoryResponse> => {
+  try {
+    const limit = request.limit || 50;
+    const offset = request.offset || 0;
+
+    // Call API route directly
+    const baseUrl = typeof window !== "undefined" ? window.location.origin : "";
+    const response = await fetch(
+      `${baseUrl}/api/cow/trades?owner=${request.owner}&chainId=${chainId}&offset=${offset}&limit=${limit}`
+    );
+
+    if (!response.ok) {
+      console.error("Failed to fetch order history");
+      return { orders: [], hasMore: false };
+    }
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error("Error getting order history:", error);
+    return {
+      orders: [],
+      hasMore: false,
+    };
+  }
 };
