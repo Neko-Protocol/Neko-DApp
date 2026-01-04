@@ -272,6 +272,12 @@ const Swap: React.FC = () => {
       ? (parseFloat(amountIn) * tokenInPrice).toFixed(2)
       : "0.00";
 
+  // Calculate USD value for output amount
+  const usdValueOut =
+    amountOut && parseFloat(amountOut) > 0 && tokenOutPrice > 0
+      ? (parseFloat(amountOut) * tokenOutPrice).toFixed(2)
+      : "0.00";
+
   // Calculate expected output based on USD prices and compare with actual output
   const swapValueAnalysis = useMemo(() => {
     if (
@@ -386,21 +392,23 @@ const Swap: React.FC = () => {
       return;
     }
 
+    // Define token symbols for both EVM and Stellar modes
+    const tokenInSymbol: string =
+      typeof tokenIn === "string"
+        ? tokenIn
+        : tokenIn instanceof UniswapToken
+          ? tokenIn.symbol || "ETH"
+          : "ETH";
+    const tokenOutSymbol: string =
+      typeof tokenOut === "string"
+        ? tokenOut
+        : tokenOut instanceof UniswapToken
+          ? tokenOut.symbol || "USDC"
+          : "USDC";
+
     // EVM swap quote (CoW Swap) - Using OrderBookApi for faster quotes
     if (swapMode === "evm" && publicClient && selectedEvmChainId) {
       try {
-        const tokenInSymbol: string =
-          typeof tokenIn === "string"
-            ? tokenIn
-            : tokenIn instanceof UniswapToken
-              ? tokenIn.symbol || "ETH"
-              : "ETH";
-        const tokenOutSymbol: string =
-          typeof tokenOut === "string"
-            ? tokenOut
-            : tokenOut instanceof UniswapToken
-              ? tokenOut.symbol || "USDC"
-              : "USDC";
 
         const tokenInObj = EVM_TOKENS[tokenInSymbol];
         if (!tokenInObj) {
@@ -512,10 +520,18 @@ const Swap: React.FC = () => {
 
           // Convert amountOut from smallest unit to human-readable format
           if (amountOutBigInt > BigInt(0)) {
-            const amountOutFormatted = fromSmallestUnit(amountOutStr, 6);
+            const tokenOutObj = EVM_TOKENS[tokenOutSymbol];
+            let amountOutFormatted: string;
+
+            if (tokenOutObj) {
+              // Use correct decimals for known tokens
+              amountOutFormatted = formatUnits(amountOutBigInt, tokenOutObj.decimals);
+            } else {
+              // Fallback: assume 6 decimals for unknown tokens (like stablecoins)
+              amountOutFormatted = fromSmallestUnit(amountOutStr, 6);
+            }
 
             const formatted = formatSwapAmount(amountOutFormatted, 6);
-
             setAmountOut(formatted);
           } else {
             setAmountOut("0.0");
@@ -1247,11 +1263,11 @@ const Swap: React.FC = () => {
 
             {/* To Token Section */}
             <div className="-mt-4">
-              <div className="bg-gray-900/50 border border-gray-700 rounded-xl p-4 h-32">
+              <div className="bg-gray-900/50 border border-gray-700 rounded-xl p-4 h-32 relative">
                 <label className="text-sm font-semibold text-gray-400 block mb-3">
                   To
                 </label>
-                <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center justify-between gap-3 -mt-2">
                   <div className="flex-1 min-w-0 overflow-hidden">
                     <div className="text-3xl font-bold text-white min-h-12 flex items-center gap-2">
                       {isLoadingQuote ? (
@@ -1378,6 +1394,11 @@ const Swap: React.FC = () => {
                         "0"
                       )}
                     </div>
+                    {amountOut && amountOut !== "0.0" && (
+                      <p className="text-sm text-gray-400 -mt-2">
+                        {isLoadingOutPrice ? "≈ $..." : `≈ $${usdValueOut}`}
+                      </p>
+                    )}
                   </div>
                   <button
                     onClick={() => handleOpenTokenSelector("to")}
