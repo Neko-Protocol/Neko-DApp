@@ -675,6 +675,39 @@ const Swap: React.FC = () => {
     swapMode,
   ]);
 
+  // Auto-update quotes every 30 seconds for price fluctuations
+  useEffect(() => {
+    const interval = setInterval(() => {
+      // Only auto-update if we have valid inputs and aren't currently loading
+      const trimmedAmount = amountIn?.trim() || "";
+      const parsedAmount = parseFloat(trimmedAmount);
+
+      if (
+        !isLoadingQuote &&
+        trimmedAmount &&
+        trimmedAmount !== "0" &&
+        trimmedAmount !== "0." &&
+        !isNaN(parsedAmount) &&
+        parsedAmount > 0 &&
+        address
+      ) {
+        void fetchLiveQuote();
+      }
+    }, 5000); // 5 seconds
+
+    return () => clearInterval(interval);
+  }, [
+    amountIn,
+    tokenIn,
+    tokenOut,
+    address,
+    isLoadingQuote,
+    swapMode,
+    selectedEvmChainId,
+    apiKeyConfigured,
+    fetchLiveQuote,
+  ]);
+
   const handleOpenTokenSelector = (type: "from" | "to") => {
     setTokenSelectorType(type);
     setTokenSelectorOpen(true);
