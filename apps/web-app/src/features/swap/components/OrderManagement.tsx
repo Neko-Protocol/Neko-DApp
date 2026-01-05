@@ -32,7 +32,7 @@ export const OrderManagement: React.FC = () => {
 
     try {
       const orders = await getCowSwapOpenOrders(address, chainId);
-      setOpenOrders(orders);
+      setOpenOrders(orders || []);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load orders");
     } finally {
@@ -52,7 +52,7 @@ export const OrderManagement: React.FC = () => {
         { owner: address, limit: 20 },
         chainId
       );
-      setOrderHistory(history.orders);
+      setOrderHistory(history.orders || []);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load history");
     } finally {
@@ -116,7 +116,7 @@ export const OrderManagement: React.FC = () => {
 
   if (!address) {
     return (
-      <div className="bg-gray-700 border border-gray-700 rounded-2xl p-6">
+      <div className="bg-gray-800 border border-gray-700 rounded-2xl p-6">
         <p className="text-gray-400 text-center">
           Connect your wallet to view orders
         </p>
@@ -168,12 +168,20 @@ export const OrderManagement: React.FC = () => {
       {/* Open Orders */}
       {activeTab === "open" && !isLoading && (
         <div className="space-y-3">
-          {openOrders.length === 0 ? (
+          {(openOrders || []).length === 0 ? (
             <div className="text-center py-8">
-              <p className="text-gray-400">No open orders</p>
-              <p className="text-sm text-gray-500 mt-2">
-                Place limit orders to see them here
+              <p className="text-gray-400 mb-2">Order Management</p>
+              <p className="text-sm text-gray-500 mb-4">
+                Coming soon - Track and manage your CoW Protocol orders
               </p>
+              <a
+                href="https://explorer.cow.fi"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 text-[#334EAC] hover:text-[#081F5C] text-sm font-medium transition-colors"
+              >
+                View on CoW Explorer →
+              </a>
             </div>
           ) : (
             openOrders.map((order) => (
@@ -238,12 +246,20 @@ export const OrderManagement: React.FC = () => {
       {/* Order History */}
       {activeTab === "history" && !isLoading && (
         <div className="space-y-3">
-          {orderHistory.length === 0 ? (
+          {(orderHistory || []).length === 0 ? (
             <div className="text-center py-8">
-              <p className="text-gray-400">No order history</p>
-              <p className="text-sm text-gray-500 mt-2">
-                Completed orders will appear here
+              <p className="text-gray-400 mb-2">Order History</p>
+              <p className="text-sm text-gray-500 mb-4">
+                Coming soon - View your completed CoW Protocol orders
               </p>
+              <a
+                href="https://explorer.cow.fi"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 text-[#334EAC] hover:text-[#081F5C] text-sm font-medium transition-colors"
+              >
+                View on CoW Explorer →
+              </a>
             </div>
           ) : (
             orderHistory.map((order) => (
