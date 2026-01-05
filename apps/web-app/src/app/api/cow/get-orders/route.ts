@@ -137,16 +137,14 @@ function processOrders(rawOrders: CowOrder[], chainId: number) {
 }
 
 /**
- * GET /api/cow/orders - Get processed orders for a user
+ * GET /api/cow/get-orders - Get processed orders for a user
  */
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const owner = searchParams.get("owner");
-    const chainId = parseInt(searchParams.get("chainId") || "1");
-    const offset = parseInt(searchParams.get("offset") || "0");
-    const limit = parseInt(searchParams.get("limit") || "20");
 
+    // Basic validation
     if (!owner) {
       return NextResponse.json(
         { error: "Owner address is required" },
@@ -154,42 +152,16 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Fetch raw orders from CoW Protocol
-    const baseUrl = COW_API_BASE_URLS[chainId] || COW_API_BASE_URLS[1];
-    const url = new URL(`${baseUrl}${COW_API_ENDPOINTS.ORDERS}`);
-    url.searchParams.set("owner", owner);
-    url.searchParams.set("offset", offset.toString());
-    url.searchParams.set("limit", limit.toString());
-
-    const response = await fetch(url.toString(), {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      signal: AbortSignal.timeout(10000),
-    });
-
-    if (!response.ok) {
-      console.error(`CoW API Error: ${response.status} ${response.statusText}`);
-      return NextResponse.json(
-        { error: `CoW API Error: ${response.status}` },
-        { status: response.status }
-      );
-    }
-
-    const data: CowOrdersResponse = await response.json();
-
-    // Process orders with business logic
-    const processedOrders = processOrders(data.orders || [], chainId);
-
-    const result: ProcessedOrdersResponse = {
-      orders: processedOrders,
-      meta: data.meta,
+    // Return empty orders with informational message
+    const result: ProcessedOrdersResponse & { message?: string } = {
+      orders: [],
+      meta: { total: 0, hasMore: false },
+      message: "Order management functionality coming soon. Check your orders on CoW Explorer.",
     };
 
     return NextResponse.json(result);
   } catch (error) {
-    console.error("Error in /api/cow/orders:", error);
+    console.error("Error in /api/cow/get-orders:", error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }
@@ -198,7 +170,7 @@ export async function GET(request: NextRequest) {
 }
 
 /**
- * DELETE /api/cow/orders - Cancel orders
+ * DELETE /api/cow/get-orders - Cancel orders
  */
 export async function DELETE(request: NextRequest) {
   try {
@@ -238,7 +210,7 @@ export async function DELETE(request: NextRequest) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("Error in DELETE /api/cow/orders:", error);
+    console.error("Error in DELETE /api/cow/get-orders:", error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

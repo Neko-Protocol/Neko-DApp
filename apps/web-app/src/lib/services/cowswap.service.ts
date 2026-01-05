@@ -414,7 +414,7 @@ export class CowSwapService {
   ): Promise<boolean> {
     // Use absolute URL for API calls from client-side
     const baseUrl = typeof window !== "undefined" ? window.location.origin : "";
-    const cancelResponse = await fetch(`${baseUrl}/api/cow/orders`, {
+    const cancelResponse = await fetch(`${baseUrl}/api/cow/get-orders`, {
       method: "DELETE",
       headers: {
         "Content-Type": "application/json",

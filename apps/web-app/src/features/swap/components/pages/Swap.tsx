@@ -1428,7 +1428,7 @@ const Swap: React.FC = () => {
                       )}
                     </div>
                     {amountOut && amountOut !== "0.0" && (
-                      <p className="text-sm text-gray-400 -mt-2">
+                      <p className="text-sm text-gray-400 -mt-1">
                         {isLoadingOutPrice ? "≈ $..." : `≈ $${usdValueOut}`}
                       </p>
                     )}
@@ -1648,7 +1648,7 @@ const Swap: React.FC = () => {
         {/* Right Column - Order Management (only for limit orders) */}
         {orderType === "limit" && (
           <div>
-            <div className="bg-gray-800 border border-gray-700 rounded-2xl p-6 mt-16">
+            <div className="bg-gray-700 border border-gray-700 rounded-2xl p-6 mt-16">
               <h3 className="text-lg font-semibold text-white mb-4">
                 Order Management
               </h3>
