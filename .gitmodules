@@ -1,0 +1,6 @@
+[submodule "apps/contracts/evm-contracts/rwa-lending/lib/openzeppelin-contracts"]
+	path = apps/contracts/evm-contracts/rwa-lending/lib/openzeppelin-contracts
+	url = https://github.com/OpenZeppelin/openzeppelin-contracts
+[submodule "apps/contracts/evm-contracts/rwa-lending/lib/forge-std"]
+	path = apps/contracts/evm-contracts/rwa-lending/lib/forge-std
+	url = https://github.com/foundry-rs/forge-std

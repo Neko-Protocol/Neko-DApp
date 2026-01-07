@@ -6,11 +6,21 @@ import {
   useState,
   useTransition,
 } from "react";
-import { wallet, type MappedBalances } from "@/lib/helpers/wallet";
+import { getWallet, type MappedBalances } from "@/lib/helpers/wallet";
 import storage from "@/lib/helpers/storage";
 import { useBalances } from "@/hooks/useBalances";
 
-const signTransaction = wallet.signTransaction.bind(wallet);
+const getWalletInstance = () => {
+  if (typeof window === "undefined") {
+    throw new Error("Wallet can only be accessed in the browser");
+  }
+  return getWallet();
+};
+
+const signTransaction = (xdr: string, options: any) => {
+  const wallet = getWalletInstance();
+  return wallet.signTransaction(xdr, options);
+};
 
 export interface WalletContextType {
   address?: string;
@@ -19,7 +29,7 @@ export interface WalletContextType {
   isFetchingBalances: boolean;
   network?: string;
   networkPassphrase?: string;
-  signTransaction: typeof wallet.signTransaction;
+  signTransaction: (xdr: string, options: any) => Promise<any>;
   /**
    * Manually trigger a refetch of balances.
    * Uses React Query's refetch mechanism.
@@ -97,6 +107,7 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
       // extension, depending on which wallet they select!
       try {
         popupLock.current = true;
+        const wallet = getWalletInstance();
         wallet.setWallet(walletId);
         if (walletId !== "freighter" && walletAddr !== null) return;
         const [a, n] = await Promise.all([

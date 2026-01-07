@@ -93,8 +93,12 @@ const fetchTokenPrice = async (tokenCode: string): Promise<number> => {
   }
 
   try {
+    // Use Next.js API route to avoid CORS issues
     const response = await fetch(
-      `https://api.coingecko.com/api/v3/simple/price?ids=${coinGeckoId}&vs_currencies=usd`
+      `/api/coingecko/price?ids=${coinGeckoId}&vs_currencies=usd`,
+      {
+        method: "GET",
+      }
     );
 
     if (!response.ok) {

@@ -1,0 +1,319 @@
+/**
+ * Price Service
+ * Handles token price fetching from various sources (CoinGecko, etc.)
+ */
+
+import { Token } from "@uniswap/sdk-core";
+import type { TokenPriceResult, PriceFetchOptions } from "../types/priceTypes";
+
+export class PriceService {
+  private priceCache = new Map<string, TokenPriceResult>();
+  private readonly CACHE_DURATION = 30000; // 30 seconds
+  private readonly REQUEST_TIMEOUT = 5000; // 5 seconds
+
+  // CoinGecko ID mapping for tokens
+  private readonly COINGECKO_ID_MAP: Record<string, string> = {
+    ETH: "ethereum",
+    USDC: "usd-coin",
+    USDT: "tether",
+    NVDA: "nvidia-ondo-tokenized-stock",
+    TSLA: "tesla-ondo-tokenized-stock",
+    AAPL: "apple-ondo-tokenized-stock",
+    MSFT: "microsoft-ondo-tokenized-stock",
+    AMZN: "amazon-ondo-tokenized-stock",
+    META: "meta-platforms-ondo-tokenized-stock",
+    SPOT: "spotify-ondo-tokenized-stock",
+    MA: "mastercard-ondo-tokenized-stock",
+    NFLX: "netflix-ondo-tokenized-stock",
+  };
+
+  // Fallback prices for stable coins and common tokens
+  private readonly FALLBACK_PRICES: Record<string, number> = {
+    USDC: 1.0,
+    USDT: 1.0,
+    ETH: 3000, // Rough fallback price
+  };
+
+  /**
+   * Check if cached price is still valid
+   */
+  private isPriceValid(cached: TokenPriceResult): boolean {
+    if (!cached.lastUpdated) return false;
+    const now = new Date();
+    const age = now.getTime() - cached.lastUpdated.getTime();
+    return age < this.CACHE_DURATION;
+  }
+
+  /**
+   * Get fallback price for stable coins
+   */
+  private getFallbackPrice(tokenSymbol: string): number {
+    return this.FALLBACK_PRICES[tokenSymbol] || 0;
+  }
+
+  /**
+   * Fetch price from CoinGecko API
+   */
+  private async fetchFromCoinGecko(
+    coinGeckoId: string,
+    timeout: number = this.REQUEST_TIMEOUT
+  ): Promise<number> {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+    try {
+      const url = `/api/coingecko/price?ids=${coinGeckoId}&vs_currencies=usd`;
+
+      const response = await fetch(url, {
+        method: "GET",
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        if (response.status === 429) {
+          throw new Error("RATE_LIMIT_EXCEEDED");
+        }
+
+        throw new Error(
+          `Failed to fetch price: ${response.status} ${response.statusText}`
+        );
+      }
+
+      const data = (await response.json()) as {
+        [key: string]: { usd?: number } | undefined;
+      };
+
+      const price = data[coinGeckoId]?.usd || 0;
+      return price;
+    } catch (error) {
+      clearTimeout(timeoutId);
+
+      if (error instanceof Error && error.name === "AbortError") {
+        throw new Error("PRICE_FETCH_TIMEOUT");
+      }
+
+      throw error;
+    }
+  }
+
+  /**
+   * Check if token is an RWA token (ends with "on")
+   */
+  private isRWAToken(tokenSymbol: string): boolean {
+    return tokenSymbol.endsWith("on") && tokenSymbol.length > 2;
+  }
+
+  /**
+   * Get underlying token symbol for RWA tokens
+   * e.g., "NVDAon" -> "NVDA"
+   */
+  private getUnderlyingTokenSymbol(tokenSymbol: string): string {
+    if (this.isRWAToken(tokenSymbol)) {
+      return tokenSymbol.slice(0, -2); // Remove "on" suffix
+    }
+    return tokenSymbol;
+  }
+
+  /**
+   * Get CoinGecko ID for token symbol
+   */
+  private getCoinGeckoId(tokenSymbol: string): string | null {
+    // For RWA tokens, get the underlying token's CoinGecko ID
+    const underlyingSymbol = this.getUnderlyingTokenSymbol(tokenSymbol);
+    return this.COINGECKO_ID_MAP[underlyingSymbol] || null;
+  }
+
+  /**
+   * Fetch token price with caching and fallbacks
+   */
+  async getTokenPrice(
+    tokenSymbol: string,
+    options: PriceFetchOptions = {}
+  ): Promise<TokenPriceResult> {
+    const {
+      forceRefresh = false,
+      timeout = this.REQUEST_TIMEOUT,
+      enableFallbacks = true,
+    } = options;
+
+    // Check cache first (unless force refresh)
+    // For RWA tokens, also check cache with underlying symbol
+    if (!forceRefresh) {
+      const cached = this.priceCache.get(tokenSymbol);
+      if (cached && this.isPriceValid(cached)) {
+        return cached;
+      }
+
+      // For RWA tokens, also check if underlying token is cached
+      if (this.isRWAToken(tokenSymbol)) {
+        const underlyingSymbol = this.getUnderlyingTokenSymbol(tokenSymbol);
+        const underlyingCached = this.priceCache.get(underlyingSymbol);
+        if (underlyingCached && this.isPriceValid(underlyingCached)) {
+          // Use the cached price from underlying token
+          this.priceCache.set(tokenSymbol, underlyingCached);
+          return underlyingCached;
+        }
+      }
+    }
+
+    const coinGeckoId = this.getCoinGeckoId(tokenSymbol);
+
+    if (!coinGeckoId) {
+      // No CoinGecko ID available, use fallback if enabled
+      if (enableFallbacks) {
+        const fallbackPrice = this.getFallbackPrice(tokenSymbol);
+        const result: TokenPriceResult = {
+          price: fallbackPrice,
+          source: "fallback",
+          lastUpdated: new Date(),
+        };
+        this.priceCache.set(tokenSymbol, result);
+        return result;
+      }
+
+      // No fallback available
+      const result: TokenPriceResult = {
+        price: 0,
+        source: "unavailable",
+        lastUpdated: new Date(),
+      };
+      this.priceCache.set(tokenSymbol, result);
+      return result;
+    }
+
+    try {
+      const price = await this.fetchFromCoinGecko(coinGeckoId, timeout);
+      const result: TokenPriceResult = {
+        price,
+        source: "coingecko",
+        lastUpdated: new Date(),
+      };
+      this.priceCache.set(tokenSymbol, result);
+      return result;
+    } catch (error) {
+      console.warn(`Failed to fetch price for ${tokenSymbol}:`, error);
+
+      // Try fallback on API failure
+      if (enableFallbacks) {
+        const fallbackPrice = this.getFallbackPrice(tokenSymbol);
+        const result: TokenPriceResult = {
+          price: fallbackPrice,
+          source: "fallback",
+          lastUpdated: new Date(),
+        };
+        this.priceCache.set(tokenSymbol, result);
+        return result;
+      }
+
+      // Return zero price on complete failure
+      const result: TokenPriceResult = {
+        price: 0,
+        source: "error",
+        lastUpdated: new Date(),
+      };
+      this.priceCache.set(tokenSymbol, result);
+      return result;
+    }
+  }
+
+  /**
+   * Get multiple token prices in batch
+   */
+  async getTokenPrices(
+    tokenSymbols: string[],
+    options: PriceFetchOptions = {}
+  ): Promise<Record<string, TokenPriceResult>> {
+    const results: Record<string, TokenPriceResult> = {};
+
+    // Use Promise.allSettled to handle partial failures
+    const promises = tokenSymbols.map(async (symbol) => {
+      try {
+        const price = await this.getTokenPrice(symbol, options);
+        return { symbol, price };
+      } catch (error) {
+        console.warn(`Failed to get price for ${symbol}:`, error);
+        return {
+          symbol,
+          price: {
+            price: 0,
+            source: "error",
+            lastUpdated: new Date(),
+          } as TokenPriceResult,
+        };
+      }
+    });
+
+    const settledResults = await Promise.allSettled(promises);
+
+    settledResults.forEach((result) => {
+      if (result.status === "fulfilled") {
+        results[result.value.symbol] = result.value.price;
+      }
+    });
+
+    return results;
+  }
+
+  /**
+   * Get price for Token object (from Uniswap SDK)
+   */
+  async getTokenPriceFromToken(
+    token: Token | string | undefined,
+    options: PriceFetchOptions = {}
+  ): Promise<TokenPriceResult> {
+    if (!token) {
+      return {
+        price: 0,
+        source: "invalid_token",
+        lastUpdated: new Date(),
+      };
+    }
+
+    let tokenSymbol: string | null = null;
+
+    if (typeof token === "string") {
+      tokenSymbol = token;
+    } else if (token instanceof Token) {
+      tokenSymbol = token.symbol || null;
+    }
+
+    if (!tokenSymbol) {
+      return {
+        price: 0,
+        source: "invalid_token",
+        lastUpdated: new Date(),
+      };
+    }
+
+    return this.getTokenPrice(tokenSymbol, options);
+  }
+
+  /**
+   * Clear price cache
+   */
+  clearCache(): void {
+    this.priceCache.clear();
+  }
+
+  /**
+   * Get cache statistics
+   */
+  getCacheStats(): { size: number; entries: string[] } {
+    return {
+      size: this.priceCache.size,
+      entries: Array.from(this.priceCache.keys()),
+    };
+  }
+
+  /**
+   * Check if token is a stable coin
+   */
+  isStableCoin(tokenSymbol: string): boolean {
+    return ["USDC", "USDT", "DAI", "USDP"].includes(tokenSymbol.toUpperCase());
+  }
+}
+
+// Export singleton instance
+export const priceService = new PriceService();
