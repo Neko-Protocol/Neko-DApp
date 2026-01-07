@@ -1,10 +1,10 @@
 import React from "react";
-import { Link } from "react-router-dom";
+import Link from "next/link";
 import type { Asset } from "@neko/oracle";
-import { useOracle } from "../hooks/useOracle";
-import { useOracleAssetPrice } from "../hooks/useOracleAssetPrice";
-import { formatAsset, formatPrice } from "../utils/oracleUtils";
-import { STOCK_INFO } from "../utils/stockInfo";
+import { useOracle } from "@/features/stocks/hooks/useOracle";
+import { useOracleAssetPrice } from "@/features/stocks/hooks/useOracleAssetPrice";
+import { formatAsset, formatPrice } from "@/features/stocks/utils/oracleUtils";
+import { STOCK_INFO } from "@/features/stocks/utils/stockInfo";
 import {
   TrendingUp,
   TrendingDown,
@@ -220,7 +220,7 @@ const AssetPriceCard: React.FC<{
   }, [lastPrice, priceHistory]);
 
   return (
-    <Link to={`/asset/${assetStr}`} className="block h-full group">
+    <Link href={`/dashboard/stocks/${assetStr}`} className="block h-full group">
       <div className="rounded-2xl bg-white p-6 shadow-md border border-gray-200 transition-all duration-300 hover:shadow-2xl hover:-translate-y-2 hover:border-[#334EAC]/30 overflow-hidden cursor-pointer h-full flex flex-col">
         {/* Header */}
         <div className="flex items-start justify-between mb-6">
