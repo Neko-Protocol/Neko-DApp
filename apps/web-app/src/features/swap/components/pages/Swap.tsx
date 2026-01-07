@@ -1,68 +1,34 @@
 "use client";
 
-import React, {
-  useState,
-  useEffect,
-  useCallback,
-  useRef,
-  useMemo,
-} from "react";
+import React, { useEffect, useMemo } from "react";
 import { useWallet } from "@/hooks/useWallet";
 import { useTokenBalance } from "@/hooks/useTokenBalance";
 import { useEVMTokenBalance } from "@/hooks/useEVMTokenBalance";
 import { useGasCheck } from "@/hooks/useGasCheck";
-import { useTokenPrice } from "@/hooks/useTokenPrice";
-import { useEVMTokenPrice } from "@/hooks/useEVMTokenPrice";
 import { useWalletType } from "@/hooks/useWalletType";
-import {
-  useAccount,
-  usePublicClient,
-  useWalletClient,
-  useChainId,
-  useSwitchChain,
-} from "wagmi";
-import { parseUnits, formatUnits } from "viem";
-import {
-  TOKENS,
-  type Token,
-  hasApiKey,
-  getAvailableTokens,
-  getQuote,
-  buildTransaction,
-  sendTransaction,
-  type QuoteRequest,
-} from "@/lib/helpers/soroswap";
-import {
-  formatSwapAmount,
-  fromSmallestUnit,
-  getExplorerUrl,
-  getTokenIcon,
-} from "@/lib/helpers/swapUtils";
-import {
-  getCowSwapQuote,
-  executeCowSwap,
-  getCowSwapExplorerUrl,
-  createCowSwapLimitOrder,
-  createCowSwapTwapOrder,
-  type CowSwapQuoteRequest,
-  type CowSwapSwapRequest,
-  type CowSwapLimitOrderRequest,
-  type CowSwapTwapOrderRequest,
-} from "@/lib/helpers/cowswap";
-import { getTokensForChain, DEFAULT_CHAIN_ID } from "@/lib/constants/evmConfig";
-import { OrderManagement } from "../OrderManagement";
-
-import { SUPPORTED_CHAINS } from "@/lib/constants/evmConfig";
-import TokenSelectorModal from "../ui/TokenSelectorModal";
-import { Tooltip, IconButton } from "@mui/material";
-import {
-  Info,
-  Warning,
-  WaterDrop,
-  AttachMoney,
-  TrendingDown,
-} from "@mui/icons-material";
+import { usePublicClient, useWalletClient, useChainId } from "wagmi";
+import { TOKENS, getAvailableTokens, type Token } from "@/lib/helpers/soroswap";
 import { Token as UniswapToken } from "@uniswap/sdk-core";
+import { SUPPORTED_CHAINS } from "@/lib/constants/evmConfig";
+import { OrderManagement } from "../ui/OrderManagement";
+import TokenSelectorModal from "../ui/TokenSelectorModal";
+
+// Hooks
+import { useSwapState } from "../../hooks/useSwapState";
+import { useTokenSelection } from "../../hooks/useTokenSelection";
+import { useSwapQuote } from "../../hooks/useSwapQuote";
+import { useSwapExecution } from "../../hooks/useSwapExecution";
+import { useSwapPrices } from "../../hooks/useSwapPrices";
+
+// UI Components
+import { OrderTypeTabs } from "../ui/OrderTypeTabs";
+import { WalletTypeSelector } from "../ui/WalletTypeSelector";
+import { TokenInput } from "../ui/TokenInput";
+import { SwapButton } from "../ui/SwapButton";
+import { TransactionResult } from "../ui/TransactionResult";
+import { LimitOrderForm } from "../ui/LimitOrderForm";
+import { TWAPOrderForm } from "../ui/TWAPOrderForm";
+import { SwapValueWarning } from "../ui/SwapValueWarning";
 
 const Swap: React.FC = () => {
   // Wallet detection
@@ -77,21 +43,13 @@ const Swap: React.FC = () => {
     address: stellarWalletAddress,
     network,
     networkPassphrase,
-    signTransaction,
   } = useWallet();
   const publicClient = usePublicClient();
   const { data: walletClient } = useWalletClient();
   const chainId = useChainId();
-  const { switchChainAsync } = useSwitchChain();
 
   // Use the appropriate address based on wallet type
   const address = walletType === "evm" ? evmAddress : stellarWalletAddress;
-
-  // Swap state
-  const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [error, setError] = useState<string | null>(null);
-  const [swapMode, setSwapMode] = useState<"evm" | "stellar">("stellar"); // Default to Stellar
-  const [orderType, setOrderType] = useState<"swap" | "limit" | "twap">("swap"); // Default to Swap
 
   // Get available tokens for current network (Stellar only)
   const availableTokens = getAvailableTokens();
@@ -103,83 +61,84 @@ const Swap: React.FC = () => {
   const defaultTokenOut =
     availableTokens[tokenCodes[1]]?.contract || TOKENS.USDC || "";
 
-  // For EVM, use Uniswap tokens
-  const [tokenIn, setTokenIn] = useState<Token | string | UniswapToken>(
-    defaultTokenIn
-  );
-  const [tokenOut, setTokenOut] = useState<Token | string | UniswapToken>(
-    defaultTokenOut
-  );
+  // Swap state management
+  const swapState = useSwapState(defaultTokenIn, defaultTokenOut);
+  const {
+    swapMode,
+    orderType,
+    amountIn,
+    amountOut,
+    tokenIn,
+    tokenOut,
+    limitPrice,
+    twapParts,
+    twapFrequency,
+    txHash,
+    error,
+    isLoading,
+    setSwapMode,
+    setOrderType,
+    setAmountIn,
+    setLimitPrice,
+    setTwapParts,
+    setTwapFrequency,
+    setTxHash,
+    setError,
+    setIsLoading,
+    resetSwap,
+    swapTokens,
+  } = swapState;
 
-  // Update swap mode based on connected wallet
+  // Token selection management
+  const tokenSelection = useTokenSelection(
+    swapMode,
+    tokenIn,
+    tokenOut,
+    swapState.setTokenIn,
+    swapState.setTokenOut,
+    resetSwap,
+    setTxHash
+  );
+  const {
+    tokenSelectorOpen,
+    tokenSelectorType,
+    selectedEvmChainId,
+    openTokenSelector,
+    closeTokenSelector,
+    selectToken,
+    changeChain,
+    getTokenId,
+    getTokenIconUrl,
+  } = tokenSelection;
+
+  // Update swap mode based on connected wallet (only when walletType changes)
   useEffect(() => {
     if (walletType === "evm") {
       setSwapMode("evm");
-      // Set default EVM tokens
-      setTokenIn("ETH");
-      setTokenOut("USDC");
+      swapState.setTokenIn("ETH");
+      swapState.setTokenOut("USDC");
     } else if (walletType === "stellar") {
       setSwapMode("stellar");
-      // Set default Stellar tokens
-      setTokenIn(defaultTokenIn);
-      setTokenOut(defaultTokenOut);
+      swapState.setTokenIn(defaultTokenIn);
+      swapState.setTokenOut(defaultTokenOut);
     }
-  }, [walletType, defaultTokenIn, defaultTokenOut]);
-  const [amountIn, setAmountIn] = useState<string>("");
-  const [amountOut, setAmountOut] = useState<string>("0.0");
-  const [isLoadingQuote, setIsLoadingQuote] = useState<boolean>(false);
-  const [txHash, setTxHash] = useState<string | null>(null);
-  const [apiKeyConfigured, setApiKeyConfigured] = useState<boolean>(false);
-
-  // Limit Order parameters
-  const [limitPrice, setLimitPrice] = useState<string>("");
-
-  // TWAP Order parameters
-  const [twapParts, setTwapParts] = useState<string>("10");
-  const [twapFrequency, setTwapFrequency] = useState<string>("3600"); // 1 hour in seconds
-
-  // Token selector modal state
-  const [tokenSelectorOpen, setTokenSelectorOpen] = useState<boolean>(false);
-  const [tokenSelectorType, setTokenSelectorType] = useState<"from" | "to">(
-    "from"
-  );
-
-  // EVM Chain selection state - sync with connected wallet chain
-  const [selectedEvmChainId, setSelectedEvmChainId] = useState<number>(
-    chainId || DEFAULT_CHAIN_ID
-  );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [walletType]); // Only run when walletType changes, not when swapState changes
 
   // Sync selectedEvmChainId with wallet chain when it changes
   useEffect(() => {
     if (chainId && chainId !== selectedEvmChainId && swapMode === "evm") {
-      setSelectedEvmChainId(chainId);
-      // Reset tokens for the new chain
-      const newChainTokens = getTokensForChain(chainId);
-      const tokenSymbols = Object.keys(newChainTokens);
-      const nativeToken =
-        tokenSymbols.find((s) => s === "ETH" || s === "BNB") || tokenSymbols[0];
-      const stableToken =
-        tokenSymbols.find((s) => s === "USDC") || tokenSymbols[1];
-      setTokenIn(nativeToken || tokenSymbols[0]);
-      setTokenOut(stableToken || tokenSymbols[1] || tokenSymbols[0]);
+      tokenSelection.changeChain(chainId).catch(() => {
+        // Silently handle chain switch errors
+      });
     }
-  }, [chainId, swapMode]);
-
-  // Get EVM tokens for selected chain
-  const EVM_TOKENS = useMemo(
-    () => getTokensForChain(selectedEvmChainId),
-    [selectedEvmChainId]
-  );
+  }, [chainId, swapMode, selectedEvmChainId, tokenSelection]);
 
   // Get chain icon for badge display
   const currentChainIcon = useMemo(() => {
     const chain = SUPPORTED_CHAINS.find((c) => c.id === selectedEvmChainId);
     return chain?.icon || null;
   }, [selectedEvmChainId]);
-
-  // Ref for debounce timer and request cancellation
-  const quoteTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const abortControllerRef = useRef<AbortController | null>(null);
 
   // Get token balance for "from" token - Stellar
   const { balance: stellarTokenInBalance, isLoading: isLoadingStellarBalance } =
@@ -209,44 +168,6 @@ const Swap: React.FC = () => {
   const isLoadingBalance =
     swapMode === "evm" ? isLoadingEvmBalance : isLoadingStellarBalance;
 
-  // Get token prices in USD (Stellar or EVM based on swap mode)
-  const { price: stellarTokenInPrice, isLoading: isLoadingStellarPrice } =
-    useTokenPrice(
-      swapMode === "stellar"
-        ? (tokenIn as Token | string | undefined)
-        : undefined
-    );
-  const { price: stellarTokenOutPrice, isLoading: isLoadingStellarOutPrice } =
-    useTokenPrice(
-      swapMode === "stellar"
-        ? (tokenOut as Token | string | undefined)
-        : undefined
-    );
-
-  // Get EVM token prices
-  const { price: evmTokenInPrice, isLoading: isLoadingEvmPrice } =
-    useEVMTokenPrice(
-      swapMode === "evm"
-        ? (tokenIn as UniswapToken | string | undefined)
-        : undefined
-    );
-  const { price: evmTokenOutPrice, isLoading: isLoadingEvmOutPrice } =
-    useEVMTokenPrice(
-      swapMode === "evm"
-        ? (tokenOut as UniswapToken | string | undefined)
-        : undefined
-    );
-
-  // Use the appropriate price based on swap mode
-  const tokenInPrice =
-    swapMode === "evm" ? evmTokenInPrice : stellarTokenInPrice;
-  const tokenOutPrice =
-    swapMode === "evm" ? evmTokenOutPrice : stellarTokenOutPrice;
-  const isLoadingPrice =
-    swapMode === "evm" ? isLoadingEvmPrice : isLoadingStellarPrice;
-  const isLoadingOutPrice =
-    swapMode === "evm" ? isLoadingEvmOutPrice : isLoadingStellarOutPrice;
-
   // Check if selling native ETH (uses EthFlow)
   const isSellingNativeETH = useMemo(() => {
     if (swapMode !== "evm") return false;
@@ -266,546 +187,40 @@ const Swap: React.FC = () => {
     swapMode === "evm" ? selectedEvmChainId : undefined
   );
 
-  // Calculate USD value
-  const usdValue =
-    amountIn && parseFloat(amountIn) > 0 && tokenInPrice > 0
-      ? (parseFloat(amountIn) * tokenInPrice).toFixed(2)
-      : "0.00";
-
-  // Calculate USD value for output amount
-  const usdValueOut =
-    amountOut && parseFloat(amountOut) > 0 && tokenOutPrice > 0
-      ? (parseFloat(amountOut) * tokenOutPrice).toFixed(2)
-      : "0.00";
-
-  // Calculate expected output based on USD prices and compare with actual output
-  const swapValueAnalysis = useMemo(() => {
-    if (
-      !amountIn ||
-      !amountOut ||
-      parseFloat(amountIn) <= 0 ||
-      parseFloat(amountOut) <= 0
-    ) {
-      return null;
-    }
-
-    if (
-      !tokenInPrice ||
-      !tokenOutPrice ||
-      tokenInPrice <= 0 ||
-      tokenOutPrice <= 0
-    ) {
-      return null;
-    }
-
-    const inputAmount = parseFloat(amountIn);
-    const outputAmount = parseFloat(amountOut);
-
-    // Calculate expected output based on USD price ratio
-    const inputUsdValue = inputAmount * tokenInPrice;
-    const expectedOutput = inputUsdValue / tokenOutPrice;
-
-    // Calculate the difference percentage
-    const differencePercent =
-      ((expectedOutput - outputAmount) / expectedOutput) * 100;
-
-    // Consider the swap suspiciously low if output is more than 10% lower than expected
-    const isSuspiciouslyLow = differencePercent > 10;
-
-    return {
-      expectedOutput,
-      actualOutput: outputAmount,
-      differencePercent,
-      isSuspiciouslyLow,
-    };
-  }, [amountIn, amountOut, tokenInPrice, tokenOutPrice]);
-
-  // Helper function to get token identifier (for comparison)
-  const getTokenId = (token: Token | string | UniswapToken): string => {
-    // Handle Uniswap Token
-    if (
-      token instanceof UniswapToken ||
-      (typeof token === "object" && "symbol" in token && "address" in token)
-    ) {
-      return (token as UniswapToken).symbol || "";
-    }
-
-    if (typeof token === "string") {
-      // Check if it's an EVM token symbol
-      if (EVM_TOKENS[token]) {
-        return token;
-      }
-      // Token is already a string (contract address)
-      // Find which token code matches this contract address
-      for (const [code, info] of Object.entries(availableTokens)) {
-        if (info.contract === token) {
-          return code;
-        }
-      }
-      return token;
-    }
-
-    // Token is an object (legacy format)
-    if (token.type === "native") return "XLM";
-    if (token.contract) {
-      // Find matching token code
-      for (const [code, info] of Object.entries(availableTokens)) {
-        if (info.contract === token.contract) {
-          return code;
-        }
-      }
-      return token.contract;
-    }
-    if (token.code) return token.code;
-    return "";
-  };
-
-  // Helper function to get token icon (works for both EVM and Stellar)
-  const getTokenIconUrl = (
-    token: Token | string | UniswapToken
-  ): string | null => {
-    // getTokenIcon now handles both Stellar and EVM tokens
-    return getTokenIcon(token as Token | string | UniswapToken);
-  };
-
-  // Check if API key is configured on mount
-  useEffect(() => {
-    setApiKeyConfigured(hasApiKey());
-  }, []);
-
-  // Function to fetch live quote with abort signal for cancellation
-  const fetchLiveQuote = useCallback(async () => {
-    // Better validation - check for valid number format and non-zero value
-    const trimmedAmount = amountIn?.trim() || "";
-    const parsedAmount = parseFloat(trimmedAmount);
-
-    if (
-      !address ||
-      !trimmedAmount ||
-      trimmedAmount === "0" ||
-      trimmedAmount === "0." ||
-      isNaN(parsedAmount) ||
-      parsedAmount <= 0
-    ) {
-      setAmountOut("0.0");
-      setIsLoadingQuote(false);
-      return;
-    }
-
-    // Define token symbols for both EVM and Stellar modes
-    const tokenInSymbol: string =
-      typeof tokenIn === "string"
-        ? tokenIn
-        : tokenIn instanceof UniswapToken
-          ? tokenIn.symbol || "ETH"
-          : "ETH";
-    const tokenOutSymbol: string =
-      typeof tokenOut === "string"
-        ? tokenOut
-        : tokenOut instanceof UniswapToken
-          ? tokenOut.symbol || "USDC"
-          : "USDC";
-
-    // EVM swap quote (CoW Swap) - Using OrderBookApi for faster quotes
-    if (swapMode === "evm" && publicClient && selectedEvmChainId) {
-      try {
-
-        const tokenInObj = EVM_TOKENS[tokenInSymbol];
-        if (!tokenInObj) {
-          setAmountOut("0.0");
-          setIsLoadingQuote(false);
-          return;
-        }
-
-        const amountInWei = parseUnits(
-          trimmedAmount,
-          tokenInObj.decimals
-        ).toString();
-
-        const quoteRequest: CowSwapQuoteRequest = {
-          tokenIn: tokenInSymbol,
-          tokenOut: tokenOutSymbol,
-          amountIn: amountInWei,
-        };
-
-        const quote = await getCowSwapQuote(
-          quoteRequest,
-          selectedEvmChainId,
-          publicClient,
-          walletClient
-        );
-
-        const tokenOutObj = EVM_TOKENS[tokenOutSymbol];
-        if (tokenOutObj) {
-          const amountOutFormatted = formatUnits(
-            BigInt(quote.amountOut),
-            tokenOutObj.decimals
-          );
-          setAmountOut(amountOutFormatted || "0.0");
-        } else {
-          // Fallback: format the amount even without token info
-          const amountOutStr = quote.amountOut.toString();
-          const amountOutFormatted = fromSmallestUnit(amountOutStr, 6);
-          setAmountOut(formatSwapAmount(amountOutFormatted, 6));
-        }
-        setError(null);
-      } catch (error) {
-        const errorMessage =
-          error instanceof Error ? error.message : String(error);
-        setError(errorMessage);
-        setAmountOut("0.0");
-      } finally {
-        setIsLoadingQuote(false);
-      }
-      return;
-    }
-
-    // Stellar swap quote
-    if (swapMode === "stellar" && !apiKeyConfigured) {
-      setAmountOut("0.0");
-      setIsLoadingQuote(false);
-      return;
-    }
-
-    // Cancel previous request if exists
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
-
-    // Create new abort controller for this request
-    const abortController = new AbortController();
-    abortControllerRef.current = abortController;
-
-    // Store current input values to verify later
-    const currentAmountIn = trimmedAmount;
-    const currentTokenIn = tokenIn;
-    const currentTokenOut = tokenOut;
-
-    setIsLoadingQuote(true);
-    try {
-      const quoteRequest: QuoteRequest = {
-        assetIn: tokenIn as Token | string,
-        assetOut: tokenOut as Token | string,
-        amount: trimmedAmount,
-        tradeType: "EXACT_IN",
-        protocols: ["soroswap"], // Only SOROSWAP for faster live quotes
-        slippageBps: 100, // 1% slippage - reduced for faster quotes
-      };
-
-      const quote = await getQuote(quoteRequest);
-
-      // Check if request was aborted or values changed
-      if (abortController.signal.aborted) {
-        return;
-      }
-
-      // Verify we're still looking at the same values (compare trimmed)
-      const currentAmountTrimmed = amountIn?.trim() || "";
-      const valuesMatch =
-        currentAmountIn === currentAmountTrimmed &&
-        currentTokenIn === tokenIn &&
-        currentTokenOut === tokenOut;
-
-      if (!valuesMatch) {
-        // Values changed, don't update - new request will handle it
-        return;
-      }
-
-      // Process the quote result
-      if (quote && quote.amountOut) {
-        try {
-          const amountOutStr = quote.amountOut.toString();
-
-          const amountOutBigInt = BigInt(amountOutStr);
-
-          // Convert amountOut from smallest unit to human-readable format
-          if (amountOutBigInt > BigInt(0)) {
-            const tokenOutObj = EVM_TOKENS[tokenOutSymbol];
-            let amountOutFormatted: string;
-
-            if (tokenOutObj) {
-              // Use correct decimals for known tokens
-              amountOutFormatted = formatUnits(amountOutBigInt, tokenOutObj.decimals);
-            } else {
-              // Fallback: assume 6 decimals for unknown tokens (like stablecoins)
-              amountOutFormatted = fromSmallestUnit(amountOutStr, 6);
-            }
-
-            const formatted = formatSwapAmount(amountOutFormatted, 6);
-            setAmountOut(formatted);
-          } else {
-            setAmountOut("0.0");
-          }
-        } catch {
-          setAmountOut("0.0");
-        }
-      } else {
-        setAmountOut("0.0");
-      }
-    } catch (error) {
-      // Ignore aborted requests
-      if (error instanceof Error && error.name === "AbortError") {
-        return;
-      }
-
-      // Handle timeout errors gracefully
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
-      const errorWithCode = error as { code?: string } | null | undefined;
-      const isTimeout =
-        errorMessage.includes("timeout") ||
-        errorMessage.includes("ECONNABORTED") ||
-        errorWithCode?.code === "ECONNABORTED";
-
-      if (isTimeout) {
-        // For timeouts, keep previous amountOut if exists, otherwise show loading state
-        // Don't reset to 0.0 - user can see the previous quote while waiting
-        console.debug(
-          "Quote request timeout - keeping previous value if available"
-        );
-        setIsLoadingQuote(false);
-        return;
-      }
-
-      // Silently fail for other errors in live quotes
-      setAmountOut("0.0");
-      // Only log errors that aren't common (like no path found or timeout)
-      if (
-        !errorMessage.includes("No path found") &&
-        !errorMessage.includes("No path") &&
-        !errorMessage.includes("aborted") &&
-        !errorMessage.includes("timeout")
-      ) {
-        console.debug("Live quote error:", error);
-      }
-    } finally {
-      // Only reset loading if this request wasn't aborted
-      if (!abortController.signal.aborted) {
-        setIsLoadingQuote(false);
-      }
-    }
-  }, [
-    address,
-    amountIn,
-    tokenIn,
-    tokenOut,
-    apiKeyConfigured,
-    swapMode,
-    publicClient,
-    selectedEvmChainId,
-    EVM_TOKENS,
-  ]);
-
-  // Debounced live quote update
-  useEffect(() => {
-    // Clear previous timeout
-    if (quoteTimeoutRef.current) {
-      clearTimeout(quoteTimeoutRef.current);
-      quoteTimeoutRef.current = null;
-    }
-
-    // Reset loading state when inputs change
-    setIsLoadingQuote(false);
-
-    // Validate amount - check for empty, just "0", or invalid values
-    const trimmedAmount = amountIn?.trim() || "";
-    const parsedAmount = parseFloat(trimmedAmount);
-    const isZero =
-      trimmedAmount === "0" ||
-      trimmedAmount === "0." ||
-      trimmedAmount === "0.0";
-    const isValid =
-      trimmedAmount !== "" &&
-      !isZero &&
-      !isNaN(parsedAmount) &&
-      parsedAmount > 0;
-
-    // If no amount or invalid, reset and don't fetch quote
-    if (!isValid || !address) {
-      setAmountOut("0.0");
-      setIsLoadingQuote(false);
-      return;
-    }
-
-    // For Stellar, also check API key
-    if (swapMode === "stellar" && !apiKeyConfigured) {
-      setAmountOut("0.0");
-      setIsLoadingQuote(false);
-      return;
-    }
-
-    // Reset amountOut when inputs change (but don't reset if we're about to fetch)
-    setAmountOut("0.0");
-
-    // Cancel any pending requests
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-      abortControllerRef.current = null;
-    }
-
-    // Show loading state immediately for better UX
-    setIsLoadingQuote(true);
-
-    // Set new timeout for debounced quote fetch - 50ms for fast response
-    quoteTimeoutRef.current = setTimeout(() => {
-      void fetchLiveQuote();
-    }, 50); // 50ms debounce - very fast response
-
-    // Cleanup on unmount or when dependencies change
-    return () => {
-      if (quoteTimeoutRef.current) {
-        clearTimeout(quoteTimeoutRef.current);
-        quoteTimeoutRef.current = null;
-      }
-      // Cancel any pending requests
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-        abortControllerRef.current = null;
-      }
-      // Reset loading state on cleanup to prevent stuck state
-      setIsLoadingQuote(false);
-    };
-  }, [
-    amountIn,
-    tokenIn,
-    tokenOut,
-    address,
-    apiKeyConfigured,
-    fetchLiveQuote,
-    swapMode,
-  ]);
-
-  // Auto-update quotes every 30 seconds for price fluctuations
-  useEffect(() => {
-    const interval = setInterval(() => {
-      // Only auto-update if we have valid inputs and aren't currently loading
-      const trimmedAmount = amountIn?.trim() || "";
-      const parsedAmount = parseFloat(trimmedAmount);
-
-      if (
-        !isLoadingQuote &&
-        trimmedAmount &&
-        trimmedAmount !== "0" &&
-        trimmedAmount !== "0." &&
-        !isNaN(parsedAmount) &&
-        parsedAmount > 0 &&
-        address
-      ) {
-        void fetchLiveQuote();
-      }
-    }, 5000); // 5 seconds
-
-    return () => clearInterval(interval);
-  }, [
-    amountIn,
-    tokenIn,
-    tokenOut,
-    address,
+  // Swap quote management
+  const {
+    amountOut: quoteAmountOut,
     isLoadingQuote,
-    swapMode,
-    selectedEvmChainId,
     apiKeyConfigured,
-    fetchLiveQuote,
-  ]);
+  } = useSwapQuote(
+    swapMode,
+    address,
+    amountIn,
+    tokenIn,
+    tokenOut,
+    selectedEvmChainId
+  );
 
-  const handleOpenTokenSelector = (type: "from" | "to") => {
-    setTokenSelectorType(type);
-    setTokenSelectorOpen(true);
-  };
-
-  const handleChainChange = async (newChainId: number) => {
-    if (newChainId !== selectedEvmChainId) {
-      try {
-        // Switch wallet chain first
-        if (isEvmConnected && switchChainAsync) {
-          await switchChainAsync({ chainId: newChainId });
-        }
-
-        setSelectedEvmChainId(newChainId);
-        // Reset tokens to defaults for the new chain
-        const newChainTokens = getTokensForChain(newChainId);
-        const tokenSymbols = Object.keys(newChainTokens);
-        // Set first token as native (ETH/BNB) and second as USDC if available
-        const nativeToken =
-          tokenSymbols.find((s) => s === "ETH" || s === "BNB") ||
-          tokenSymbols[0];
-        const stableToken =
-          tokenSymbols.find((s) => s === "USDC") || tokenSymbols[1];
-        setTokenIn(nativeToken || tokenSymbols[0]);
-        setTokenOut(stableToken || tokenSymbols[1] || tokenSymbols[0]);
-        setAmountIn("");
-        setAmountOut("0.0");
-        resetSwap();
-        setTxHash(null);
-      } catch (err: unknown) {
-        // Check if user rejected the request - this is not an error, just user cancellation
-        const errorMessage = err instanceof Error ? err.message : String(err);
-        const isUserRejection =
-          errorMessage.toLowerCase().includes("user rejected") ||
-          errorMessage.toLowerCase().includes("user denied") ||
-          errorMessage.includes("4001");
-
-        if (!isUserRejection) {
-          console.error("Failed to switch chain:", err);
-          setError(
-            "Failed to switch network. Please switch manually in your wallet."
-          );
-        }
-        // If user rejected, silently ignore - they can try again if they want
-      }
+  // Update amountOut from quote
+  useEffect(() => {
+    if (quoteAmountOut) {
+      swapState.setAmountOut(quoteAmountOut);
     }
-  };
+  }, [quoteAmountOut, swapState]);
 
-  const handleSelectToken = (token: Token | string, chainId?: number) => {
-    // Update chain if provided
-    if (chainId && chainId !== selectedEvmChainId) {
-      void handleChainChange(chainId);
-    }
+  // Prices and USD values
+  const {
+    usdValue,
+    usdValueOut,
+    isLoadingPrice,
+    isLoadingOutPrice,
+    swapValueAnalysis,
+  } = useSwapPrices(swapMode, amountIn, amountOut, tokenIn, tokenOut);
 
-    if (tokenSelectorType === "from") {
-      const newTokenId = getTokenId(token);
-      const currentTokenOutId = getTokenId(tokenOut);
+  // Swap execution
+  const { executeSwap } = useSwapExecution();
 
-      // If trying to select the same token as tokenOut, swap them
-      if (newTokenId === currentTokenOutId) {
-        setTokenOut(tokenIn);
-        setTokenIn(token);
-      } else {
-        setTokenIn(token);
-      }
-    } else {
-      const newTokenId = getTokenId(token);
-      const currentTokenInId = getTokenId(tokenIn);
-
-      // If trying to select the same token as tokenIn, swap them
-      if (newTokenId === currentTokenInId) {
-        setTokenIn(tokenOut);
-        setTokenOut(token);
-      } else {
-        setTokenOut(token);
-      }
-    }
-    resetSwap();
-    setTxHash(null);
-    setTokenSelectorOpen(false);
-  };
-
-  const handleSwapTokens = () => {
-    const temp = tokenIn;
-    setTokenIn(tokenOut);
-    setTokenOut(temp);
-    setAmountIn("");
-    resetSwap();
-    setTxHash(null);
-  };
-
-  // Reset swap state
-  const resetSwap = useCallback(() => {
-    setError(null);
-    setIsLoading(false);
-  }, []);
-
-  // Complete swap flow: Get quote -> Build -> Sign -> Send
+  // Handle swap execution
   const handleSwap = async () => {
     if (!amountIn || parseFloat(amountIn) <= 0 || !address) {
       return;
@@ -817,226 +232,32 @@ const Swap: React.FC = () => {
       return;
     }
 
-    // TWAP validation disabled until implemented
-
     setIsLoading(true);
     setError(null);
+
     try {
-      // EVM swap flow (CoW Swap)
-      if (
-        swapMode === "evm" &&
-        walletClient &&
-        publicClient &&
-        selectedEvmChainId &&
-        evmAddress
-      ) {
-        const tokenInSymbol: string =
-          typeof tokenIn === "string"
-            ? tokenIn
-            : tokenIn instanceof UniswapToken
-              ? (tokenIn.symbol ?? "ETH")
-              : "ETH";
-        const tokenOutSymbol: string =
-          typeof tokenOut === "string"
-            ? tokenOut
-            : tokenOut instanceof UniswapToken
-              ? (tokenOut.symbol ?? "USDC")
-              : "USDC";
+      const result = await executeSwap({
+        swapMode,
+        orderType,
+        amountIn,
+        tokenIn,
+        tokenOut,
+        limitPrice,
+        twapParts,
+        twapFrequency,
+        address,
+        evmAddress,
+        selectedEvmChainId,
+        networkPassphrase,
+      });
 
-        const tokenInObj = EVM_TOKENS[tokenInSymbol];
-        if (!tokenInObj) {
-          setError("Token not found");
-          setIsLoading(false);
-          return;
-        }
-
-        const amountInWei = parseUnits(
-          amountIn,
-          tokenInObj.decimals
-        ).toString();
-
-        const quoteRequest: CowSwapQuoteRequest = {
-          tokenIn: tokenInSymbol,
-          tokenOut: tokenOutSymbol,
-          amountIn: amountInWei,
-        };
-
-        let quote;
-        try {
-          quote = await getCowSwapQuote(
-            quoteRequest,
-            selectedEvmChainId,
-            publicClient,
-            walletClient
-          );
-        } catch (quoteError) {
-          const errorMessage =
-            quoteError instanceof Error
-              ? quoteError.message
-              : String(quoteError);
-          setError(errorMessage);
-          setIsLoading(false);
-          return;
-        }
-
-        try {
-          let orderId: string;
-
-          if (orderType === "swap") {
-            const swapRequest: CowSwapSwapRequest = {
-              tokenIn: tokenInSymbol,
-              tokenOut: tokenOutSymbol,
-              amountIn: amountInWei,
-              amountOutMinimum: quote.amountOutMinimum,
-              recipient: evmAddress,
-            };
-
-            const swapResult = await executeCowSwap(
-              swapRequest,
-              selectedEvmChainId,
-              publicClient,
-              walletClient
-            );
-            orderId = swapResult.orderId;
-          } else if (orderType === "limit") {
-            if (!limitPrice || parseFloat(limitPrice) <= 0) {
-              setError("Please enter a valid limit price");
-              setIsLoading(false);
-              return;
-            }
-
-            const limitOrderRequest: CowSwapLimitOrderRequest = {
-              tokenIn: tokenInSymbol,
-              tokenOut: tokenOutSymbol,
-              amountIn: amountInWei,
-              limitPrice,
-              recipient: evmAddress,
-            };
-
-            const limitResult = await createCowSwapLimitOrder(
-              limitOrderRequest,
-              selectedEvmChainId,
-              publicClient,
-              walletClient
-            );
-            orderId = limitResult.orderId;
-          } else if (orderType === "twap") {
-            const totalParts = parseInt(twapParts);
-            const partFrequency = parseInt(twapFrequency);
-
-            if (totalParts < 2 || totalParts > 100) {
-              setError("Number of parts must be between 2 and 100");
-              setIsLoading(false);
-              return;
-            }
-
-            const span = totalParts * partFrequency; // Total time span
-
-            const twapOrderRequest: CowSwapTwapOrderRequest = {
-              tokenIn: tokenInSymbol,
-              tokenOut: tokenOutSymbol,
-              amountIn: amountInWei,
-              totalParts,
-              partFrequency,
-              span,
-              recipient: evmAddress,
-            };
-
-            // TWAP orders not yet implemented
-            setError("TWAP orders are not yet available");
-            setIsLoading(false);
-            return;
-          } else {
-            setError("Unsupported order type");
-            setIsLoading(false);
-            return;
-          }
-
-          if (orderId) {
-            setTxHash(orderId);
-            resetSwap();
-            setAmountIn("");
-            setAmountOut("0.0");
-            setLimitPrice("");
-          }
-        } catch (orderError) {
-          if (
-            orderError instanceof Error &&
-            orderError.message === "USER_REJECTED"
-          ) {
-            setIsLoading(false);
-            return;
-          }
-          throw orderError;
-        }
-        return;
+      if (result.orderId) {
+        setTxHash(result.orderId);
+        resetSwap();
+        setAmountIn("");
+        swapState.setAmountOut("0.0");
+        setLimitPrice("");
       }
-
-      if (swapMode === "stellar" && networkPassphrase) {
-        // Step 1: Get quote
-        const quoteRequest: QuoteRequest = {
-          assetIn: tokenIn as Token | string,
-          assetOut: tokenOut as Token | string,
-          amount: amountIn,
-          tradeType: "EXACT_IN",
-        };
-
-        const newQuote = await getQuote(quoteRequest);
-
-        const buildRequest = {
-          quote: newQuote,
-          from: address,
-          to: address,
-        };
-
-        const buildResult = await buildTransaction(buildRequest);
-
-        let signedResult;
-        try {
-          signedResult = await signTransaction(buildResult.xdr, {
-            networkPassphrase: networkPassphrase,
-            address: address,
-          });
-        } catch (error) {
-          const errorMessage =
-            error instanceof Error ? error.message : String(error);
-          const errorString = errorMessage.toLowerCase();
-          if (
-            errorString.includes("user denied") ||
-            errorString.includes("user rejected") ||
-            errorString.includes("user cancelled") ||
-            errorString.includes("user canceled") ||
-            errorString.includes("cancelled") ||
-            errorString.includes("canceled")
-          ) {
-            throw new Error("USER_REJECTED");
-          }
-          throw error;
-        }
-
-        const signedXdrString =
-          signedResult.signedTxXdr ||
-          (typeof signedResult === "string"
-            ? signedResult
-            : JSON.stringify(signedResult));
-
-        const sendRequest = {
-          xdr: signedXdrString,
-          launchtube: false,
-        };
-
-        const sendResult = await sendTransaction(sendRequest);
-
-        if (sendResult.txHash) {
-          setTxHash(sendResult.txHash);
-          resetSwap();
-          setAmountIn("");
-          setAmountOut("0.0");
-        }
-        return;
-      }
-
-      throw new Error("Wallet not connected or invalid swap mode");
     } catch (error) {
       if (error instanceof Error && error.message === "USER_REJECTED") {
         setIsLoading(false);
@@ -1051,76 +272,48 @@ const Swap: React.FC = () => {
     }
   };
 
+  const handleAmountChange = (value: string) => {
+    setAmountIn(value);
+    resetSwap();
+    setTxHash(null);
+  };
+
+  const handleMaxClick = () => {
+    if (tokenInBalance && parseFloat(tokenInBalance) > 0) {
+      setAmountIn(tokenInBalance);
+    }
+  };
+
   const canGetQuote = address && amountIn && parseFloat(amountIn) > 0;
 
   return (
     <div
-      className={`w-full mx-auto px-4 py-8 mt-4 ${orderType === "limit" ? "max-w-6xl" : "max-w-lg"}`}
+      className={`w-full mx-auto px-4 py-8 mt-4 ${
+        orderType === "limit" ? "max-w-6xl" : "max-w-lg"
+      }`}
     >
       <div
-        className={`grid gap-8 ${orderType === "limit" ? "grid-cols-1 lg:grid-cols-2" : "grid-cols-1"}`}
+        className={`grid gap-8 ${
+          orderType === "limit" ? "grid-cols-1 lg:grid-cols-2" : "grid-cols-1"
+        }`}
       >
         {/* Left Column - Swap Interface */}
         <div>
           {/* Order Type Tabs */}
-          <div className="flex gap-2 mb-6">
-            <button
-              onClick={() => setOrderType("swap")}
-              className={`px-5 py-2.5 text-base font-semibold rounded-lg transition-colors ${
-                orderType === "swap"
-                  ? "text-white bg-[#334EAC]"
-                  : "text-gray-400 hover:text-gray-300"
-              }`}
-            >
-              Swap
-            </button>
-            <button
-              onClick={() => setOrderType("limit")}
-              className={`px-5 py-2.5 text-base font-semibold rounded-lg transition-colors ${
-                orderType === "limit"
-                  ? "text-white bg-[#334EAC]"
-                  : "text-gray-400 hover:text-gray-300"
-              }`}
-            >
-              Limit
-            </button>
-            <button
-              disabled
-              className="px-5 py-2.5 font-semibold text-gray-400 rounded-lg cursor-not-allowed"
-              title="TWAP orders coming soon"
-            >
-              TWAP
-            </button>
-          </div>
+          <OrderTypeTabs
+            orderType={orderType}
+            onOrderTypeChange={setOrderType}
+          />
 
-          {/* Wallet Type Selector - Only show if both wallet types are available */}
-          {(isEvmConnected || isStellarConnected) && (
-            <div className="flex gap-2 mb-4 p-1 bg-gray-800 rounded-lg">
-              <button
-                onClick={() => setSwapMode("stellar")}
-                disabled={!isStellarConnected}
-                className={`flex-1 px-4 py-2 rounded-lg font-semibold text-sm transition-all ${
-                  swapMode === "stellar"
-                    ? "bg-[#334EAC] text-white"
-                    : "text-gray-400 hover:text-gray-300"
-                } disabled:opacity-50 disabled:cursor-not-allowed`}
-              >
-                Stellar
-              </button>
-              <button
-                onClick={() => setSwapMode("evm")}
-                disabled={!isEvmConnected}
-                className={`flex-1 px-4 py-2 rounded-lg font-semibold text-sm transition-all ${
-                  swapMode === "evm"
-                    ? "bg-[#334EAC] text-white"
-                    : "text-gray-400 hover:text-gray-300"
-                } disabled:opacity-50 disabled:cursor-not-allowed`}
-              >
-                EVM
-              </button>
-            </div>
-          )}
+          {/* Wallet Type Selector */}
+          <WalletTypeSelector
+            swapMode={swapMode}
+            onSwapModeChange={setSwapMode}
+            isEvmConnected={isEvmConnected}
+            isStellarConnected={isStellarConnected}
+          />
 
+          {/* Wallet Connection Messages */}
           {!address && (
             <div className="bg-gray-800 border border-gray-700 rounded-2xl p-6 mb-6">
               <p className="text-gray-300 text-center">
@@ -1138,143 +331,32 @@ const Swap: React.FC = () => {
             </div>
           )}
 
-          {/* Swap Interface - Dark Design */}
+          {/* Swap Interface */}
           <div className="bg-gray-700 border border-gray-700 rounded-2xl p-6 shadow-xl">
             {/* From Token Section */}
-            <div className="-mb-5">
-              <div className="bg-gray-900/50 border border-gray-700 rounded-xl p-4 pb-0 h-32 relative">
-                <label className="text-sm font-semibold text-gray-400 block mb-3">
-                  From
-                </label>
-                <div
-                  className="relative overflow-hidden"
-                  style={{
-                    height: "70px",
-                    marginBottom: "15px",
-                    marginTop: "-8px",
-                  }}
-                >
-                  {(!amountIn || parseFloat(amountIn) === 0) && (
-                    <div className="absolute pointer-events-none text-4xl font-semibold leading-tight text-gray-400 top-0 mt-2.5">
-                      0
-                    </div>
-                  )}
-                  <input
-                    type="text"
-                    inputMode="decimal"
-                    value={amountIn}
-                    onChange={(e) => {
-                      const value = e.target.value.replace(/[^0-9.]/g, "");
-                      const parts = value.split(".");
-                      const formattedValue =
-                        parts.length > 2
-                          ? parts[0] + "." + parts.slice(1).join("")
-                          : value;
-                      setAmountIn(formattedValue);
-                      resetSwap();
-                      setTxHash(null);
-                    }}
-                    className={`w-full bg-transparent border-none outline-none text-white focus:ring-0 p-0 m-0 leading-tight absolute ${
-                      amountIn && parseFloat(amountIn) > 0
-                        ? "text-5xl sm:text-6xl font-bold"
-                        : "text-4xl font-semibold text-transparent"
-                    }`}
-                    style={{
-                      height: "55px",
-                      top: "0",
-                      paddingTop: "4px",
-                      maxWidth: "calc(100% - 140px)", // Leave space for token selector button
-                      fontSize:
-                        amountIn && amountIn.length > 12
-                          ? "clamp(1.5rem, 4vw, 3rem)" // Responsive font size for long numbers
-                          : undefined,
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      whiteSpace: "nowrap",
-                    }}
-                    disabled={!address || isLoading}
-                  />
-                  {amountIn && parseFloat(amountIn) > 0 && (
-                    <p
-                      className="text-sm text-gray-400 absolute left-0"
-                      style={{ top: "38px" }}
-                    >
-                      {isLoadingPrice ? "≈ $..." : `≈ $${usdValue}`}
-                    </p>
-                  )}
-                </div>
-                <div
-                  className="flex items-center justify-end absolute right-3"
-                  style={{ top: "25px" }}
-                >
-                  <button
-                    onClick={() => handleOpenTokenSelector("from")}
-                    disabled={isLoading}
-                    className="flex items-center gap-2 bg-[#334EAC] hover:bg-[#3351aca5] text-white px-4 py-2.5 rounded-xl font-semibold transition-all duration-200 shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <div className="relative">
-                      {getTokenIconUrl(tokenIn) ? (
-                        <img
-                          src={getTokenIconUrl(tokenIn)!}
-                          alt={getTokenId(tokenIn)}
-                          className="w-5 h-5 rounded-full object-contain"
-                        />
-                      ) : (
-                        <div className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center text-xs font-bold">
-                          {getTokenId(tokenIn)[0] || "?"}
-                        </div>
-                      )}
-                      {swapMode === "evm" && currentChainIcon && (
-                        <img
-                          src={currentChainIcon}
-                          alt="chain"
-                          className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border border-[#334EAC] object-contain bg-white"
-                        />
-                      )}
-                    </div>
-                    <span>{getTokenId(tokenIn)}</span>
-                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                      <path
-                        d="M3 4.5L6 7.5L9 4.5"
-                        stroke="currentColor"
-                        strokeWidth="1.5"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </svg>
-                  </button>
-                </div>
-                <div
-                  className="text-xs text-gray-400 text-right absolute right-3"
-                  style={{ bottom: "25px" }}
-                >
-                  Balance:{" "}
-                  {isLoadingBalance
-                    ? "..."
-                    : formatSwapAmount(tokenInBalance || "0", 6)}{" "}
-                  <button
-                    onClick={() => {
-                      if (tokenInBalance && parseFloat(tokenInBalance) > 0) {
-                        setAmountIn(tokenInBalance);
-                      }
-                    }}
-                    disabled={
-                      !tokenInBalance ||
-                      parseFloat(tokenInBalance) <= 0 ||
-                      isLoadingBalance
-                    }
-                    className="text-[#415ab5] hover:text-[#3351aca5] font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                  >
-                    Max
-                  </button>
-                </div>
-              </div>
-            </div>
+            <TokenInput
+              type="from"
+              label="From"
+              amount={amountIn}
+              onAmountChange={handleAmountChange}
+              token={tokenIn}
+              onTokenClick={() => openTokenSelector("from")}
+              balance={tokenInBalance}
+              isLoadingBalance={isLoadingBalance}
+              usdValue={usdValue}
+              isLoadingPrice={isLoadingPrice}
+              swapMode={swapMode}
+              chainIcon={currentChainIcon}
+              getTokenId={getTokenId}
+              getTokenIconUrl={getTokenIconUrl}
+              onMaxClick={handleMaxClick}
+              disabled={!address || isLoading}
+            />
 
-            {/* Swap Arrow Button - Single arrow down */}
+            {/* Swap Arrow Button */}
             <div className="flex justify-center my-2 relative z-10">
               <button
-                onClick={handleSwapTokens}
+                onClick={swapTokens}
                 disabled={isLoading}
                 className="bg-[#334EAC] hover:bg-[#081F5C] text-white p-2.5 rounded-lg transition-all duration-200 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
                 aria-label="Swap tokens"
@@ -1295,256 +377,49 @@ const Swap: React.FC = () => {
             </div>
 
             {/* To Token Section */}
-            <div className="-mt-4">
-              <div className="bg-gray-900/50 border border-gray-700 rounded-xl p-4 h-32 relative">
-                <label className="text-sm font-semibold text-gray-400 block mb-3">
-                  To
-                </label>
-                <div className="flex items-center justify-between gap-3 -mt-2">
-                  <div className="flex-1 min-w-0 overflow-hidden">
-                    <div className="text-3xl font-bold text-white min-h-12 flex items-center gap-2">
-                      {isLoadingQuote ? (
-                        <span className="text-gray-400 text-sm animate-pulse">
-                          Loading...
-                        </span>
-                      ) : amountOut && amountOut !== "0.0" ? (
-                        <>
-                          <span className="truncate">{formatSwapAmount(amountOut, 6)}</span>
-                          {swapValueAnalysis?.isSuspiciouslyLow &&
-                            !isLoadingOutPrice && (
-                              <Tooltip
-                                title={
-                                  <div className="max-w-xs p-3 bg-gray-900 border border-gray-700 rounded-lg">
-                                    <div className="flex items-center gap-2 mb-3">
-                                      <Warning
-                                        sx={{ fontSize: 18, color: "#fbbf24" }}
-                                      />
-                                      <p className="font-semibold text-white text-sm">
-                                        Why is the value low?
-                                      </p>
-                                    </div>
-                                    <div className="space-y-2.5">
-                                      <div className="flex items-start gap-2">
-                                        <WaterDrop
-                                          sx={{
-                                            fontSize: 16,
-                                            color: "#60a5fa",
-                                            marginTop: "2px",
-                                            flexShrink: 0,
-                                          }}
-                                        />
-                                        <div className="text-xs text-gray-300">
-                                          <span className="text-blue-400 font-semibold">
-                                            Limited Liquidity:
-                                          </span>{" "}
-                                          There may be low liquidity in this
-                                          pair
-                                        </div>
-                                      </div>
-                                      <div className="flex items-start gap-2">
-                                        <AttachMoney
-                                          sx={{
-                                            fontSize: 16,
-                                            color: "#f59e0b",
-                                            marginTop: "2px",
-                                            flexShrink: 0,
-                                          }}
-                                        />
-                                        <div className="text-xs text-gray-300">
-                                          <span className="text-amber-400 font-semibold">
-                                            Protocol Fees:
-                                          </span>{" "}
-                                          Commissions reduce the amount received
-                                        </div>
-                                      </div>
-                                    </div>
-                                    {swapValueAnalysis.differencePercent >
-                                      0 && (
-                                      <div className="mt-3 pt-3 border-t border-gray-700 flex items-center gap-2">
-                                        <TrendingDown
-                                          sx={{
-                                            fontSize: 16,
-                                            color: "#ef4444",
-                                          }}
-                                        />
-                                        <p className="text-xs text-gray-400">
-                                          Expected difference:{" "}
-                                          <span className="text-red-400 font-semibold">
-                                            ~
-                                            {swapValueAnalysis.differencePercent.toFixed(
-                                              1
-                                            )}
-                                            %
-                                          </span>
-                                        </p>
-                                      </div>
-                                    )}
-                                  </div>
-                                }
-                                arrow
-                                placement="right"
-                                componentsProps={{
-                                  tooltip: {
-                                    sx: {
-                                      bgcolor: "transparent",
-                                      padding: 0,
-                                      boxShadow: "none",
-                                      maxWidth: "none",
-                                    },
-                                  },
-                                  popper: {
-                                    sx: {
-                                      "& .MuiTooltip-tooltip": {
-                                        bgcolor: "transparent",
-                                        padding: 0,
-                                        boxShadow: "none",
-                                      },
-                                      "& .MuiTooltip-arrow": {
-                                        color: "#374151",
-                                      },
-                                    },
-                                  },
-                                }}
-                              >
-                                <IconButton
-                                  size="small"
-                                  sx={{
-                                    padding: "2px",
-                                    color: "#fbbf24",
-                                    "&:hover": {
-                                      color: "#f59e0b",
-                                      backgroundColor:
-                                        "rgba(251, 191, 36, 0.1)",
-                                    },
-                                  }}
-                                >
-                                  <Info sx={{ fontSize: 18 }} />
-                                </IconButton>
-                              </Tooltip>
-                            )}
-                        </>
-                      ) : (
-                        "0"
-                      )}
-                    </div>
-                    {amountOut && amountOut !== "0.0" && (
-                      <p className="text-sm text-gray-400 -mt-1">
-                        {isLoadingOutPrice ? "≈ $..." : `≈ $${usdValueOut}`}
-                      </p>
-                    )}
-                  </div>
-                  <button
-                    onClick={() => handleOpenTokenSelector("to")}
-                    disabled={isLoading}
-                    className="flex items-center gap-2 bg-[#334EAC] hover:bg-[#3351aca5] text-white px-5 py-3 rounded-xl font-semibold text-sm transition-all duration-200 shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
-                    style={{ marginTop: "-10px" }}
-                  >
-                    <div className="relative">
-                      {getTokenIconUrl(tokenOut) ? (
-                        <img
-                          src={getTokenIconUrl(tokenOut)!}
-                          alt={getTokenId(tokenOut) || "Token"}
-                          className="w-6 h-6 rounded-full object-contain"
-                        />
-                      ) : (
-                        <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center text-xs font-bold">
-                          {getTokenId(tokenOut)?.[0] || "?"}
-                        </div>
-                      )}
-                      {swapMode === "evm" && currentChainIcon && (
-                        <img
-                          src={currentChainIcon}
-                          alt="chain"
-                          className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border border-[#334EAC] object-contain bg-white"
-                        />
-                      )}
-                    </div>
-                    <span>{getTokenId(tokenOut) || "Select token"}</span>
-                    <svg width="14" height="14" viewBox="0 0 12 12" fill="none">
-                      <path
-                        d="M3 4.5L6 7.5L9 4.5"
-                        stroke="currentColor"
-                        strokeWidth="1.5"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </svg>
-                  </button>
-                </div>
-              </div>
-            </div>
+            <TokenInput
+              type="to"
+              label="To"
+              amount={amountOut}
+              onAmountChange={() => {}} // Read-only
+              token={tokenOut}
+              onTokenClick={() => openTokenSelector("to")}
+              usdValue={usdValueOut}
+              isLoadingPrice={isLoadingOutPrice}
+              isLoadingQuote={isLoadingQuote}
+              swapMode={swapMode}
+              chainIcon={currentChainIcon}
+              getTokenId={getTokenId}
+              getTokenIconUrl={getTokenIconUrl}
+              disabled={!address || isLoading}
+              showSwapWarning={!!swapValueAnalysis?.isSuspiciouslyLow}
+              swapWarningComponent={
+                swapValueAnalysis ? (
+                  <SwapValueWarning
+                    analysis={swapValueAnalysis}
+                    isLoadingPrice={isLoadingOutPrice}
+                  />
+                ) : undefined
+              }
+            />
 
             {/* Order-specific parameters */}
             {orderType === "limit" && (
-              <div className="mt-4">
-                <div className="bg-gray-900/50 border border-gray-700 rounded-xl p-4">
-                  <label className="text-sm font-semibold text-gray-400 block mb-3">
-                    Limit Price (per {getTokenId(tokenOut)})
-                  </label>
-                  <input
-                    type="text"
-                    inputMode="decimal"
-                    value={limitPrice}
-                    onChange={(e) => {
-                      const value = e.target.value.replace(/[^0-9.]/g, "");
-                      const parts = value.split(".");
-                      const formattedValue =
-                        parts.length > 2
-                          ? parts[0] + "." + parts.slice(1).join("")
-                          : value;
-                      setLimitPrice(formattedValue);
-                    }}
-                    placeholder="0.0"
-                    className="w-full bg-transparent text-white text-2xl font-bold outline-none placeholder-gray-500"
-                  />
-                  <div className="text-xs text-gray-400 mt-2">
-                    Minimum price you're willing to accept
-                  </div>
-                </div>
-              </div>
+              <LimitOrderForm
+                limitPrice={limitPrice}
+                onLimitPriceChange={setLimitPrice}
+                tokenOut={tokenOut}
+                getTokenId={getTokenId}
+              />
             )}
 
             {orderType === "twap" && (
-              <div className="mt-4 space-y-3">
-                <div className="bg-gray-900/50 border border-gray-700 rounded-xl p-4">
-                  <label className="text-sm font-semibold text-gray-400 block mb-3">
-                    Number of Parts
-                  </label>
-                  <input
-                    type="number"
-                    min="2"
-                    max="100"
-                    value={twapParts}
-                    onChange={(e) => setTwapParts(e.target.value)}
-                    className="w-full bg-transparent text-white text-2xl font-bold outline-none"
-                  />
-                  <div className="text-xs text-gray-400 mt-2">
-                    How many parts to split your order into (2-100)
-                  </div>
-                </div>
-
-                <div className="bg-gray-900/50 border border-gray-700 rounded-xl p-4">
-                  <label className="text-sm font-semibold text-gray-400 block mb-3">
-                    Time Between Parts
-                  </label>
-                  <select
-                    value={twapFrequency}
-                    onChange={(e) => setTwapFrequency(e.target.value)}
-                    className="w-full bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-white outline-none"
-                  >
-                    <option value="900">15 minutes</option>
-                    <option value="1800">30 minutes</option>
-                    <option value="3600">1 hour</option>
-                    <option value="7200">2 hours</option>
-                    <option value="21600">6 hours</option>
-                    <option value="43200">12 hours</option>
-                    <option value="86400">1 day</option>
-                  </select>
-                  <div className="text-xs text-gray-400 mt-2">
-                    How often each part of your order executes
-                  </div>
-                </div>
-              </div>
+              <TWAPOrderForm
+                twapParts={twapParts}
+                onTwapPartsChange={setTwapParts}
+                twapFrequency={twapFrequency}
+                onTwapFrequencyChange={setTwapFrequency}
+              />
             )}
 
             {/* Error Display */}
@@ -1556,91 +431,30 @@ const Swap: React.FC = () => {
 
             {/* Action Buttons */}
             <div className="mt-8">
-              {!address ? (
-                <button
-                  disabled
-                  className="w-full bg-[#334EAC]/30 text-[#081F5C] font-bold py-4 text-base rounded-xl cursor-not-allowed"
-                >
-                  Connect Wallet
-                </button>
-              ) : !canGetQuote ? (
-                <button
-                  disabled
-                  className="w-full bg-[#2b46a7] text-[#ffffff] font-bold py-4 text-base rounded-xl cursor-not-allowed"
-                >
-                  Enter Amount
-                </button>
-              ) : swapMode === "evm" && !hasEnoughGas && !isLoadingGas ? (
-                <button
-                  disabled
-                  className="w-full bg-[#dc2626] text-white font-bold py-4 text-base rounded-xl cursor-not-allowed flex items-center justify-center gap-2"
-                >
-                  <Warning className="w-5 h-5" />
-                  Insufficient {gasSymbol} for Gas
-                </button>
-              ) : (
-                <button
-                  onClick={() => {
-                    void handleSwap();
-                  }}
-                  disabled={isLoading || !!txHash || isLoadingQuote}
-                  className="w-full bg-[linear-gradient(to_right,#334EAC,#081F5C)] hover:bg-[linear-gradient(to_right,#081F5C,#334EAC)] text-white font-bold py-4 text-base rounded-xl transition-all duration-200 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {txHash
-                    ? `${orderType === "swap" ? "Swap" : "Limit Order"} Completed!`
-                    : isLoading
-                      ? "Processing..."
-                      : orderType === "swap"
-                        ? "Swap"
-                        : "Place Limit Order"}
-                </button>
-              )}
+              <SwapButton
+                address={address}
+                canGetQuote={!!canGetQuote}
+                swapMode={swapMode}
+                hasEnoughGas={hasEnoughGas}
+                isLoadingGas={isLoadingGas}
+                gasSymbol={gasSymbol}
+                isLoading={isLoading}
+                txHash={txHash}
+                isLoadingQuote={isLoadingQuote}
+                orderType={orderType}
+                onClick={handleSwap}
+              />
             </div>
 
             {/* Transaction Hash */}
             {txHash && (
-              <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-xl">
-                <h3 className="text-sm font-semibold text-green-700 mb-2">
-                  ✓ Swap Completed!
-                </h3>
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-green-600 font-mono break-all">
-                      {txHash}
-                    </span>
-                  </div>
-                  <a
-                    href={
-                      swapMode === "evm"
-                        ? getCowSwapExplorerUrl(txHash, selectedEvmChainId)
-                        : getExplorerUrl(txHash, network)
-                    }
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 text-sm text-green-700 hover:text-green-800 font-semibold"
-                  >
-                    <span>
-                      {swapMode === "evm"
-                        ? "View on CoW Explorer"
-                        : "View on Stellar Expert"}
-                    </span>
-                    <svg
-                      width="16"
-                      height="16"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-                      <polyline points="15 3 21 3 21 9" />
-                      <line x1="10" y1="14" x2="21" y2="3" />
-                    </svg>
-                  </a>
-                </div>
-              </div>
+              <TransactionResult
+                txHash={txHash}
+                swapMode={swapMode}
+                network={network}
+                selectedEvmChainId={selectedEvmChainId}
+                orderType={orderType}
+              />
             )}
           </div>
         </div>
@@ -1657,16 +471,17 @@ const Swap: React.FC = () => {
           </div>
         )}
       </div>
+
       <TokenSelectorModal
         isOpen={tokenSelectorOpen}
-        onClose={() => setTokenSelectorOpen(false)}
-        onSelectToken={handleSelectToken}
+        onClose={closeTokenSelector}
+        onSelectToken={selectToken}
         selectedToken={
           (tokenSelectorType === "from" ? tokenIn : tokenOut) as Token | string
         }
         swapMode={swapMode}
         selectedChainId={selectedEvmChainId}
-        onChainChange={handleChainChange}
+        onChainChange={changeChain}
       />
     </div>
   );

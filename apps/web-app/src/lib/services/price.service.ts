@@ -99,10 +99,30 @@ export class PriceService {
   }
 
   /**
+   * Check if token is an RWA token (ends with "on")
+   */
+  private isRWAToken(tokenSymbol: string): boolean {
+    return tokenSymbol.endsWith("on") && tokenSymbol.length > 2;
+  }
+
+  /**
+   * Get underlying token symbol for RWA tokens
+   * e.g., "NVDAon" -> "NVDA"
+   */
+  private getUnderlyingTokenSymbol(tokenSymbol: string): string {
+    if (this.isRWAToken(tokenSymbol)) {
+      return tokenSymbol.slice(0, -2); // Remove "on" suffix
+    }
+    return tokenSymbol;
+  }
+
+  /**
    * Get CoinGecko ID for token symbol
    */
   private getCoinGeckoId(tokenSymbol: string): string | null {
-    return this.COINGECKO_ID_MAP[tokenSymbol] || null;
+    // For RWA tokens, get the underlying token's CoinGecko ID
+    const underlyingSymbol = this.getUnderlyingTokenSymbol(tokenSymbol);
+    return this.COINGECKO_ID_MAP[underlyingSymbol] || null;
   }
 
   /**
@@ -119,10 +139,22 @@ export class PriceService {
     } = options;
 
     // Check cache first (unless force refresh)
+    // For RWA tokens, also check cache with underlying symbol
     if (!forceRefresh) {
       const cached = this.priceCache.get(tokenSymbol);
       if (cached && this.isPriceValid(cached)) {
         return cached;
+      }
+
+      // For RWA tokens, also check if underlying token is cached
+      if (this.isRWAToken(tokenSymbol)) {
+        const underlyingSymbol = this.getUnderlyingTokenSymbol(tokenSymbol);
+        const underlyingCached = this.priceCache.get(underlyingSymbol);
+        if (underlyingCached && this.isPriceValid(underlyingCached)) {
+          // Use the cached price from underlying token
+          this.priceCache.set(tokenSymbol, underlyingCached);
+          return underlyingCached;
+        }
       }
     }
 
