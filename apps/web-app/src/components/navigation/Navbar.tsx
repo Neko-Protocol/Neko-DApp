@@ -4,6 +4,7 @@ import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { WalletButton } from "@/features/wallet/components/WalletButton";
+import { ChainSelector } from "@/features/wallet/components/ChainSelector";
 
 const Navbar: React.FC = () => {
   const pathname = usePathname();
@@ -58,6 +59,7 @@ const Navbar: React.FC = () => {
         {/* Right Side: Wallet Button */}
         <div className="flex items-center gap-4">
           <WalletButton />
+          <ChainSelector />
         </div>
       </div>
     </header>

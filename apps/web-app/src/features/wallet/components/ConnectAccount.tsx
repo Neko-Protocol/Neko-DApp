@@ -4,6 +4,7 @@ import React from "react";
 import { stellarNetwork } from "@/lib/constants/network";
 import FundAccountButton from "./FundAccountButton";
 import { WalletButton } from "./WalletButton";
+import { ChainSelector } from "./ChainSelector";
 import NetworkPill from "./NetworkPill";
 
 const ConnectAccount: React.FC = () => {
@@ -18,6 +19,7 @@ const ConnectAccount: React.FC = () => {
       }}
     >
       <WalletButton />
+      <ChainSelector />
       {stellarNetwork !== "PUBLIC" && <FundAccountButton />}
       <NetworkPill />
     </div>
