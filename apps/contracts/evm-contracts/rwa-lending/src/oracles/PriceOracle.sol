@@ -2,8 +2,8 @@
 pragma solidity ^0.8.24;
 
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-import {IPriceOracle} from "./interfaces/IPriceOracle.sol";
-import {Errors} from "./libraries/Errors.sol";
+import {IPriceOracle} from "../interfaces/IPriceOracle.sol";
+import {Errors} from "../libraries/Errors.sol";
 
 /**
  * @title AggregatorV3Interface
@@ -46,7 +46,7 @@ contract PriceOracle is IPriceOracle, Ownable {
 
     // ============ Constructor ============
 
-    constructor() Ownable() {}
+    constructor() Ownable(msg.sender) {}
 
     // ============ Admin Functions ============
 
@@ -180,7 +180,7 @@ contract MockPriceOracle is IPriceOracle, Ownable {
     /// @notice Mapping of asset addresses to their prices (8 decimals)
     mapping(address => uint256) private assetPrices;
 
-    constructor() Ownable() {}
+    constructor() Ownable(msg.sender) {}
 
     /**
      * @notice Set the price for an asset (for testing)

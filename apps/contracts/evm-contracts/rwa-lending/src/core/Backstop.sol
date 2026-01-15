@@ -5,8 +5,8 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
-import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import {IBackstop} from "./interfaces/IBackstop.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {IBackstop} from "../interfaces/IBackstop.sol";
 
 /**
  * @title Backstop
@@ -43,7 +43,7 @@ contract Backstop is IBackstop, Ownable, AccessControl, ReentrancyGuard {
     /**
      * @notice Constructor
      */
-    constructor() {
+    constructor() Ownable(msg.sender) {
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _grantRole(BACKSTOP_EMERGENCY_ROLE, msg.sender);
     }

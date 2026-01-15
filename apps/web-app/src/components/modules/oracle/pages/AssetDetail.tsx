@@ -1,5 +1,6 @@
 import React from "react";
-import { Link, useParams, useNavigate } from "react-router-dom";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ArrowLeft, TrendingUp, TrendingDown } from "lucide-react";
 import {
   Line,
@@ -10,15 +11,18 @@ import {
   ResponsiveContainer,
   Tooltip,
 } from "recharts";
-import { useOracle } from "../hooks/useOracle";
-import { useOracleAssetPrice } from "../hooks/useOracleAssetPrice";
-import { formatAsset } from "../utils/oracleUtils";
-import { STOCK_INFO } from "../utils/stockInfo";
+import { useOracle } from "@/features/stocks/hooks/useOracle";
+import { useOracleAssetPrice } from "@/features/stocks/hooks/useOracleAssetPrice";
+import { formatAsset } from "@/features/stocks/utils/oracleUtils";
+import { STOCK_INFO } from "@/features/stocks/utils/stockInfo";
 import type { Asset } from "@neko/oracle";
 
-const AssetDetail: React.FC = () => {
-  const { symbol } = useParams<{ symbol: string }>();
-  const navigate = useNavigate();
+interface AssetDetailProps {
+  symbol: string;
+}
+
+const AssetDetail: React.FC<AssetDetailProps> = ({ symbol }) => {
+  const router = useRouter();
 
   // Get all assets to find the matching one
   const { assets } = useOracle();
@@ -97,9 +101,9 @@ const AssetDetail: React.FC = () => {
 
   React.useEffect(() => {
     if (!symbol) {
-      void navigate("/oracle");
+      router.push("/dashboard/stocks");
     }
-  }, [symbol, navigate]);
+  }, [symbol, router]);
 
   if (!symbol) {
     return null;
@@ -112,7 +116,7 @@ const AssetDetail: React.FC = () => {
       <div className="w-full px-4 py-2">
         <div className="w-full px-6 py-8">
           <Link
-            to="/oracle"
+            href="/dashboard/stocks"
             className="inline-flex items-center gap-2 text-sm text-[#7096D1] hover:text-black transition-colors mb-8"
           >
             <ArrowLeft className="h-4 w-4" />
@@ -131,7 +135,7 @@ const AssetDetail: React.FC = () => {
       <div className="w-full px-6 py-8">
         {/* Back Button */}
         <Link
-          to="/oracle"
+          href="/dashboard/stocks"
           className="inline-flex items-center gap-2 text-sm text-[#7096D1] hover:text-black transition-colors mb-8"
         >
           <ArrowLeft className="h-4 w-4" />

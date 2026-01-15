@@ -28,7 +28,7 @@
     "@stellar/stellar-xdr-json": "^23.0.0",
     "@tanstack/react-query": "^5.62.11",
     "@uniswap/sdk-core": "^7.10.0",
-    "@uniswap/universal-router-sdk": "^4.29.0",
+    "@uniswap/universal-router-sdk": "^3.0.3",
     "@uniswap/v4-sdk": "^1.25.0",
     "axios": "^1.7.9",
     "chart.js": "^4.4.0",
