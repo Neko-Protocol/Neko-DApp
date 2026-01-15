@@ -2,9 +2,9 @@
 pragma solidity ^0.8.24;
 
 import {Script, console} from "forge-std/Script.sol";
-import {LendingPool} from "../LendingPool.sol";
-import {PriceOracle} from "../PriceOracle.sol";
-import {Backstop} from "../Backstop.sol";
+import {LendingPool} from "../src/core/LendingPool.sol";
+import {PriceOracle} from "../src/oracles/PriceOracle.sol";
+import {Backstop} from "../src/core/Backstop.sol";
 
 /**
  * @title Deploy

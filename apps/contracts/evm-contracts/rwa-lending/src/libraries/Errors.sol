@@ -10,6 +10,7 @@ library Errors {
     error ZeroAddress();
     error ZeroAmount();
     error InvalidAmount();
+    error InvalidInput();
     error Unauthorized();
     error Paused();
 

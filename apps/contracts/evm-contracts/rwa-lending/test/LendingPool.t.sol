@@ -2,19 +2,22 @@
 pragma solidity ^0.8.24;
 
 import {Test, console} from "forge-std/Test.sol";
-import {LendingPool} from "../LendingPool.sol";
-import {PriceOracle, MockPriceOracle} from "../PriceOracle.sol";
-import {OToken} from "../tokens/OToken.sol";
-import {DebtToken} from "../tokens/DebtToken.sol";
-import {DataTypes} from "../libraries/DataTypes.sol";
-import {WadRayMath} from "../libraries/WadRayMath.sol";
+import {LendingPool} from "../src/core/LendingPool.sol";
+import {PythPriceOracle} from "../src/oracles/PythPriceOracle.sol";
+import {OToken} from "../src/tokens/OToken.sol";
+import {DebtToken} from "../src/tokens/DebtToken.sol";
+import {DataTypes} from "../src/libraries/DataTypes.sol";
+import {WadRayMath} from "../src/libraries/WadRayMath.sol";
 import {ERC20Mock} from "./mocks/ERC20Mock.sol";
+import {MockPyth} from "@pythnetwork/pyth-sdk-solidity/MockPyth.sol";
+import {PythStructs} from "@pythnetwork/pyth-sdk-solidity/PythStructs.sol";
 
 contract LendingPoolTest is Test {
     using WadRayMath for uint256;
 
     LendingPool public pool;
-    MockPriceOracle public oracle;
+    PythPriceOracle public oracle;
+    MockPyth public mockPyth;
 
     // Mock tokens
     ERC20Mock public tslaToken;  // Collateral (Ondo RWA)
@@ -26,14 +29,21 @@ contract LendingPoolTest is Test {
     address public liquidator = makeAddr("liquidator");
 
     // Constants
-    uint256 constant TSLA_PRICE = 250e8;     // $250 per share
-    uint256 constant USDC_PRICE = 1e8;       // $1 per USDC
+    uint256 constant TSLA_PRICE = 250e8;     // $250 per share (8 decimals)
+    uint256 constant USDC_PRICE = 1e8;       // $1 per USDC (8 decimals)
     uint256 constant INITIAL_BALANCE = 1000e18;
     uint256 constant INITIAL_USDC = 1_000_000e6;
+    
+    // Pyth price feed IDs (mock IDs for testing)
+    bytes32 constant TSLA_PRICE_ID = keccak256("TSLA/USD");
+    bytes32 constant USDC_PRICE_ID = keccak256("USDC/USD");
 
     function setUp() public {
-        // Deploy mock oracle
-        oracle = new MockPriceOracle();
+        // Deploy mock Pyth with 3600 seconds valid period and 0 update fee for testing
+        mockPyth = new MockPyth(3600, 0);
+        
+        // Deploy Pyth Price Oracle
+        oracle = new PythPriceOracle(address(mockPyth));
 
         // Deploy lending pool
         pool = new LendingPool(address(oracle));
@@ -42,9 +52,40 @@ contract LendingPoolTest is Test {
         tslaToken = new ERC20Mock("Tesla Ondo", "TSLAon", 18);
         usdcToken = new ERC20Mock("USD Coin", "USDC", 6);
 
-        // Set prices
-        oracle.setAssetPrice(address(tslaToken), TSLA_PRICE);
-        oracle.setAssetPrice(address(usdcToken), USDC_PRICE);
+        // Configure price feed IDs in oracle
+        oracle.setAssetPriceId(address(tslaToken), TSLA_PRICE_ID);
+        oracle.setAssetPriceId(address(usdcToken), USDC_PRICE_ID);
+
+        // Set prices in mock Pyth using updatePriceFeeds
+        // Pyth prices use int64 with exponent -8
+        // Price: 250e8 = 25000000000 as int64, expo: -8
+        bytes memory tslaUpdateData = mockPyth.createPriceFeedUpdateData(
+            TSLA_PRICE_ID,
+            int64(int256(TSLA_PRICE)),  // 250e8 = 25000000000
+            0,                           // conf: 0 for testing
+            -8,                          // Exponent -8 (standard for USD prices)
+            int64(int256(TSLA_PRICE)),  // emaPrice: same as price for testing
+            0,                           // emaConf: 0 for testing
+            uint64(block.timestamp),     // publishTime
+            0                            // prevPublishTime: 0 for first update
+        );
+        
+        bytes memory usdcUpdateData = mockPyth.createPriceFeedUpdateData(
+            USDC_PRICE_ID,
+            int64(int256(USDC_PRICE)),  // 1e8 = 100000000
+            0,                           // conf: 0 for testing
+            -8,                          // Exponent -8
+            int64(int256(USDC_PRICE)),  // emaPrice: same as price
+            0,                           // emaConf: 0
+            uint64(block.timestamp),     // publishTime
+            0                            // prevPublishTime: 0
+        );
+        
+        // Update price feeds
+        bytes[] memory updateData = new bytes[](2);
+        updateData[0] = tslaUpdateData;
+        updateData[1] = usdcUpdateData;
+        mockPyth.updatePriceFeeds{value: 0}(updateData);
 
         // Add collateral asset (TSLAon)
         pool.addCollateralAsset(
@@ -215,7 +256,23 @@ contract LendingPoolTest is Test {
         vm.stopPrank();
 
         // Price drops - TSLA goes from $250 to $100
-        oracle.setAssetPrice(address(tslaToken), 100e8);
+        // Need to advance time slightly to ensure the new price is newer
+        vm.warp(block.timestamp + 1);
+        
+        bytes memory tslaUpdateData = mockPyth.createPriceFeedUpdateData(
+            TSLA_PRICE_ID,
+            int64(int256(100e8)),  // 100e8 = 10000000000
+            0,                      // conf: 0
+            -8,                     // expo: -8
+            int64(int256(100e8)),  // emaPrice: same
+            0,                      // emaConf: 0
+            uint64(block.timestamp), // publishTime: current timestamp
+            uint64(block.timestamp - 1) // prevPublishTime: previous timestamp
+        );
+        
+        bytes[] memory updateData = new bytes[](1);
+        updateData[0] = tslaUpdateData;
+        mockPyth.updatePriceFeeds{value: 0}(updateData);
 
         // New HF = ($1,000 * 65%) / $1,000 = 0.65 < 1.0 (liquidatable)
         uint256 hf = pool.getHealthFactor(alice);

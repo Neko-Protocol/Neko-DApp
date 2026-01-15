@@ -2,8 +2,8 @@
 pragma solidity ^0.8.24;
 
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-import {IPriceOracle} from "./interfaces/IPriceOracle.sol";
-import {Errors} from "./libraries/Errors.sol";
+import {IPriceOracle} from "../interfaces/IPriceOracle.sol";
+import {Errors} from "../libraries/Errors.sol";
 
 /**
  * @title AggregatorV3Interface
@@ -64,7 +64,7 @@ contract CustomPriceOracle is IPriceOracle, Ownable {
 
     // ============ Constructor ============
 
-    constructor() Ownable() {
+    constructor() Ownable(msg.sender) {
         // Owner is automatically a keeper
         keepers[msg.sender] = true;
     }

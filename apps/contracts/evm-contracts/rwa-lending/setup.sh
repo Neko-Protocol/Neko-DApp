@@ -25,13 +25,13 @@ fi
 # Install OpenZeppelin Contracts
 if [ ! -d "lib/openzeppelin-contracts" ]; then
     echo "📦 Installing OpenZeppelin Contracts..."
-    forge install OpenZeppelin/openzeppelin-contracts --no-commit
+    forge install OpenZeppelin/openzeppelin-contracts
 fi
 
 # Install Forge Standard Library
 if [ ! -d "lib/forge-std" ]; then
     echo "📦 Installing Forge Standard Library..."
-    forge install foundry-rs/forge-std --no-commit
+    forge install foundry-rs/forge-std
 fi
 
 echo "✅ Dependencies installed"
