@@ -1,9 +1,5 @@
 <img width="2940" height="770" alt="image" src="https://github.com/user-attachments/assets/c8adcc67-4f7d-453e-804a-1cf14be0e582" />
 
-[Check whitepaper](https://docs.google.com/document/d/1a0oLaen3oTCVS3Ir9NitemQVNZ5T42euSKetHcweOGM/edit?usp=sharing)
-
-Check documents below.
-
 # Neko DApp
 
 A DeFi protocol built on Stellar blockchain, featuring liquidity pools, lending, borrowing, and portfolio management.
@@ -13,6 +9,7 @@ A DeFi protocol built on Stellar blockchain, featuring liquidity pools, lending,
 - **Dashboard**: Real-time portfolio analytics and performance metrics
 - **Liquidity Pools**: Manage and track NFT-based liquidity positions
 - **Lending & Borrowing**: Participate in DeFi lending markets
+- **Perpetual Futures**: Trade perpetual contracts for RWA stocks.
 - **Token Swap**: Seamless token exchange interface
 - **Portfolio Management**: Track your assets and returns across all positions
 - **Oracle Integration**: Real-time price feeds for RWA (Real-World Assets) tokens
@@ -300,6 +297,7 @@ The `packages/contracts/` directory contains TypeScript clients for smart contra
 - `@neko/oracle` - Oracle contract client
 - `@neko/rwa-lending` - RWA Lending contract client
 - `@neko/rwa-oracle` - RWA Oracle contract client
+- `@neko/rwa-perps`- RWA Perpetuals contract client (not implemented yet)
 
 These packages are automatically linked via npm workspaces.
 
@@ -318,14 +316,6 @@ These packages are automatically linked via npm workspaces.
 2. Add `package.json` with name `@neko/your-contract`
 3. Create TypeScript bindings in `src/index.ts`
 4. Build with `npm run build` from root
-
-## Documents
-
-- [Whitepaper](https://docs.google.com/document/d/1a0oLaen3oTCVS3Ir9NitemQVNZ5T42euSKetHcweOGM/edit?usp=sharing)
-- [Day 1 - Project Initialization](https://www.notion.so/Day-1-Project-Initialization-2b007cea0302803082baef18395afb83)
-- [Day 2 - Technical Foundation](https://www.notion.so/Day-2-Technical-Foundation-from-Neko-Protocol-2b007cea03028046ab83eef7dd5c8167)
-- [Day 3 - Functional Progress](https://www.notion.so/Day-3-Functional-Progress-for-Neko-Protocol-2b007cea0302803292e3d6737f19ada2?source=copy_link)
-- [Empathy Map](https://www.notion.so/Empathy-Map-Neko-Protocol-2b107cea03028073a062dce30998c2bb)
 
 ## Contributing
 
