@@ -131,8 +131,11 @@ neko-dapp/
 │   │   │   │   └── dashboard/ # Dashboard feature
 │   │   │   ├── components/    # Shared UI components
 │   │   │   │   ├── ui/        # Reusable UI components
-│   │   │   │   ├── charts/     # Chart components
+│   │   │   │   ├── charts/    # Chart components
+│   │   │   │   ├── layout/    # Layout components
 │   │   │   │   └── navigation/ # Navigation components
+│   │   │   ├── contracts/     # Contract utilities
+│   │   │   ├── debug/         # Debug utilities
 │   │   │   ├── lib/           # Shared utilities
 │   │   │   │   ├── helpers/   # Helper functions
 │   │   │   │   └── constants/ # Constants and config
@@ -140,20 +143,23 @@ neko-dapp/
 │   │   │   ├── providers/     # Context providers
 │   │   │   └── stores/        # Zustand stores
 │   │   └── public/            # Static assets
-│   └── contracts/             # Stellar smart contracts (Rust)
-│       └── stellar-contracts/
-│           ├── rwa-lending/   # RWA Lending contract
-│           ├── rwa-oracle/    # RWA Oracle contract
-│           └── rwa-token/     # RWA Token contract
+│   └── contracts/             # Smart contracts
+│       ├── stellar-contracts/ # Stellar/Soroban contracts (Rust)
+│       │   ├── rwa-lending/   # RWA Lending contract
+│       │   ├── rwa-oracle/    # RWA Oracle contract
+│       │   ├── rwa-token/     # RWA Token contract
+│       │   └── rwa-perps/     # RWA Perpetuals contract
+│       └── evm-contracts/     # EVM/Solidity contracts (Foundry)
+│           └── rwa-lending/   # RWA Lending contract (EVM)
 ├── packages/
 │   ├── config/                # Shared configuration
 │   │   ├── eslint.config.mjs  # ESLint config
 │   │   ├── tailwind.config.ts # Tailwind config
-│   │   └── tsconfig.json     # TypeScript config
+│   │   ├── postcss.config.mjs # PostCSS config
+│   │   └── tsconfig.json      # TypeScript config
 │   └── contracts/             # Contract client packages
-│       ├── oracle/            # Oracle contract client
-│       ├── rwa-lending/       # RWA Lending client
-│       └── rwa-oracle/        # RWA Oracle client
+│       ├── oracle/            # Oracle contract client (@neko/oracle)
+│       └── lending/           # Lending contract client (@neko/lending)
 ├── turbo.json                 # Turborepo configuration
 └── package.json               # Root package.json
 ```
@@ -191,10 +197,10 @@ neko-dapp/
 
 ### Blockchain
 
-- **Network**: Stellar
-- **SDK**: @stellar/stellar-sdk
-- **Wallet**: Stellar Wallets Kit (@creit.tech/stellar-wallets-kit)
-- **Smart Contracts**: Rust with Soroban
+- **Stellar Network**: @stellar/stellar-sdk, Stellar Wallets Kit
+- **EVM Network**: viem, wagmi, RainbowKit
+- **Stellar Contracts**: Rust with Soroban
+- **EVM Contracts**: Solidity with Foundry
 - **Contract Clients**: TypeScript bindings for contracts
 
 ### Monorepo
@@ -295,9 +301,7 @@ Available networks:
 The `packages/contracts/` directory contains TypeScript clients for smart contracts:
 
 - `@neko/oracle` - Oracle contract client
-- `@neko/rwa-lending` - RWA Lending contract client
-- `@neko/rwa-oracle` - RWA Oracle contract client
-- `@neko/rwa-perps`- RWA Perpetuals contract client (not implemented yet)
+- `@neko/lending` - Lending contract client
 
 These packages are automatically linked via npm workspaces.
 
