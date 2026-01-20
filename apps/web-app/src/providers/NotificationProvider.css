@@ -1,12 +1,12 @@
 .notification-container {
   position: fixed;
-  top: 10px;
-  left: 50%;
-  transform: translateX(-50%);
+  top: 20px;
+  right: 20px;
   display: flex;
   flex-direction: column;
   gap: 10px;
-  z-index: 1000;
+  z-index: 9999;
+  max-width: 400px;
 }
 
 .notification {
@@ -14,13 +14,26 @@
     transform 0.3s ease,
     opacity 0.3s ease;
   opacity: 1;
+  transform: translateX(0);
 }
 
 .notification.slide-in {
-  transform: translateY(0);
+  transform: translateX(0);
+  animation: slideIn 0.3s ease;
 }
 
 .notification.slide-out {
-  transform: translateY(-20px);
+  transform: translateX(100%);
   opacity: 0;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
 }

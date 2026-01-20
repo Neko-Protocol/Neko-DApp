@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
-import { Client as RwaLendingClient, networks } from "@neko/rwa-lending";
+import { useMemo } from "react";
+import { Client as RwaLendingClient, networks } from "@neko/lending";
 import { rpcUrl, networkPassphrase } from "@/lib/constants/network";
 import { fromSmallestUnit } from "@/lib/helpers/swapUtils";
 import { getAvailableTokens } from "@/lib/helpers/soroswap";
@@ -24,66 +25,51 @@ interface BorrowPool {
  * - Pool has balance available to borrow
  */
 export const useBorrowPools = () => {
-  // Get available tokens
-  const availableTokens = getAvailableTokens();
+  // Get available tokens (memoized to prevent re-computation on every render)
+  const availableTokens = useMemo(() => getAvailableTokens(), []);
 
-  // Only NVDA is configured as collateral in this contract
-  const rwaTokens = ["NVDA"].filter((code) => {
-    const token = availableTokens[code];
-    return token && token.contract;
-  });
+  // All RWA tokens configured as collateral (memoized)
+  const rwaTokens = useMemo(() =>
+    ["NVDA", "AAPL", "PLTR", "TSLA", "META"].filter((code) => {
+      const token = availableTokens[code];
+      return token && token.contract;
+    }),
+    [availableTokens]
+  );
 
-  // Known debt assets that can be borrowed
-  const debtAssets = ["USDC", "XLM"].filter((code) => {
-    const token = availableTokens[code];
-    return token && token.contract;
-  });
+  // Known debt assets that can be borrowed (memoized)
+  const debtAssets = useMemo(() =>
+    ["USDC", "XLM"].filter((code) => {
+      const token = availableTokens[code];
+      return token && token.contract;
+    }),
+    [availableTokens]
+  );
 
-  return useQuery<BorrowPool[]>({
-    queryKey: ["borrowPools"],
-    queryFn: async () => {
-      // Create RWA lending client with new contract ID
-      const contractId = networks.testnet.contractId;
-      console.log("Borrow pools - Using contract ID:", contractId);
+  // Memoize the query function to prevent re-creation on every render
+  const queryFn = useMemo(() => async (): Promise<BorrowPool[]> => {
+    // Create RWA lending client with new contract ID
+    const contractId = networks.testnet.contractId;
 
-      const client = new RwaLendingClient({
-        contractId: contractId,
-        rpcUrl: rpcUrl,
-        networkPassphrase: networkPassphrase,
-      });
+    const client = new RwaLendingClient({
+      contractId: contractId,
+      rpcUrl: rpcUrl,
+      networkPassphrase: networkPassphrase,
+    });
 
       // Get pool state
       let poolState;
       try {
         const poolStateTx = await client.get_pool_state({ simulate: true });
         poolState = poolStateTx.result;
-        console.log("Borrow pools - Pool state:", poolState);
-      } catch (error) {
-        // Handle expected errors (contract not deployed or no data)
-        const errorMessage =
-          error instanceof Error ? error.message : String(error);
-        const isMissingValue =
-          errorMessage.includes("MissingValue") ||
-          errorMessage.includes("Storage") ||
-          errorMessage.includes("non-existing value");
-
-        if (isMissingValue) {
-          // Contract not deployed or no pool state - this is expected
-          console.debug(
-            "Borrow pools - Contract not initialized or no pool state available"
-          );
-        } else {
-          // Unexpected error
-          console.error("Borrow pools - Error getting pool state:", error);
-        }
+      } catch {
         return [];
       }
-
+      
       const isPoolActive = poolState?.tag === "Active";
 
       if (!isPoolActive) {
-        console.log("Borrow pools - Pool is not active, state:", poolState);
-        return []; // Return empty if pool is not active
+        return [];
       }
 
       const pools: BorrowPool[] = [];
@@ -125,77 +111,70 @@ export const useBorrowPools = () => {
               { simulate: true }
             );
             const balanceValue = balanceTx.result;
-            if (!balanceValue) continue;
+            // Only skip if balanceValue is undefined/null, NOT if it's 0
+            if (balanceValue === undefined || balanceValue === null) continue;
 
             // Convert balance to human-readable format
             const decimals = debtToken.decimals || 7;
             // Handle different types: bigint, string, or number
-            const balanceStr =
-              typeof balanceValue === "bigint"
-                ? balanceValue.toString()
-                : typeof balanceValue === "string"
-                  ? balanceValue
-                  : String(balanceValue);
+            const balanceStr = typeof balanceValue === 'bigint' 
+              ? balanceValue.toString() 
+              : typeof balanceValue === 'string'
+              ? balanceValue
+              : String(balanceValue);
             const balanceBigInt = BigInt(balanceStr);
-            const poolBalance = fromSmallestUnit(
-              balanceBigInt.toString(),
-              decimals
-            );
-            console.log(
-              `Borrow pool - Converted balance for ${debtCode}: ${poolBalance} (from ${balanceStr})`
-            );
-
-            // Skip if balance is 0 (pool has no assets to borrow)
-            if (parseFloat(poolBalance) === 0) {
-              console.log(
-                `Pool balance is 0 for ${debtCode} with ${rwaCode} collateral, skipping`
-              );
-              continue;
-            }
-
-            console.log(
-              `Found borrow pool for ${debtCode} with ${rwaCode} collateral, balance:`,
-              poolBalance
-            );
+            const poolBalance = fromSmallestUnit(balanceBigInt.toString(), decimals);
 
             // Get interest rate for borrowing
-            // Interest rate is calculated dynamically based on utilization
-            // Returns value in basis points (BASIS_POINTS = 10,000, so 100 = 1%)
             let interestRate = 0;
             try {
               const interestRateTx = await client.get_interest_rate(
                 { asset: debtCode },
                 { simulate: true }
               );
-              const interestRateResult = interestRateTx.result as
-                | { ok?: bigint; err?: { message?: string } }
-                | null
-                | undefined;
-              // Result<i128> has structure { ok: i128 } or { err: Error }
-              // Interest rate is in basis points (e.g., 100 = 1%, 500 = 5%)
-              if (
-                interestRateResult &&
-                "ok" in interestRateResult &&
-                interestRateResult.ok
-              ) {
-                const rateValue = Number(interestRateResult.ok);
-                // Convert from basis points to percentage: 100 basis points = 1%
+              const interestRateResult = interestRateTx.result;
+              
+              // Result<i128> from Stellar SDK has structure: { tag: "Ok", values: [bigint] } or { tag: "Err", values: [...] }
+              // Or it could be an object with unwrap() method
+              let rateValue = 0;
+              
+              if (interestRateResult !== null && interestRateResult !== undefined) {
+                // Try to access the value through various means
+                const result = interestRateResult as { 
+                  tag?: string; 
+                  values?: unknown[];
+                  unwrap?: () => bigint;
+                  isOk?: () => boolean;
+                };
+                
+                // Method 1: Check if it has unwrap method (Stellar SDK Result type)
+                if (typeof result.unwrap === 'function') {
+                  try {
+                    const unwrapped = result.unwrap();
+                    rateValue = Number(unwrapped);
+                  } catch {
+                    // unwrap() failed, try other methods
+                  }
+                }
+                // Method 2: Check for tag/values structure
+                else if (result.tag === 'Ok' && Array.isArray(result.values) && result.values.length > 0) {
+                  const val = result.values[0];
+                  rateValue = typeof val === 'bigint' ? Number(val) : Number(val);
+                }
+                // Method 3: Direct bigint/number/string
+                else if (typeof interestRateResult === 'bigint') {
+                  rateValue = Number(interestRateResult);
+                } else if (typeof interestRateResult === 'number') {
+                  rateValue = interestRateResult;
+                } else if (typeof interestRateResult === 'string') {
+                  rateValue = parseInt(interestRateResult, 10);
+                }
+
+                // Interest rate is stored as basis points (e.g., 213 = 2.13%)
                 interestRate = rateValue / 100;
-                console.log(
-                  `Interest rate for ${debtCode}: ${rateValue} basis points = ${interestRate}%`
-                );
-              } else if (interestRateResult && "err" in interestRateResult) {
-                console.warn(
-                  `Error getting interest rate for ${debtCode}:`,
-                  interestRateResult.err
-                );
               }
-            } catch (error) {
-              // If interest rate fetch fails, log and use 0
-              console.warn(
-                `Failed to fetch interest rate for ${debtCode}:`,
-                error
-              );
+            } catch {
+              // If interest rate fetch fails, use 0
             }
 
             pools.push({
@@ -209,23 +188,23 @@ export const useBorrowPools = () => {
               poolBalanceUSD: "Calculating...", // Will be calculated in component
               isActive: true,
             });
-          } catch (error) {
+          } catch {
             // Skip assets that fail to fetch (not configured or error)
-            console.debug(
-              `Failed to fetch borrow pool data for ${debtCode} with ${rwaCode} collateral:`,
-              error
-            );
             continue;
           }
         }
       }
 
-      console.log(`Total borrow pools found: ${pools.length}`, pools);
-      return pools;
-    },
+    return pools;
+  }, [rwaTokens, debtAssets]);
+
+  return useQuery<BorrowPool[]>({
+    queryKey: ["borrowPools"],
+    queryFn,
     refetchInterval: 30000, // Refetch every 30 seconds
     staleTime: 10000, // Consider stale after 10 seconds
     retry: 2,
     throwOnError: false,
   });
 };
+

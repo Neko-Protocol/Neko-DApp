@@ -36,7 +36,7 @@ export const useBalances = (
      * Default: 2
      */
     retry?: number;
-  }
+  },
 ) => {
   const {
     enabled = true,

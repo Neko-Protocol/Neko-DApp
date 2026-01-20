@@ -11,7 +11,7 @@ import {
   rpc,
   xdr,
 } from "@stellar/stellar-sdk";
-import { Client as RwaLendingClient, networks } from "@neko/rwa-lending";
+import { Client as RwaLendingClient, networks } from "@neko/lending";
 import { rpcUrl, networkPassphrase, horizonUrl } from "@/lib/constants/network";
 import { toSmallestUnit } from "@/lib/helpers/swapUtils";
 
@@ -26,7 +26,7 @@ export const approveToken = async (
   walletAddress: string
 ): Promise<string> => {
   try {
-    const sorobanServer = new rpc.Server(rpcUrl);
+    const sorobanServer = new rpc.Server(rpcUrl, { allowHttp: true });
     const horizonServer = new Horizon.Server(horizonUrl);
     const tokenContract = new Contract(tokenContractAddress);
 
@@ -87,7 +87,7 @@ export const depositToPool = async (
   walletAddress: string
 ): Promise<string> => {
   try {
-    const sorobanServer = new rpc.Server(rpcUrl);
+    const sorobanServer = new rpc.Server(rpcUrl, { allowHttp: true });
     const horizonServer = new Horizon.Server(horizonUrl);
     const lendingContract = new Contract(networks.testnet.contractId);
 
@@ -158,7 +158,7 @@ export const withdrawFromPool = async (
   walletAddress: string
 ): Promise<string> => {
   try {
-    const sorobanServer = new rpc.Server(rpcUrl);
+    const sorobanServer = new rpc.Server(rpcUrl, { allowHttp: true });
     const horizonServer = new Horizon.Server(horizonUrl);
     const lendingContract = new Contract(networks.testnet.contractId);
 
@@ -232,6 +232,7 @@ export const getBTokenBalance = async (
       contractId: networks.testnet.contractId,
       rpcUrl: rpcUrl,
       networkPassphrase: networkPassphrase,
+      allowHttp: true, // Allow HTTP connections for local/testnet
     });
 
     const balanceTx = await client.get_b_token_balance(
@@ -337,7 +338,7 @@ export const borrowFromPool = async (
   walletAddress: string
 ): Promise<string> => {
   try {
-    const sorobanServer = new rpc.Server(rpcUrl);
+    const sorobanServer = new rpc.Server(rpcUrl, { allowHttp: true });
     const horizonServer = new Horizon.Server(horizonUrl);
     const lendingContract = new Contract(networks.testnet.contractId);
 
@@ -409,6 +410,7 @@ export const getBorrowLimit = async (
       contractId: networks.testnet.contractId,
       rpcUrl: rpcUrl,
       networkPassphrase: networkPassphrase,
+      allowHttp: true, // Allow HTTP connections for local/testnet
     });
 
     const borrowLimitTx = await client.calculate_borrow_limit(
@@ -495,7 +497,7 @@ export const buildAddCollateralTransaction = async (
   walletAddress: string
 ): Promise<string> => {
   try {
-    const sorobanServer = new rpc.Server(rpcUrl);
+    const sorobanServer = new rpc.Server(rpcUrl, { allowHttp: true });
     const horizonServer = new Horizon.Server(horizonUrl);
     const lendingContract = new Contract(networks.testnet.contractId);
 
@@ -567,6 +569,7 @@ export const getCollateral = async (
       contractId: networks.testnet.contractId,
       rpcUrl: rpcUrl,
       networkPassphrase: networkPassphrase,
+      allowHttp: true, // Allow HTTP connections for local/testnet
     });
 
     const collateralTx = await client.get_collateral(

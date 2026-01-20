@@ -5,6 +5,5 @@ export default new Client.Client({
   networkPassphrase: networkPassphrase,
   contractId: Client.networks.testnet.contractId,
   rpcUrl,
-  allowHttp: true,
   publicKey: undefined,
 });

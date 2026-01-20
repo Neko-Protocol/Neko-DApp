@@ -1,0 +1,161 @@
+/**
+ * Contract Error Utilities
+ * Extracts and formats error messages from Soroban contract errors
+ */
+
+import { CONTRACT_ERRORS, ContractErrorCode } from "@/lib/constants/contracts";
+
+/**
+ * Extract a user-friendly error message from a contract error
+ * @param error - The error object from a failed contract call
+ * @returns A user-friendly error message
+ */
+export function extractContractError(error: unknown): string {
+  if (!error) {
+    return "An unknown error occurred";
+  }
+
+  const errorString = String(error);
+
+  // Try to extract error code from Soroban contract error format
+  // Format: "Error(Contract, #<code>)"
+  const contractErrorMatch = errorString.match(/Error\(Contract,\s*#(\d+)\)/);
+  if (contractErrorMatch) {
+    const errorCode = parseInt(contractErrorMatch[1], 10) as ContractErrorCode;
+    const errorInfo = CONTRACT_ERRORS[errorCode];
+    if (errorInfo) {
+      return errorInfo.message;
+    }
+    return `Contract error #${errorCode}`;
+  }
+
+  // Try to extract from HostError format
+  // Format: "HostError: Error(Contract, #<code>)"
+  const hostErrorMatch = errorString.match(/HostError:.*Error\(Contract,\s*#(\d+)\)/);
+  if (hostErrorMatch) {
+    const errorCode = parseInt(hostErrorMatch[1], 10) as ContractErrorCode;
+    const errorInfo = CONTRACT_ERRORS[errorCode];
+    if (errorInfo) {
+      return errorInfo.message;
+    }
+    return `Contract error #${errorCode}`;
+  }
+
+  // Check for simulation failure
+  if (errorString.includes("simulation failed")) {
+    // Try to extract the inner error
+    const innerMatch = errorString.match(/Error\(Contract,\s*#(\d+)\)/);
+    if (innerMatch) {
+      const errorCode = parseInt(innerMatch[1], 10) as ContractErrorCode;
+      const errorInfo = CONTRACT_ERRORS[errorCode];
+      if (errorInfo) {
+        return errorInfo.message;
+      }
+    }
+    return "Transaction simulation failed. Please check your inputs and try again.";
+  }
+
+  // Check for common wallet errors
+  if (errorString.toLowerCase().includes("user rejected") || 
+      errorString.toLowerCase().includes("user denied") ||
+      errorString.toLowerCase().includes("cancelled")) {
+    return "Transaction was cancelled by user";
+  }
+
+  if (errorString.toLowerCase().includes("insufficient funds") ||
+      errorString.toLowerCase().includes("insufficient balance")) {
+    return "Insufficient funds for this transaction";
+  }
+
+  if (errorString.toLowerCase().includes("network") ||
+      errorString.toLowerCase().includes("timeout")) {
+    return "Network error. Please check your connection and try again.";
+  }
+
+  // Return a sanitized version of the error message
+  // Remove technical details that might confuse users
+  const cleanedError = errorString
+    .replace(/Error:/gi, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  // If the error is too long or technical, return a generic message
+  if (cleanedError.length > 150 || cleanedError.includes("0x") || cleanedError.includes("wasm")) {
+    return "Transaction failed. Please try again or contact support if the issue persists.";
+  }
+
+  return cleanedError || "An unexpected error occurred";
+}
+
+/**
+ * Get the error code name from a contract error
+ * @param error - The error object from a failed contract call
+ * @returns The error code name or null if not found
+ */
+export function getContractErrorCode(error: unknown): string | null {
+  if (!error) return null;
+
+  const errorString = String(error);
+  const match = errorString.match(/Error\(Contract,\s*#(\d+)\)/);
+  
+  if (match) {
+    const errorCode = parseInt(match[1], 10) as ContractErrorCode;
+    const errorInfo = CONTRACT_ERRORS[errorCode];
+    return errorInfo?.code ?? null;
+  }
+
+  return null;
+}
+
+/**
+ * Check if an error is a specific contract error
+ * @param error - The error object from a failed contract call
+ * @param errorCode - The error code to check for
+ * @returns True if the error matches the specified code
+ */
+export function isContractError(error: unknown, errorCode: ContractErrorCode): boolean {
+  if (!error) return false;
+
+  const errorString = String(error);
+  const match = errorString.match(/Error\(Contract,\s*#(\d+)\)/);
+
+  if (match) {
+    const extractedCode = parseInt(match[1], 10);
+    return extractedCode === errorCode;
+  }
+
+  return false;
+}
+
+/**
+ * Check if an error is a user cancellation/rejection
+ * @param error - The error object from a failed transaction
+ * @returns True if the error was caused by user cancellation
+ */
+export function isUserCancellationError(error: unknown): boolean {
+  if (!error) return false;
+
+  const errorString = String(error).toLowerCase();
+
+  return (
+    errorString.includes("user rejected") ||
+    errorString.includes("user denied") ||
+    errorString.includes("user declined") ||
+    errorString.includes("cancelled") ||
+    errorString.includes("canceled") ||
+    errorString.includes("rejected the request")
+  );
+}
+
+/**
+ * Extract error message, returning null for user cancellations
+ * Useful for notification systems where user cancellation shouldn't trigger a notification
+ * @param error - The error object from a failed contract call
+ * @returns A user-friendly error message, or null if user cancelled
+ */
+export function extractContractErrorOrNull(error: unknown): string | null {
+  if (isUserCancellationError(error)) {
+    return null;
+  }
+  return extractContractError(error);
+}

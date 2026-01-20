@@ -20,6 +20,7 @@ export interface QuoteRequest {
   tradeType: "EXACT_IN" | "EXACT_OUT";
   protocols?: string[];
   slippageBps?: number;
+  maxHops?: number; // Max intermediate hops for routing (default: 3)
 }
 
 export interface QuoteResponse {

@@ -184,6 +184,10 @@ export function useSwapExecution() {
 
         const newQuote = await getQuote(quoteRequest);
 
+        if (!newQuote) {
+          throw new Error("Failed to get quote for swap");
+        }
+
         const buildRequest = {
           quote: newQuote,
           from: address,

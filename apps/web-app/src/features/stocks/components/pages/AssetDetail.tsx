@@ -1,8 +1,5 @@
-"use client";
-
 import React from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { ArrowLeft, TrendingUp, TrendingDown } from "lucide-react";
 import {
   Line,
@@ -18,18 +15,17 @@ import { useOracleAssetPrice } from "../../hooks/useOracleAssetPrice";
 import { formatAsset } from "../../utils/oracleUtils";
 import { STOCK_INFO } from "../../utils/stockInfo";
 import type { Asset } from "@neko/oracle";
+import { useParams, useRouter } from "next/navigation";
 
-interface AssetDetailProps {
-  symbol: string;
-}
-
-const AssetDetail: React.FC<AssetDetailProps> = ({ symbol }) => {
+const AssetDetail: React.FC = () => {
+  const params = useParams();
   const router = useRouter();
+  const symbol = params?.symbol as string | undefined;
 
   // Get all assets to find the matching one
   const { assets } = useOracle();
 
-  const symbolUpper = symbol.toUpperCase();
+  const symbolUpper = typeof symbol === "string" ? symbol.toUpperCase() : "";
 
   // Find the asset that matches the symbol
   const asset = React.useMemo(() => {
@@ -45,8 +41,8 @@ const AssetDetail: React.FC<AssetDetailProps> = ({ symbol }) => {
     values: [symbolUpper],
   };
 
-  const { lastPrice, priceHistory, isLoadingPrice } = useOracleAssetPrice(
-    asset || defaultAsset
+  const { lastPrice, priceHistory, isLoadingPrice, formatPrice } = useOracleAssetPrice(
+    asset || defaultAsset,
   );
 
   // Calculate price change and prepare chart data
@@ -54,13 +50,11 @@ const AssetDetail: React.FC<AssetDetailProps> = ({ symbol }) => {
     if (!priceHistory || priceHistory.length === 0) return [];
     // Sort by timestamp (oldest first) to ensure chronological order
     const sortedHistory = [...priceHistory].sort(
-      (a, b) => Number(a.timestamp) - Number(b.timestamp)
+      (a, b) => Number(a.timestamp) - Number(b.timestamp),
     );
     return sortedHistory.map((p) => {
-      // Convert BigInt price to number (7 decimals)
-      const priceNum = Number(p.price) / 1e7;
+      const priceNum = formatPrice(p.price);
       const date = new Date(Number(p.timestamp) * 1000);
-      // Format as date and time for better readability
       const dateStr = date.toLocaleDateString("en-US", {
         month: "short",
         day: "numeric",
@@ -76,34 +70,34 @@ const AssetDetail: React.FC<AssetDetailProps> = ({ symbol }) => {
         date: date,
       };
     });
-  }, [priceHistory]);
+  }, [priceHistory, formatPrice]);
 
   const priceChange = React.useMemo(() => {
     if (!priceHistory || priceHistory.length < 2) return 0;
     const latest = priceHistory[priceHistory.length - 1];
     const oldest = priceHistory[0];
-    const currentPrice = Number(latest.price) / 1e7;
-    const previousPrice = Number(oldest.price) / 1e7;
+    const currentPriceVal = formatPrice(latest.price);
+    const previousPrice = formatPrice(oldest.price);
     if (previousPrice === 0) return 0;
-    return ((currentPrice - previousPrice) / previousPrice) * 100;
-  }, [priceHistory]);
+    return ((currentPriceVal - previousPrice) / previousPrice) * 100;
+  }, [priceHistory, formatPrice]);
 
   const currentPrice = React.useMemo(() => {
     if (lastPrice) {
-      return Number(lastPrice.price) / 1e7; // Convert from BigInt with 7 decimals
+      return formatPrice(lastPrice.price);
     }
     if (priceHistory && priceHistory.length > 0) {
       const latest = priceHistory[priceHistory.length - 1];
-      return Number(latest.price) / 1e7;
+      return formatPrice(latest.price);
     }
     return null;
-  }, [lastPrice, priceHistory]);
+  }, [lastPrice, priceHistory, formatPrice]);
 
   const isPositive = priceChange >= 0;
 
   React.useEffect(() => {
     if (!symbol) {
-      router.push("/dashboard/stocks");
+      void router.push("/oracle");
     }
   }, [symbol, router]);
 
@@ -118,11 +112,11 @@ const AssetDetail: React.FC<AssetDetailProps> = ({ symbol }) => {
       <div className="w-full px-4 py-2">
         <div className="w-full px-6 py-8">
           <Link
-            href="/dashboard/stocks"
+            href="/oracle"
             className="inline-flex items-center gap-2 text-sm text-[#7096D1] hover:text-black transition-colors mb-8"
           >
             <ArrowLeft className="h-4 w-4" />
-            Back to Stocks
+            Back to Dashboard
           </Link>
           <div className="rounded-3xl bg-white p-12 shadow-lg border border-gray-200 text-center">
             <p className="text-gray-500 text-lg">Asset not found</p>
@@ -137,11 +131,11 @@ const AssetDetail: React.FC<AssetDetailProps> = ({ symbol }) => {
       <div className="w-full px-6 py-8">
         {/* Back Button */}
         <Link
-          href="/dashboard/stocks"
+          href="/oracle"
           className="inline-flex items-center gap-2 text-sm text-[#7096D1] hover:text-black transition-colors mb-8"
         >
           <ArrowLeft className="h-4 w-4" />
-          Back to Stocks
+          Back to Dashboard
         </Link>
 
         {/* Asset Header with Price */}

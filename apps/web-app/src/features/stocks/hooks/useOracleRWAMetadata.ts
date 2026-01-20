@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import oracleClient from "@/contracts/oracle";
-import type { RWAMetadata } from "@neko/rwa-oracle";
+import type { RWAMetadata } from "@neko/oracle";
 
 export const useOracleRWAMetadata = (assetId: string) => {
   const {
