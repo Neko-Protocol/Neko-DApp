@@ -120,16 +120,28 @@ const getSDKNetwork = (): SupportedNetworks => {
 
 // Singleton SDK instance
 let sdkInstance: SoroswapSDK | null = null;
+let sdkNetwork: SupportedNetworks | null = null;
+
+/**
+ * Invalidate SDK instance (call when network changes)
+ */
+export const invalidateSoroswapSDK = (): void => {
+  sdkInstance = null;
+  sdkNetwork = null;
+};
 
 /**
  * Get or create Soroswap SDK instance (singleton pattern)
  */
 const getSoroswapSDK = (): SoroswapSDK => {
-  // Return existing instance if available
-  if (sdkInstance) {
+  const currentNetwork = getSDKNetwork();
+
+  // Return existing instance if available and network hasn't changed
+  if (sdkInstance && sdkNetwork === currentNetwork) {
     return sdkInstance;
   }
 
+  // Network changed or instance doesn't exist - create new instance
   const apiKey = getApiKey();
 
   if (!apiKey) {
@@ -142,9 +154,11 @@ const getSoroswapSDK = (): SoroswapSDK => {
   sdkInstance = new SoroswapSDK({
     apiKey: apiKey,
     baseUrl: SOROSWAP_API_URL,
-    defaultNetwork: getSDKNetwork(),
+    defaultNetwork: currentNetwork,
     timeout: DEFAULT_TIMEOUT, // 8 seconds
   });
+
+  sdkNetwork = currentNetwork;
 
   return sdkInstance;
 };
@@ -240,7 +254,7 @@ export const getPool = async (request: GetPoolRequest): Promise<PoolInfo[]> => {
 
   // Log request details in development
   if (process.env.NODE_ENV === "development") {
-    console.log("🔍 Soroswap Get Pool Request:", {
+    console.log("Soroswap Get Pool Request:", {
       tokenA,
       tokenB,
       network: apiNetwork,
@@ -302,7 +316,8 @@ const formatTokenForAPI = (token: Token | string): string => {
   }
 
   if (token.type === "native") {
-    return TOKENS.XLM;
+    const tokens = getTokens();
+    return tokens.XLM || getAvailableTokens().XLM?.contract || "";
   }
 
   if (token.contract) {
@@ -364,7 +379,8 @@ export const getTokenAddress = (token: Token | string): string => {
   }
 
   if (token.type === "native") {
-    return TOKENS.XLM;
+    const tokens = getTokens();
+    return tokens.XLM || getAvailableTokens().XLM?.contract || "";
   }
 
   if (token.contract) {
@@ -384,7 +400,7 @@ export const getTokenAddress = (token: Token | string): string => {
  */
 export const getQuote = async (
   request: QuoteRequest
-): Promise<QuoteResponse> => {
+): Promise<QuoteResponse | undefined> => {
   // Format tokens as contract address strings
   const assetIn = formatTokenForAPI(request.assetIn);
   const assetOut = formatTokenForAPI(request.assetOut);
@@ -411,30 +427,15 @@ export const getQuote = async (
     );
   }
 
-  // Get SDK instance
-  const soroswapSDK = getSoroswapSDK();
+  // Get SDK network for API call
   const sdkNetwork = getSDKNetwork();
-
-  // Log request details in development for debugging
-  if (process.env.NODE_ENV === "development") {
-    console.log("🔍 Soroswap Quote Request Details:", {
-      assetIn,
-      assetOut,
-      amount: request.amount,
-      amountInSmallestUnit: amountInSmallestUnit.toString(),
-      tradeType: request.tradeType,
-      protocols: request.protocols,
-      slippageBps: request.slippageBps,
-      sdkNetwork,
-    });
-  }
 
   // Map tradeType to SDK TradeType enum
   const tradeType =
     request.tradeType === "EXACT_IN" ? TradeType.EXACT_IN : TradeType.EXACT_OUT;
 
   // Map protocols to SDK SupportedProtocols enum
-  // For live quotes, use only SOROSWAP for faster response
+  // Use multiple protocols to find best routes
   const protocols = request.protocols?.length
     ? (request.protocols as unknown[]).map((proto) => {
         if (typeof proto === "string") {
@@ -446,7 +447,24 @@ export const getQuote = async (
         }
         return proto as SupportedProtocols;
       })
-    : [SupportedProtocols.SOROSWAP]; // Default to SOROSWAP only for speed
+    : [SupportedProtocols.SOROSWAP];
+
+  // Log request details in development for debugging
+  if (process.env.NODE_ENV === "development") {
+    console.log("Soroswap Quote Request Details:", {
+      assetIn,
+      assetOut,
+      amount: request.amount,
+      amountInSmallestUnit: amountInSmallestUnit.toString(),
+      amountType: typeof amountInSmallestUnit,
+      tradeType: request.tradeType,
+      tradeTypeEnum: tradeType,
+      protocols: request.protocols,
+      protocolsEnum: protocols,
+      slippageBps: request.slippageBps,
+      sdkNetwork,
+    });
+  }
 
   // Debug log in development (minimal logging for performance)
   if (
@@ -464,18 +482,100 @@ export const getQuote = async (
   }
 
   try {
-    // Use SDK quote method
-    const quoteResponse = await soroswapSDK.quote(
-      {
-        assetIn: assetIn,
-        assetOut: assetOut,
-        amount: amountInSmallestUnit,
-        tradeType: tradeType,
-        protocols: protocols,
-        slippageBps: request.slippageBps || 500, // Default 5% slippage - can reduce for faster quotes
-      },
-      sdkNetwork
+    // Additional validation before API call
+    if (!assetIn || typeof assetIn !== "string" || assetIn.trim() === "") {
+      throw new Error(`Invalid assetIn: ${assetIn}`);
+    }
+    if (!assetOut || typeof assetOut !== "string" || assetOut.trim() === "") {
+      throw new Error(`Invalid assetOut: ${assetOut}`);
+    }
+    if (!amountInSmallestUnit || amountInSmallestUnit <= BigInt(0)) {
+      throw new Error(`Invalid amount: ${amountInSmallestUnit}`);
+    }
+
+    // Validate contract addresses are properly formatted
+    if (!isValidContractAddress(assetIn)) {
+      throw new Error(
+        `Invalid Stellar contract address format for assetIn: ${assetIn}`
+      );
+    }
+    if (!isValidContractAddress(assetOut)) {
+      throw new Error(
+        `Invalid Stellar contract address format for assetOut: ${assetOut}`
+      );
+    }
+
+    // Check if contracts exist in our known tokens
+    const availableTokens = getAvailableTokens();
+    const tokenInExists = Object.values(availableTokens).some(
+      (token) => token.contract === assetIn
     );
+    const tokenOutExists = Object.values(availableTokens).some(
+      (token) => token.contract === assetOut
+    );
+
+    if (!tokenInExists) {
+      console.warn(`assetIn contract ${assetIn} not found in available tokens`);
+    }
+    if (!tokenOutExists) {
+      console.warn(
+        `assetOut contract ${assetOut} not found in available tokens`
+      );
+    }
+
+    const apiKey = getApiKey();
+    if (!apiKey) {
+      throw new Error("Soroswap API key not configured");
+    }
+
+    const quoteRequestBody = {
+      assetIn: assetIn,
+      assetOut: assetOut,
+      amount: amountInSmallestUnit.toString(), // Convert BigInt to string for JSON
+      tradeType: tradeType,
+      protocols: protocols,
+      slippageBps: request.slippageBps || 500,
+      maxHops: request.maxHops || 3,
+    };
+
+    if (process.env.NODE_ENV === "development") {
+      console.log("Soroswap API Request Body:", quoteRequestBody);
+    }
+
+    const apiResponse = await fetch(
+      `${SOROSWAP_API_URL}/quote?network=${sdkNetwork}`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify(quoteRequestBody),
+      }
+    );
+
+    if (!apiResponse.ok) {
+      const errorData = await apiResponse.json().catch(() => ({}));
+      throw new Error(
+        `API request failed: ${apiResponse.status} ${apiResponse.statusText}. ${JSON.stringify(errorData)}`
+      );
+    }
+
+    const quoteResponse = (await apiResponse.json()) as {
+      assetIn: string;
+      assetOut: string;
+      amountIn: string;
+      amountOut: string;
+      otherAmountThreshold: string;
+      priceImpactPct: string;
+      tradeType: string;
+      platform: string;
+      rawTrade: unknown;
+      routePlan: Array<{
+        swapInfo: { protocol: string; path: string[] };
+        percent: string;
+      }>;
+    };
 
     // Convert SDK response to our QuoteResponse interface
     const response: QuoteResponse = {
@@ -509,92 +609,104 @@ export const getQuote = async (
 
     return response;
   } catch (error) {
-    // Enhanced error handling with detailed logging
-    if (error instanceof Error) {
-      const errorMessage = error.message;
+    // Enhanced error handling with detailed logging for debugging
+    let errorMessage = "Unknown error occurred during quote fetch";
 
-      // Log detailed error information in development
-      if (process.env.NODE_ENV === "development") {
-        console.error("Soroswap Quote Error:", {
-          message: errorMessage,
-          assetIn,
-          assetOut,
-          amount: amountInSmallestUnit.toString(),
-          tradeType,
-          protocols,
-          network: sdkNetwork,
-          error: error,
-        });
+    // Log the raw error for debugging (only in development)
+    if (process.env.NODE_ENV === "development") {
+      console.error("Soroswap Quote Error (raw):", error);
+      try {
+        console.error("Error stringified:", JSON.stringify(error, null, 2));
+      } catch {
+        console.error("Could not stringify error");
+      }
+    }
 
-        // Check for axios/HTTP errors
-        if ("response" in error) {
-          const httpError = error as {
-            response?: { status?: number; statusText?: string; data?: unknown };
-            config?: { url?: string };
-          };
-          console.error("HTTP Error Details:", {
-            status: httpError.response?.status,
-            statusText: httpError.response?.statusText,
-            data: httpError.response?.data,
-            url: httpError.config?.url,
+    try {
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      } else if (typeof error === "object" && error !== null) {
+        // Check for common SDK error properties (API response body)
+        const sdkError = error as Record<string, unknown>;
+
+        // The SDK returns the API response body directly on error
+        if (sdkError.message && typeof sdkError.message === "string") {
+          errorMessage = sdkError.message;
+        } else if (sdkError.title && typeof sdkError.title === "string") {
+          errorMessage = sdkError.title;
+        } else if (sdkError.detail && typeof sdkError.detail === "string") {
+          errorMessage = sdkError.detail;
+        } else if (sdkError.error && typeof sdkError.error === "string") {
+          errorMessage = sdkError.error;
+        } else if (Array.isArray(sdkError.errors)) {
+          // Handle validation errors array
+          errorMessage = (sdkError.errors as string[]).join(", ");
+        }
+
+        // Log structured error info
+        if (process.env.NODE_ENV === "development") {
+          console.error("Soroswap API Error Details:", {
+            message: sdkError.message,
+            error: sdkError.error,
+            detail: sdkError.detail,
+            statusCode: sdkError.statusCode,
+            errors: sdkError.errors,
           });
         }
       }
-
-      if (
-        errorMessage.includes("No path found") ||
-        errorMessage.includes("No path")
-      ) {
-        throw new Error(
-          "No swap path found for this token pair. This could mean:\n" +
-            "• No liquidity pool exists between these tokens\n" +
-            "• The token addresses may not be correct for this network\n" +
-            "• Try a smaller amount or verify pools exist at https://app.soroswap.finance"
-        );
-      }
-
-      if (
-        errorMessage.includes("API key") ||
-        errorMessage.includes("401") ||
-        errorMessage.includes("403")
-      ) {
-        throw new Error(
-          "Soroswap API key is invalid or expired. Please check your API key configuration at https://api.soroswap.finance/login"
-        );
-      }
-
-      // Handle 400 Bad Request errors
-      if (
-        errorMessage.includes("400") ||
-        errorMessage.includes("Bad Request")
-      ) {
-        const errorWithResponse = error as
-          | { response?: { data?: unknown } }
-          | null
-          | undefined;
-        const errorDetails =
-          "response" in error && errorWithResponse?.response?.data
-            ? JSON.stringify(errorWithResponse.response.data)
-            : errorMessage;
-        throw new Error(
-          `Invalid request to Soroswap API (400): ${errorDetails}\n` +
-            `Please check:\n` +
-            `• Token contract addresses are correct for ${sdkNetwork}\n` +
-            `• Amount format is valid\n` +
-            `• Network configuration is correct`
-        );
-      }
-
-      throw error;
+    } catch {
+      // If even basic property access fails, keep the default message
     }
 
-    throw error;
+    // Handle specific known error patterns
+    const errorStr = errorMessage.toLowerCase();
+
+    if (errorStr.includes("no path") || errorStr.includes("no liquidity")) {
+      // Get token info for better error message
+      try {
+        const availableTokens = getAvailableTokens();
+        const getTokenInfo = (address: string) => {
+          for (const [code, info] of Object.entries(availableTokens)) {
+            if (info.contract === address) {
+              return code;
+            }
+          }
+          return address.substring(0, 8) + "...";
+        };
+
+        const tokenInCode = getTokenInfo(assetIn);
+        const tokenOutCode = getTokenInfo(assetOut);
+
+        throw new Error(
+          `No liquidity available for ${tokenInCode} → ${tokenOutCode}. Please try a different pair or check back later.`
+        );
+      } catch {
+        throw new Error(
+          "No liquidity available for this trading pair. Please try a different pair."
+        );
+      }
+    }
+
+    if (
+      errorStr.includes("api key") ||
+      errorStr.includes("401") ||
+      errorStr.includes("403")
+    ) {
+      throw new Error(
+        "Soroswap API key is invalid or expired. Please check your API key configuration."
+      );
+    }
+
+    if (errorStr.includes("400") || errorStr.includes("bad request")) {
+      throw new Error(
+        `Invalid request to Soroswap API. Please check token addresses and amounts.`
+      );
+    }
+
+    // For any other error, throw a generic message
+    throw new Error(`Quote fetch failed: ${errorMessage}`);
   }
 };
-
-/**
- * Build a transaction from a quote using Soroswap SDK
- */
 export const buildTransaction = async (
   request: BuildRequest
 ): Promise<BuildResponse> => {
@@ -753,7 +865,7 @@ export const addLiquidity = async (
 
   // Log request details in development for debugging
   if (process.env.NODE_ENV === "development") {
-    console.log("🔍 Soroswap Add Liquidity Request Details:", {
+    console.log("Soroswap Add Liquidity Request Details:", {
       assetA,
       assetB,
       amountA: request.amountA,
@@ -878,37 +990,37 @@ const TOKENS_BY_NETWORK: Record<string, Record<string, TokenInfo>> = {
     },
     USDC: {
       name: "USDCoin",
-      contract: "CDWEFYYHMGEZEFC5TBUDXM3IJJ7K7W5BDGE765UIYQEV4JFWDOLSTOEK",
+      contract: "CB3TLW74NBIOT3BUWOZ3TUM6RFDF6A4GVIRUQRQZABG5KPOUL4JJOV2F",
       code: "USDC",
       decimals: 7,
     },
     NVDA: {
       name: "NVIDIA Token",
-      contract: "CB7IFFWQ2ZB6EHPKWYLLJAWN3LTY3CIHC52ZMYRLB5DAUIBNZMZLOGHG",
+      contract: "CBTPNPK5HDORKWSOVM22FCJXDVAMRA6Y2J4COGFWAU7O6VHJ6PV2KSUY",
       code: "NVDA",
       decimals: 7,
     },
     AAPL: {
       name: "APPLE Token",
-      contract: "CCOU5IO7OAHRMQDYARP7FVKYVB5MFHEH36OEAOB4WBR5MJ2HVYDZ5W77",
+      contract: "CB7ICLBZWLGCULENOTKZAW57WDVM4A5ENFCQ7HRNW4S4SSPGAFY6T26P",
       code: "AAPL",
       decimals: 7,
     },
     PLTR: {
       name: "PALANTIR Token",
-      contract: "CCEJ3BRF5CYF52VV2IKG3AOMXCHJCAZDZX7IHB5OC6A3OI5BHTUXSIBC",
+      contract: "CBDCAAID46PGO2BXPOCQJVODXGDNWYFUHCMRRHOP56PZZCOVAIOEGA3C",
       code: "PLTR",
       decimals: 7,
     },
     TSLA: {
       name: "TESLA Token",
-      contract: "CCSFIQ4V7JUZPJT2C3HRTSTQNLPB4F2R4UNPPTUTAD6CMJJ3PILNPAR5",
+      contract: "CANDL3RC3BWGGQEXIOH76ZFWOGPLCNXEUJG25BAQKCRN7WLXXXHUC35O",
       code: "TSLA",
       decimals: 7,
     },
     META: {
       name: "META Token",
-      contract: "CBAVRJKWQS74PD624TQ4CF2UVX2363CRKC2T6ESZ5KNATATHMJCRVTYV",
+      contract: "CAVCEHVJYV4R6LO3YXDOYHZJEPI4B4R4JUX4BLH4OBVNIFDWD77RSJLN",
       code: "META",
       decimals: 7,
     },
@@ -922,7 +1034,7 @@ const TOKENS_BY_NETWORK: Record<string, Record<string, TokenInfo>> = {
     },
     USDC: {
       name: "USDCoin",
-      contract: "CAXPYMWLMZRSPNM6NE6DGIZRZABQ6TYQASARRJTOKIIJ3ZJCBFRAPW3F",
+      contract: "CB3TLW74NBIOT3BUWOZ3TUM6RFDF6A4GVIRUQRQZABG5KPOUL4JJOV2F",
       code: "USDC",
       decimals: 7,
     },
@@ -941,10 +1053,11 @@ export const getAvailableTokens = (): Record<string, TokenInfo> => {
 };
 
 /**
- * Common token definitions - using correct addresses for current network
+ * Get token addresses for current network (dynamic based on network)
  * Assets are contract addresses as strings (not objects)
+ * Use this function instead of the static TOKENS object to ensure you get tokens for the current network
  */
-export const TOKENS: Record<string, string> = (() => {
+export const getTokens = (): Record<string, string> => {
   const tokens = getAvailableTokens();
   const result: Record<string, string> = {};
 
@@ -954,4 +1067,12 @@ export const TOKENS: Record<string, string> = (() => {
   });
 
   return result;
-})();
+};
+
+/**
+ * Common token definitions - using correct addresses for current network
+ * NOTE: This is initialized once at module load. For dynamic network switching,
+ * use getTokens() instead to get tokens for the current network.
+ * @deprecated Use getTokens() instead for network-aware token lookup
+ */
+export const TOKENS: Record<string, string> = getTokens();
