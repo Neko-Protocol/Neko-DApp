@@ -1,7 +1,7 @@
 import * as React from "react";
 import { Server, Api } from "@stellar/stellar-sdk/rpc";
 import { xdr } from "@stellar/stellar-sdk";
-import { rpcUrl, stellarNetwork } from "@/lib/constants/network";
+import { rpcUrl, stellarNetwork } from "../contracts/util";
 
 /**
  * Concatenated `${contractId}:${topic}`
@@ -33,7 +33,7 @@ export function useSubscription(
   contractId: string,
   topic: string,
   onEvent: (event: Api.EventResponse) => void,
-  pollInterval = 5000
+  pollInterval = 5000,
 ) {
   const id = `${contractId}:${topic}`;
   paging[id] = paging[id] || {};
@@ -76,7 +76,7 @@ export function useSubscription(
                   },
                 ],
                 limit: 10,
-              }
+              },
         );
 
         paging[id].pagingToken = undefined;
@@ -90,7 +90,7 @@ export function useSubscription(
             } catch (error) {
               console.error(
                 "Poll Events: subscription callback had error: ",
-                error
+                error,
               );
             }
           });

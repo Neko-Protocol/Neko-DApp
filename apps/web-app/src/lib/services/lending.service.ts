@@ -12,9 +12,10 @@ import {
   rpc,
   xdr,
 } from "@stellar/stellar-sdk";
-import { Client as RwaLendingClient, networks } from "@neko/rwa-lending";
+import { Client as RwaLendingClient, networks } from "@neko/lending";
 import { rpcUrl, networkPassphrase, horizonUrl } from "../constants/network";
 import { toSmallestUnit } from "../helpers/swapUtils";
+import { approveToken, addCollateral, borrowFromPool } from "../helpers/lending";
 import type {
   LendingOperationResult,
   CollateralOperationResult,
@@ -27,7 +28,7 @@ export class LendingService {
   private lendingClient: RwaLendingClient;
 
   constructor() {
-    this.sorobanServer = new rpc.Server(rpcUrl);
+    this.sorobanServer = new rpc.Server(rpcUrl, { allowHttp: true });
     this.horizonServer = new Horizon.Server(horizonUrl);
     this.lendingClient = new RwaLendingClient({
       contractId: networks.testnet.contractId,
@@ -448,50 +449,38 @@ export class LendingService {
     walletAddress: string
   ): Promise<BorrowWithCollateralResult> {
     try {
-      // First two transactions: approve + add_collateral
-      const collateralResult = await this.addCollateralWithApprove(
+      console.log("Building borrow with collateral using helper functions...");
+
+      // Use the existing helper functions
+      const approveXdr = await approveToken(
+        rwaTokenContract,
+        this.lendingClient.options.contractId,
+        collateralAmount,
+        collateralDecimals,
+        walletAddress
+      );
+
+      const addCollateralXdr = await addCollateral(
         rwaTokenContract,
         collateralAmount,
         collateralDecimals,
         walletAddress
       );
 
-      if (collateralResult.error) {
-        return {
-          approveXdr: "",
-          addCollateralXdr: "",
-          borrowXdr: "",
-          error: collateralResult.error,
-        };
-      }
-
-      // Third transaction: borrow
-      const borrowResult = await this.borrowFromPool(
+      const borrowXdr = await borrowFromPool(
         assetCode,
         borrowAmount,
         borrowDecimals,
         walletAddress
       );
 
-      if (borrowResult.error) {
-        return {
-          approveXdr: collateralResult.approveXdr,
-          addCollateralXdr: collateralResult.addCollateralXdr,
-          borrowXdr: "",
-          error: borrowResult.error,
-        };
-      }
-
       return {
-        approveXdr: collateralResult.approveXdr,
-        addCollateralXdr: collateralResult.addCollateralXdr,
-        borrowXdr: borrowResult.xdr,
+        approveXdr,
+        addCollateralXdr,
+        borrowXdr,
       };
     } catch (error) {
-      console.error(
-        "Error building borrow with collateral transactions:",
-        error
-      );
+      console.error("Error building borrow with collateral transactions:", error);
       return {
         approveXdr: "",
         addCollateralXdr: "",
