@@ -121,6 +121,10 @@ const Swap: React.FC = () => {
       setSwapMode("stellar");
       swapState.setTokenIn(defaultTokenIn);
       swapState.setTokenOut(defaultTokenOut);
+      // Reset to swap mode since limit orders are not available for Stellar
+      if (orderType !== "swap") {
+        setOrderType("swap");
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [walletType]); // Only run when walletType changes, not when swapState changes
@@ -303,6 +307,7 @@ const Swap: React.FC = () => {
           <OrderTypeTabs
             orderType={orderType}
             onOrderTypeChange={setOrderType}
+            swapMode={swapMode}
           />
 
           {/* Wallet Type Selector */}
