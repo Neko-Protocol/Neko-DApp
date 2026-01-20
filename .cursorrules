@@ -1,0 +1,148 @@
+# Neko DApp - Cursor Rules
+
+You are an expert developer working on Neko DApp, a DeFi protocol built on Stellar blockchain featuring liquidity pools, lending, borrowing, and RWA (Real-World Assets) token management.
+
+## Project Context
+
+This is a Turborepo monorepo with:
+- **apps/web-app/**: Next.js 16 + React 19 frontend with Turbopack
+- **apps/contracts/stellar-contracts/**: Rust/Soroban smart contracts
+- **apps/contracts/evm-contracts/**: Solidity/Foundry contracts
+- **packages/config/**: Shared ESLint, Tailwind, TypeScript configs
+- **packages/contracts/**: TypeScript contract client packages (@neko/oracle, @neko/lending)
+
+## Code Style & Conventions
+
+### TypeScript/JavaScript
+- Use double quotes for strings
+- Always use semicolons
+- 2-space indentation
+- 80 character line width
+- ES5 trailing commas
+- Prefer functional components with hooks
+- Use TypeScript strict mode
+
+### Solidity (Foundry)
+- 4-space indentation
+- 120 character line length
+- Double quotes for strings
+
+### Commits
+Use conventional commits: `feat:`, `fix:`, `chore:`, `refactor:`, `docs:`, `test:`
+
+## Frontend Architecture
+
+The frontend uses a **feature-based architecture**:
+
+```
+apps/web-app/src/
+├── app/          # Next.js App Router pages
+├── features/     # Self-contained feature modules
+│   ├── borrowing/
+│   ├── lending/
+│   ├── stocks/
+│   ├── swap/
+│   ├── pools/
+│   ├── wallet/
+│   └── dashboard/
+├── components/   # Shared UI components (ui/, charts/, layout/, navigation/)
+├── contracts/    # Contract utilities
+├── lib/          # Shared utilities, constants, helpers
+├── hooks/        # Custom React hooks
+├── providers/    # Context providers
+└── stores/       # Zustand stores
+```
+
+Each feature contains: `components/`, `hooks/`, `utils/`
+
+### Data Flow Pattern
+```
+Feature Components → Feature Hooks → Services/Helpers → Contract Clients (@neko/*) → Smart Contracts
+```
+
+### State Management
+- **Global state**: Zustand stores (user.store.ts, wallet.store.ts, session.store.ts)
+- **Server state**: React Query (TanStack Query)
+- **Provider chain**: QueryClientProvider → WagmiProvider → RainbowKitProvider → WalletProvider → NotificationProvider
+
+## Smart Contracts
+
+### Stellar Contracts (Rust/Soroban)
+Located in `apps/contracts/stellar-contracts/`:
+- `rwa-oracle/` - Price oracle contract
+- `rwa-token/` - RWA token contract (depends on rwa-oracle)
+- `rwa-lending/` - Lending contract (depends on rwa-oracle and rwa-token)
+- `rwa-perps/` - Perpetuals contract
+
+Build order matters: oracle → token → lending
+
+### EVM Contracts (Solidity/Foundry)
+Located in `apps/contracts/evm-contracts/`:
+- `rwa-lending/` - RWA Lending with Pyth oracle integration
+
+## Common Commands
+
+```bash
+# Development
+npm run dev              # Start dev server (localhost:3000)
+npm run build            # Build all packages
+npm run lint             # Run ESLint
+npm run format           # Format with Prettier
+
+# Stellar Contracts (from apps/contracts/stellar-contracts/)
+cargo build --workspace --release
+cargo test --workspace
+cargo build --workspace --target wasm32v1-none-unknown --release
+
+# EVM Contracts (from apps/contracts/evm-contracts/rwa-lending/)
+forge build
+forge test
+forge fmt
+```
+
+## Key Libraries
+
+### Stellar Integration
+- @stellar/stellar-sdk
+- @creit.tech/stellar-wallets-kit
+- SoroSwap SDK
+
+### EVM Integration
+- viem, wagmi, RainbowKit
+- CoW Swap SDK, Uniswap SDK
+
+### UI
+- Tailwind CSS 4
+- Material-UI
+- Stellar Design System
+- Chart.js, Recharts
+
+## Best Practices
+
+1. **Feature isolation**: Keep feature-specific code within its feature folder
+2. **Shared components**: Only extract to `components/` when used by 2+ features
+3. **Contract clients**: Use @neko/* packages for blockchain interactions
+4. **Error handling**: Use try-catch with proper error messages for contract calls
+5. **Type safety**: Define types for all contract responses and state
+6. **Testing**: Write tests for contract interactions and complex business logic
+
+## Environment Variables
+
+Required in `apps/web-app/.env.local`:
+```
+NEXT_PUBLIC_STELLAR_NETWORK=TESTNET
+NEXT_PUBLIC_STELLAR_NETWORK_PASSPHRASE="Test SDF Network ; September 2015"
+NEXT_PUBLIC_STELLAR_RPC_URL=https://soroban-testnet.stellar.org
+NEXT_PUBLIC_STELLAR_HORIZON_URL=https://horizon-testnet.stellar.org
+NEXT_PUBLIC_SOROSWAP_API_KEY=your_api_key_here
+```
+
+## When Writing Code
+
+- Follow existing patterns in the codebase
+- Use the feature-based architecture for new features
+- Prefer composition over inheritance
+- Keep components small and focused
+- Use meaningful variable and function names
+- Add TypeScript types for all new code
+- Format code with Prettier before committing
