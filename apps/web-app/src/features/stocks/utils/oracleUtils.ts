@@ -1,5 +1,4 @@
-import type { Asset } from "@neko/oracle";
-import type { RWAMetadata } from "@neko/rwa-oracle";
+import type { Asset, RWAMetadata } from "oracle";
 
 // Helper function to format asset
 export const formatAsset = (asset: Asset): string => {
@@ -10,34 +9,27 @@ export const formatAsset = (asset: Asset): string => {
 };
 
 // Helper function to format price with decimals
-// Note: Oracle prices use 7 decimal places (Stellar standard)
-export const formatPrice = (price: bigint): string => {
+// Note: RWA Oracle uses 14 decimal places for price precision
+export const formatPrice = (price: bigint, decimals: number = 14): string => {
   if (price === BigInt(0)) {
-    return "0";
+    return "$0.00";
   }
 
-  // Oracle prices always use 7 decimal places (Stellar standard)
-  const actualDecimals = 7;
-  const divisor = BigInt(10 ** actualDecimals);
+  // Use the decimals from the oracle (default 14)
+  const divisor = BigInt(10 ** decimals);
   const whole = price / divisor;
   const fractional = price % divisor;
 
   // Convert fractional part to string and pad with zeros
-  let fractionalStr = fractional.toString().padStart(actualDecimals, "0");
+  let fractionalStr = fractional.toString().padStart(decimals, "0");
 
-  // Remove trailing zeros
-  fractionalStr = fractionalStr.replace(/0+$/, "");
-
-  // If there's no fractional part, return just the whole number
-  if (fractionalStr === "") {
-    const wholeStr = whole.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-    return wholeStr;
-  }
+  // Keep only 2 decimal places for display
+  fractionalStr = fractionalStr.substring(0, 2);
 
   // Format whole number with locale string for better readability
   const wholeStr = whole.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 
-  return `${wholeStr}.${fractionalStr}`;
+  return `$${wholeStr}.${fractionalStr}`;
 };
 
 // Helper function to format asset type
@@ -48,7 +40,7 @@ export const formatAssetType = (type: RWAMetadata["asset_type"]): string => {
 
 // Helper function to format compliance status
 export const formatComplianceStatus = (
-  status: RWAMetadata["regulatory_info"]["compliance_status"]
+  status: RWAMetadata["regulatory_info"]["compliance_status"],
 ): string => {
   if (!status) return "Unknown";
   return status.tag ?? "Unknown";
