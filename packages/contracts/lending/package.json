@@ -1,7 +1,6 @@
 {
   "version": "0.0.0",
-  "name": "@neko/rwa-lending",
-  "private": true,
+  "name": "@neko/lending",
   "type": "module",
   "exports": "./dist/index.js",
   "typings": "dist/index.d.ts",
@@ -13,6 +12,6 @@
     "buffer": "6.0.3"
   },
   "devDependencies": {
-    "typescript": "^5"
+    "typescript": "^5.6.2"
   }
 }
