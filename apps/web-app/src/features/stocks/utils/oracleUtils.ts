@@ -1,4 +1,4 @@
-import type { Asset, RWAMetadata } from "oracle";
+import type { Asset, RWAMetadata } from "@neko/oracle";
 
 // Helper function to format asset
 export const formatAsset = (asset: Asset): string => {
@@ -40,7 +40,7 @@ export const formatAssetType = (type: RWAMetadata["asset_type"]): string => {
 
 // Helper function to format compliance status
 export const formatComplianceStatus = (
-  status: RWAMetadata["regulatory_info"]["compliance_status"],
+  status: RWAMetadata["regulatory_info"]["compliance_status"]
 ): string => {
   if (!status) return "Unknown";
   return status.tag ?? "Unknown";
