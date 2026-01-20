@@ -274,7 +274,11 @@ const BorrowTable: React.FC = () => {
       const friendlyError = extractContractErrorOrNull(err);
       // Only show error if it's not a user cancellation
       if (friendlyError) {
-        setError(friendlyError);
+        // Ensure we always pass a string to setError
+        const errorMessage = typeof friendlyError === 'string'
+          ? friendlyError
+          : 'An unexpected error occurred. Please try again.';
+        setError(errorMessage);
       }
     } finally {
       setIsProcessing(false);

@@ -4,7 +4,6 @@ import React, { useState, useMemo } from "react";
 import { Modal, Box, Typography, IconButton, TextField } from "@mui/material";
 import { useLendingPools } from "@/features/lending/hooks/useLendingPools";
 import { useWallet } from "../../../../hooks/useWallet";
-import { useNotification } from "../../../../hooks/useNotification";
 import { approveToken, depositToPool, withdrawFromPool, getBTokenBalance } from "@/lib/helpers/lending";
 import { getAvailableTokens } from "@/lib/helpers/soroswap";
 import { TransactionBuilder, Networks } from "@stellar/stellar-sdk";
@@ -33,12 +32,12 @@ const Lend: React.FC = () => {
   const [isDepositModal, setIsDepositModal] = useState(true); // true for deposit, false for withdraw
   const [amount, setAmount] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [bTokenBalance, setBTokenBalance] = useState<string | null>(null);
   const [isLoadingBalance, setIsLoadingBalance] = useState(false);
   const [bTokensToBurn, setBTokensToBurn] = useState<string | null>(null); // Calculated bTokens for withdraw
   
   const { address, signTransaction, networkPassphrase } = useWallet();
-  const { addNotification } = useNotification();
 
   // Get real lending pools from contract
   const { data: lendingPools = [], isLoading: isLoadingPools, error: poolsError, refetch: refetchPools } = useLendingPools();
@@ -328,16 +327,16 @@ const Lend: React.FC = () => {
       await loadBTokenBalance();
       await refetchPools();
 
-      addNotification(
-        isDepositModal ? "Deposit successful!" : "Withdrawal successful!",
-        "success"
-      );
       handleCloseModal();
     } catch (error) {
       const errorMessage = extractContractErrorOrNull(error);
-      // Only show notification if it's not a user cancellation
+      // Only set error state if it's not a user cancellation
       if (errorMessage) {
-        addNotification(errorMessage, "error");
+        // Ensure we always pass a string to setError
+        const errorString = typeof errorMessage === 'string'
+          ? errorMessage
+          : 'An unexpected error occurred. Please try again.';
+        setError(errorString);
       }
     } finally {
       setIsLoading(false);
@@ -743,6 +742,15 @@ const Lend: React.FC = () => {
               </Box>
             )}
           </Box>
+
+          {/* Error Display */}
+          {error && (
+            <Box sx={{ mb: 3, p: 3, backgroundColor: "#fef2f2", border: "1px solid #fecaca", borderRadius: "12px" }}>
+              <Typography sx={{ color: "#dc2626", fontSize: "0.875rem" }}>
+                {error}
+              </Typography>
+            </Box>
+          )}
 
           {/* Action Buttons */}
           <Box sx={{ display: "flex", gap: 2 }}>

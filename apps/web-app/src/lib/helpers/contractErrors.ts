@@ -15,7 +15,26 @@ export function extractContractError(error: unknown): string {
     return "An unknown error occurred";
   }
 
-  const errorString = String(error);
+  // Handle object errors more carefully
+  let errorString: string;
+  if (typeof error === 'object') {
+    const errorObj = error as any;
+    if (errorObj.message && typeof errorObj.message === 'string') {
+      errorString = errorObj.message;
+    } else if (errorObj.name && errorObj.message) {
+      errorString = `${errorObj.name}: ${errorObj.message}`;
+    } else {
+      // Fallback: try to stringify but avoid [object Object]
+      try {
+        const stringified = JSON.stringify(error);
+        errorString = stringified === '{}' || stringified === '{""}' ? 'Unknown error' : stringified;
+      } catch {
+        errorString = 'An unexpected error occurred';
+      }
+    }
+  } else {
+    errorString = String(error);
+  }
 
   // Try to extract error code from Soroban contract error format
   // Format: "Error(Contract, #<code>)"
@@ -84,7 +103,13 @@ export function extractContractError(error: unknown): string {
     return "Transaction failed. Please try again or contact support if the issue persists.";
   }
 
-  return cleanedError || "An unexpected error occurred";
+  // Final safety check: ensure we never return something that would display as "[object Object]"
+  const finalError = cleanedError || "An unexpected error occurred";
+  if (finalError === "[object Object]" || finalError.includes("[object ")) {
+    return "Transaction failed. Please try again.";
+  }
+
+  return finalError;
 }
 
 /**
@@ -137,13 +162,28 @@ export function isUserCancellationError(error: unknown): boolean {
 
   const errorString = String(error).toLowerCase();
 
-  return (
-    errorString.includes("user rejected") ||
-    errorString.includes("user denied") ||
-    errorString.includes("user declined") ||
-    errorString.includes("cancelled") ||
-    errorString.includes("canceled") ||
-    errorString.includes("rejected the request")
+  // Common wallet rejection patterns
+  const cancellationPatterns = [
+    "user rejected",
+    "user denied",
+    "user declined",
+    "cancelled",
+    "canceled",
+    "rejected the request",
+    "user canceled",
+    "user cancelled",
+    "action_cancelled",
+    "request rejected",
+    "transaction rejected",
+    "signature rejected",
+    // Wallet-specific error codes/messages
+    "4001", // MetaMask user rejection code
+    "-32000", // Generic user rejection
+    "-32603", // Internal error that might be user cancellation
+  ];
+
+  return cancellationPatterns.some(pattern =>
+    errorString.includes(pattern)
   );
 }
 
@@ -157,5 +197,28 @@ export function extractContractErrorOrNull(error: unknown): string | null {
   if (isUserCancellationError(error)) {
     return null;
   }
+
+  // Handle cases where error might be an object that stringifies to "[object Object]"
+  if (error && typeof error === 'object') {
+    // Try to extract message property
+    const errorObj = error as any;
+    if (errorObj.message && typeof errorObj.message === 'string') {
+      // Check if the message indicates user cancellation
+      if (isUserCancellationError(errorObj.message)) {
+        return null;
+      }
+      return errorObj.message;
+    }
+
+    // Try to extract name property for better error identification
+    if (errorObj.name && errorObj.message) {
+      const fullError = `${errorObj.name}: ${errorObj.message}`;
+      if (isUserCancellationError(fullError)) {
+        return null;
+      }
+      return fullError;
+    }
+  }
+
   return extractContractError(error);
 }
