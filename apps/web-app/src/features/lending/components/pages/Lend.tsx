@@ -93,6 +93,7 @@ const Lend: React.FC = () => {
   }, [pools]);
 
   const handleLendClick = () => {
+    setError(null);
     setIsDepositModal(true);
     setAmount("");
     setBTokenBalance(null);
@@ -104,6 +105,7 @@ const Lend: React.FC = () => {
   };
 
   const handleWithdrawClick = () => {
+    setError(null);
     setIsDepositModal(false);
     setAmount("");
     setBTokenBalance(null);
