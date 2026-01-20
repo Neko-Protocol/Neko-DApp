@@ -154,6 +154,13 @@ export function useSwapQuote(
     const currentTokenIn = tokenIn;
     const currentTokenOut = tokenOut;
 
+    // For testing, ensure we have a reasonable amount
+    if (!trimmedAmount || parseFloat(trimmedAmount) <= 0) {
+      setAmountOut("0.0");
+      setIsLoadingQuote(false);
+      return;
+    }
+
     setIsLoadingQuote(true);
     try {
       const quoteRequest: QuoteRequest = {
@@ -161,8 +168,10 @@ export function useSwapQuote(
         assetOut: tokenOut as Token | string,
         amount: trimmedAmount,
         tradeType: "EXACT_IN",
+        // Start with single protocol for testing
         protocols: ["soroswap"],
-        slippageBps: 100,
+        slippageBps: 500, // 5% slippage (more generous)
+        maxHops: 1, // Reduce to direct routes only for testing
       };
 
       const quote = await getQuote(quoteRequest);
@@ -194,12 +203,14 @@ export function useSwapQuote(
             let amountOutFormatted: string;
 
             if (tokenOutObj) {
+              // EVM tokens - use token's decimals
               amountOutFormatted = formatUnits(
                 amountOutBigInt,
                 tokenOutObj.decimals
               );
             } else {
-              amountOutFormatted = fromSmallestUnit(amountOutStr, 6);
+              // Stellar tokens use 7 decimals
+              amountOutFormatted = fromSmallestUnit(amountOutStr, 7);
             }
 
             const formatted = formatSwapAmount(amountOutFormatted, 6);
