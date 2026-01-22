@@ -33,4 +33,11 @@ pub enum Error {
 
     // General errors
     InvalidInput = 60,
+
+    // Initialization errors
+    NotInitialized = 61,
+    AlreadyInitialized = 62,
+
+    // Protocol state errors
+    ProtocolPaused = 63,
 }
