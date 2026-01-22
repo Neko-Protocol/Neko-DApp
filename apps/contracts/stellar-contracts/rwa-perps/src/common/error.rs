@@ -40,4 +40,8 @@ pub enum Error {
 
     // Protocol state errors
     ProtocolPaused = 63,
+
+    // Margin management errors
+    MarginRatioBelowMaintenance = 70,  // Margin removal would violate maintenance requirement
+    MarginTokenNotSet = 73,            // Margin token not configured
 }

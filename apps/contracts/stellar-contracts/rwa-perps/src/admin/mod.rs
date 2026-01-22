@@ -169,4 +169,17 @@ impl Admin {
         env.deployer()
             .update_current_contract_wasm(new_wasm_hash.clone());
     }
+
+    /// Set margin token address (admin only)
+    ///
+    /// Sets the token contract address used for margin deposits/withdrawals.
+    /// This token is typically a stablecoin like USDC.
+    ///
+    /// # Arguments
+    /// * `token` - Token contract address to use for margin
+    pub fn set_margin_token(env: &Env, token: &Address) {
+        Self::require_admin(env);
+        Storage::set_margin_token(env, token);
+        Events::margin_token_set(env, token);
+    }
 }
