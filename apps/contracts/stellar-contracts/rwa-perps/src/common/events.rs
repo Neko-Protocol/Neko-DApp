@@ -56,4 +56,44 @@ impl Events {
         );
         env.events().publish(topics, liquidation_price);
     }
+
+    /// Event emitted when contract is initialized
+    pub fn contract_initialized(
+        env: &Env,
+        admin: &Address,
+        oracle: &Address,
+    ) {
+        let topics = (symbol_short!("init"), admin);
+        env.events().publish(topics, oracle);
+    }
+
+    /// Event emitted when oracle address is updated
+    pub fn oracle_updated(
+        env: &Env,
+        old_oracle: &Address,
+        new_oracle: &Address,
+    ) {
+        let topics = (symbol_short!("oracle"), old_oracle);
+        env.events().publish(topics, new_oracle);
+    }
+
+    /// Event emitted when protocol pause state changes
+    pub fn protocol_paused_updated(
+        env: &Env,
+        paused: bool,
+    ) {
+        let topics = (symbol_short!("paused"),);
+        env.events().publish(topics, paused);
+    }
+
+    /// Event emitted when market config is updated
+    pub fn market_config_updated(
+        env: &Env,
+        rwa_token: &Address,
+        max_leverage: u32,
+        maintenance_margin: u32,
+    ) {
+        let topics = (symbol_short!("mkt_cfg"), rwa_token);
+        env.events().publish(topics, (max_leverage, maintenance_margin));
+    }
 }

@@ -45,6 +45,17 @@ pub enum PositionStatus {
     Liquidated,
 }
 
+// Main perpetuals storage
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct PerpsStorage {
+    pub admin: Address,
+    pub oracle: Address,
+    pub protocol_paused: bool,
+    pub protocol_fee_rate: u32,
+    pub liquidation_fee_rate: u32,
+}
+
 // Constants
 pub const BASIS_POINTS: i128 = 10_000;
 pub const SCALAR_9: i128 = 1_000_000_000; // 9 decimals for precision
