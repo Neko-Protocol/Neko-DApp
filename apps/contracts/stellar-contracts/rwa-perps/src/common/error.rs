@@ -40,4 +40,8 @@ pub enum Error {
 
     // Protocol state errors
     ProtocolPaused = 63,
+
+    // Funding errors
+    InvalidFundingRate = 70,
+    FundingCalculationError = 71,
 }

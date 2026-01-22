@@ -4,6 +4,7 @@ use crate::admin::Admin;
 use crate::common::error::Error;
 use crate::common::types::MarketConfig;
 use crate::operations::liquidation::Liquidations;
+use crate::operations::funding::Funding;
 
 #[contract]
 pub struct RWAPerpsContract;
@@ -100,5 +101,33 @@ impl RWAPerpsContract {
         Liquidations::get_liquidation_price(&env, &trader, &rwa_token)
     }
 
-    // Future operations (positions, margin, funding) will be added here
+    // ========== Funding Functions ==========
+
+    /// Update funding rate for a market (admin only)
+    pub fn update_funding_rate(
+        env: Env,
+        rwa_token: Address,
+        new_rate: i128,
+    ) -> Result<(), Error> {
+        Funding::update_funding_rate(&env, &rwa_token, new_rate)
+    }
+
+    /// Accrue funding for a position
+    pub fn accrue_funding(
+        env: Env,
+        trader: Address,
+        rwa_token: Address,
+    ) -> Result<i128, Error> {
+        Funding::accrue_funding(&env, &trader, &rwa_token)
+    }
+
+    /// Get current funding rate for a market
+    pub fn get_funding_rate(
+        env: Env,
+        rwa_token: Address,
+    ) -> Result<i128, Error> {
+        Funding::get_funding_rate(&env, &rwa_token)
+    }
+
+    // Future operations (positions, margin) will be added here
 }
