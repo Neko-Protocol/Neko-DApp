@@ -94,4 +94,16 @@ impl Storage {
         let key = (PRICE_KEY, rwa_token.clone());
         env.storage().persistent().set(&key, &price);
     }
+
+    /// Get margin token address
+    pub fn get_margin_token(env: &Env) -> Option<Address> {
+        let key = symbol_short!("mrg_token");
+        env.storage().instance().get(&key)
+    }
+
+    /// Set margin token address (admin only)
+    pub fn set_margin_token(env: &Env, token: &Address) {
+        let key = symbol_short!("mrg_token");
+        env.storage().instance().set(&key, token);
+    }
 }

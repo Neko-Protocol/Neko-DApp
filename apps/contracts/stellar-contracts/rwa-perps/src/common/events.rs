@@ -96,4 +96,38 @@ impl Events {
         let topics = (symbol_short!("mkt_cfg"), rwa_token);
         env.events().publish(topics, (max_leverage, maintenance_margin));
     }
+
+    /// Event emitted when margin token is configured
+    pub fn margin_token_set(
+        env: &Env,
+        token: &Address,
+    ) {
+        let topics = (symbol_short!("mrg_tkn"),);
+        env.events().publish(topics, token);
+    }
+
+    /// Event emitted when margin is added to a position
+    pub fn margin_added(
+        env: &Env,
+        trader: &Address,
+        rwa_token: &Address,
+        amount: i128,
+        new_total_margin: i128,
+    ) {
+        let topics = (symbol_short!("mrg_add"), trader, rwa_token);
+        env.events().publish(topics, (amount, new_total_margin));
+    }
+
+    /// Event emitted when margin is removed from a position
+    pub fn margin_removed(
+        env: &Env,
+        trader: &Address,
+        rwa_token: &Address,
+        amount: i128,
+        new_total_margin: i128,
+        margin_ratio: i128,
+    ) {
+        let topics = (symbol_short!("mrg_rem"), trader, rwa_token);
+        env.events().publish(topics, (amount, new_total_margin, margin_ratio));
+    }
 }

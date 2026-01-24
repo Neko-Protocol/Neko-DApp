@@ -252,7 +252,7 @@ impl Liquidations {
     // Helper functions
 
     /// Calculate unrealized PnL for a position
-    fn calculate_unrealized_pnl(position: &Position, current_price: i128) -> Result<i128, Error> {
+    pub fn calculate_unrealized_pnl(position: &Position, current_price: i128) -> Result<i128, Error> {
         let price_diff = current_price
             .checked_sub(position.entry_price)
             .ok_or(Error::ArithmeticError)?;
@@ -270,7 +270,7 @@ impl Liquidations {
     }
 
     /// Calculate position value at current price
-    fn calculate_position_value(position: &Position, current_price: i128) -> Result<i128, Error> {
+    pub fn calculate_position_value(position: &Position, current_price: i128) -> Result<i128, Error> {
         let abs_size = if position.size < 0 {
             position.size
                 .checked_neg()

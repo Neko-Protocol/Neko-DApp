@@ -61,3 +61,7 @@ yarn-error.log*
 
 # Husky
 .husky/_
+
+# Rust/Stellar contracts
+**/test_snapshots/
+target/

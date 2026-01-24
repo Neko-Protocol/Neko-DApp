@@ -5,6 +5,7 @@ use crate::common::error::Error;
 use crate::common::types::MarketConfig;
 use crate::operations::liquidation::Liquidations;
 use crate::operations::funding::Funding;
+use crate::operations::margin::Margins;
 
 #[contract]
 pub struct RWAPerpsContract;
@@ -71,6 +72,11 @@ impl RWAPerpsContract {
         Admin::upgrade(&env, &new_wasm_hash);
     }
 
+    /// Set margin token address (admin only)
+    pub fn set_margin_token(env: Env, token: Address) {
+        Admin::set_margin_token(&env, &token);
+    }
+
     // ========== Liquidation Functions ==========
 
     /// Check if a position is liquidatable
@@ -129,5 +135,43 @@ impl RWAPerpsContract {
         Funding::get_funding_rate(&env, &rwa_token)
     }
 
-    // Future operations (positions, margin) will be added here
+    // ========== Margin Management Functions ==========
+
+    /// Add collateral to an existing position
+    pub fn add_margin(
+        env: Env,
+        trader: Address,
+        rwa_token: Address,
+        amount: i128,
+    ) -> Result<(), Error> {
+        Margins::add_margin(&env, &trader, &rwa_token, amount)
+    }
+
+    /// Remove collateral from an existing position
+    pub fn remove_margin(
+        env: Env,
+        trader: Address,
+        rwa_token: Address,
+        amount: i128,
+    ) -> Result<(), Error> {
+        Margins::remove_margin(&env, &trader, &rwa_token, amount)
+    }
+
+    /// Calculate current margin ratio for a position (in basis points)
+    pub fn calculate_margin_ratio(
+        env: Env,
+        trader: Address,
+        rwa_token: Address,
+    ) -> Result<i128, Error> {
+        Margins::calculate_margin_ratio(&env, &trader, &rwa_token)
+    }
+
+    /// Get available margin that can be safely removed from a position
+    pub fn get_available_margin(
+        env: Env,
+        trader: Address,
+        rwa_token: Address,
+    ) -> Result<i128, Error> {
+        Margins::get_available_margin(&env, &trader, &rwa_token)
+    }
 }

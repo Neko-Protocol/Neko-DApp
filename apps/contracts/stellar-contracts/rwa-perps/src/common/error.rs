@@ -44,4 +44,8 @@ pub enum Error {
     // Funding errors
     InvalidFundingRate = 70,
     FundingCalculationError = 71,
+
+    // Margin management errors
+    MarginRatioBelowMaintenance = 72,  // Margin removal would violate maintenance requirement
+    MarginTokenNotSet = 73,            // Margin token not configured
 }
