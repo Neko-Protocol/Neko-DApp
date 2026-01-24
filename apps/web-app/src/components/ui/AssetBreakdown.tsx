@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useMemo } from "react";
 import {
   Table,
   TableBody,
@@ -16,10 +16,13 @@ import {
   Box,
   Typography,
   Button,
+  CircularProgress,
 } from "@mui/material";
 import { Info } from "@mui/icons-material";
 import { ThemeProvider, createTheme } from "@mui/material/styles";
 import { useRouter } from "next/navigation";
+import { useLendingPools } from "@/features/lending/hooks/useLendingPools";
+import { useBorrowPools } from "@/features/borrowing/hooks/useBorrowPools";
 
 interface AssetData {
   id: string;
@@ -54,32 +57,84 @@ const lightTheme = createTheme({
 const AssetBreakdown: React.FC = () => {
   const router = useRouter();
 
-  const assets: AssetData[] = [
-    {
-      id: "123456",
-      pool: { token1: "USDC", token2: "NVDA", fee: "1%" },
-      roi: "0.07%",
-      feeApy: "372.70%",
-      liquidity: "$15.21k",
-      isActive: true,
-    },
-    {
-      id: "1234567",
-      pool: { token1: "USDC", token2: "TSLA", fee: "0.01%" },
-      roi: "0.00%",
-      feeApy: "7.20%",
-      liquidity: "$719.39k",
-      isActive: true,
-    },
-    {
-      id: "1234",
-      pool: { token1: "USDC", token2: "GOOG", fee: "0.01%" },
-      roi: "0.00%",
-      feeApy: "7.20%",
-      liquidity: "$719.39k",
-      isActive: true,
-    },
-  ];
+  // Get real lending pools from contract
+  const {
+    data: lendingPools = [],
+    isLoading: isLoadingLending,
+    error: lendingError,
+  } = useLendingPools();
+
+  // Get real borrow pools from contract
+  const {
+    data: borrowPools = [],
+    isLoading: isLoadingBorrow,
+    error: borrowError,
+  } = useBorrowPools();
+
+  const isLoading = isLoadingLending || isLoadingBorrow;
+  const error = lendingError || borrowError;
+
+  // Combine and transform lending and borrow pools into unified AssetData format
+  const assets: AssetData[] = useMemo(() => {
+    const combinedAssets: AssetData[] = [];
+
+    // Add lending pools (single token pools for supplying liquidity)
+    lendingPools.forEach((pool, index) => {
+      // Calculate APY from interest rate
+      const apy =
+        pool.interestRate > 0 ? `${pool.interestRate.toFixed(2)}%` : "0.00%";
+
+      // Format liquidity
+      const balanceNum = parseFloat(pool.poolBalance);
+      const liquidity =
+        balanceNum >= 1000000
+          ? `$${(balanceNum / 1000000).toFixed(2)}M`
+          : balanceNum >= 1000
+            ? `$${(balanceNum / 1000).toFixed(2)}k`
+            : `$${balanceNum.toFixed(2)}`;
+
+      combinedAssets.push({
+        id: `lending-${index}`,
+        pool: {
+          token1: pool.assetCode,
+          token2: "Lending",
+          fee: "0%",
+        },
+        roi: `${pool.interestRate.toFixed(2)}%`,
+        feeApy: apy,
+        liquidity,
+        isActive: pool.isActive,
+      });
+    });
+
+    // Add borrow pools (RWA token + debt asset pairs)
+    borrowPools.forEach((pool, index) => {
+      // Format liquidity
+      const balanceNum = parseFloat(pool.poolBalance);
+      const liquidity =
+        balanceNum >= 1000000
+          ? `$${(balanceNum / 1000000).toFixed(2)}M`
+          : balanceNum >= 1000
+            ? `$${(balanceNum / 1000).toFixed(2)}k`
+            : `$${balanceNum.toFixed(2)}`;
+
+      combinedAssets.push({
+        id: `borrow-${index}`,
+        pool: {
+          token1: pool.assetCode,
+          token2: pool.collateralTokenCode,
+          fee: `${pool.collateralFactor}%`,
+        },
+        roi: `${pool.interestRate.toFixed(2)}%`,
+        feeApy: `${pool.interestRate.toFixed(2)}%`,
+        liquidity,
+        isActive: pool.isActive,
+      });
+    });
+
+    // Limit to 3 items for dashboard display
+    return combinedAssets.slice(0, 3);
+  }, [lendingPools, borrowPools]);
 
   return (
     <ThemeProvider theme={lightTheme}>
@@ -142,100 +197,149 @@ const AssetBreakdown: React.FC = () => {
               </TableRow>
             </TableHead>
             <TableBody>
-              {assets.map((asset) => (
-                <TableRow
-                  key={asset.id}
-                  sx={{
-                    "&:hover": {
-                      backgroundColor: "rgba(51, 78, 172, 0.1)",
-                    },
-                    "& td": {
-                      borderBottom: "1px solid rgba(51, 78, 172, 0.2)",
-                      py: 2.5,
-                    },
-                  }}
-                >
-                  <TableCell>
-                    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                      <Box
-                        sx={{
-                          width: 8,
-                          height: 8,
-                          borderRadius: "50%",
-                          backgroundColor: asset.isActive
-                            ? "#028733ff"
-                            : "#6b7280",
-                        }}
-                      />
-                      <Typography
-                        sx={{
-                          color: asset.isActive ? "#028733ff" : "#7096D1",
-                          fontWeight: 500,
-                        }}
-                      >
-                        {asset.id}
+              {isLoading ? (
+                <TableRow>
+                  <TableCell colSpan={5} align="center" sx={{ py: 4 }}>
+                    <Box
+                      sx={{
+                        display: "flex",
+                        justifyContent: "center",
+                        alignItems: "center",
+                        gap: 2,
+                      }}
+                    >
+                      <CircularProgress size={24} sx={{ color: "#334EAC" }} />
+                      <Typography sx={{ color: "#7096D1" }}>
+                        Loading pools...
                       </Typography>
                     </Box>
                   </TableCell>
-                  <TableCell>
-                    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                      <Box sx={{ position: "relative", width: 40, height: 24 }}>
-                        <Avatar
-                          sx={{
-                            width: 24,
-                            height: 24,
-                            position: "absolute",
-                            left: 0,
-                            border: "2px solid #ffffff",
-                            backgroundColor: "#334EAC",
-                          }}
-                        />
-                        <Avatar
-                          sx={{
-                            width: 24,
-                            height: 24,
-                            position: "absolute",
-                            left: 16,
-                            border: "2px solid #ffffff",
-                            backgroundColor: "#7096D1",
-                          }}
-                        />
-                      </Box>
-                      <Box>
-                        <Typography sx={{ color: "#081F5C", fontWeight: 500 }}>
-                          {asset.pool.token1} / {asset.pool.token2}
-                        </Typography>
-                        <Chip
-                          label={asset.pool.fee}
-                          size="small"
-                          sx={{
-                            backgroundColor: "rgba(51, 78, 172, 0.1)",
-                            color: "#081F5C",
-                            fontWeight: 600,
-                            height: 20,
-                            fontSize: "0.7rem",
-                          }}
-                        />
-                      </Box>
-                    </Box>
-                  </TableCell>
-                  <TableCell>
-                    <Typography sx={{ color: "#081F5C" }}>
-                      {asset.roi}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>
-                    <Typography sx={{ color: "#081F5C" }}>
-                      {asset.feeApy}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>
-                    <Typography sx={{ color: "#081F5C" }}>
-                      {asset.liquidity}
+                </TableRow>
+              ) : error ? (
+                <TableRow>
+                  <TableCell colSpan={5} align="center" sx={{ py: 4 }}>
+                    <Typography sx={{ color: "#dc2626" }}>
+                      Error loading pools: {String(error)}
                     </Typography>
                   </TableCell>
                 </TableRow>
-              ))}
+              ) : assets.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={5} align="center" sx={{ py: 4 }}>
+                    <Typography sx={{ color: "#7096D1" }}>
+                      No pools available
+                    </Typography>
+                    <Typography
+                      sx={{ color: "#7096D1", fontSize: "0.875rem", mt: 1 }}
+                    >
+                      There are currently no active pools in the contract.
+                    </Typography>
+                  </TableCell>
+                </TableRow>
+              ) : (
+                assets.map((asset) => (
+                  <TableRow
+                    key={asset.id}
+                    sx={{
+                      "&:hover": {
+                        backgroundColor: "rgba(51, 78, 172, 0.1)",
+                      },
+                      "& td": {
+                        borderBottom: "1px solid rgba(51, 78, 172, 0.2)",
+                        py: 2.5,
+                      },
+                    }}
+                  >
+                    <TableCell>
+                      <Box
+                        sx={{ display: "flex", alignItems: "center", gap: 1 }}
+                      >
+                        <Box
+                          sx={{
+                            width: 8,
+                            height: 8,
+                            borderRadius: "50%",
+                            backgroundColor: asset.isActive
+                              ? "#028733ff"
+                              : "#6b7280",
+                          }}
+                        />
+                        <Typography
+                          sx={{
+                            color: asset.isActive ? "#028733ff" : "#7096D1",
+                            fontWeight: 500,
+                          }}
+                        >
+                          {asset.id}
+                        </Typography>
+                      </Box>
+                    </TableCell>
+                    <TableCell>
+                      <Box
+                        sx={{ display: "flex", alignItems: "center", gap: 1 }}
+                      >
+                        <Box
+                          sx={{ position: "relative", width: 40, height: 24 }}
+                        >
+                          <Avatar
+                            sx={{
+                              width: 24,
+                              height: 24,
+                              position: "absolute",
+                              left: 0,
+                              border: "2px solid #ffffff",
+                              backgroundColor: "#334EAC",
+                            }}
+                          />
+                          <Avatar
+                            sx={{
+                              width: 24,
+                              height: 24,
+                              position: "absolute",
+                              left: 16,
+                              border: "2px solid #ffffff",
+                              backgroundColor: "#7096D1",
+                            }}
+                          />
+                        </Box>
+                        <Box>
+                          <Typography
+                            sx={{ color: "#081F5C", fontWeight: 500 }}
+                          >
+                            {asset.pool.token1} / {asset.pool.token2}
+                          </Typography>
+                          <Chip
+                            label={asset.pool.fee}
+                            size="small"
+                            sx={{
+                              backgroundColor: "rgba(51, 78, 172, 0.1)",
+                              color: "#081F5C",
+                              fontWeight: 600,
+                              height: 20,
+                              fontSize: "0.7rem",
+                            }}
+                          />
+                        </Box>
+                      </Box>
+                    </TableCell>
+                    <TableCell>
+                      <Typography sx={{ color: "#081F5C" }}>
+                        {asset.roi}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography sx={{ color: "#081F5C" }}>
+                        {asset.feeApy}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography sx={{ color: "#081F5C" }}>
+                        {asset.liquidity}
+                      </Typography>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
             </TableBody>
           </Table>
         </TableContainer>
