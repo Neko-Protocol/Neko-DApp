@@ -1,7 +1,9 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import React from "react";
+import React, { useMemo } from "react";
+import { useLendingPools } from "@/features/lending/hooks/useLendingPools";
+import { useBorrowPools } from "@/features/borrowing/hooks/useBorrowPools";
 
 interface PoolData {
   id: string;
@@ -16,48 +18,80 @@ interface PoolData {
 
 const Pools: React.FC = () => {
   const router = useRouter();
-  const pools: PoolData[] = [
-    {
-      id: "123456",
-      token1: "USDC",
-      token2: "NVDA",
-      fee: "1%",
-      roi: "0.07%",
-      feeApy: "372.70%",
-      liquidity: "$15.21k",
-      isActive: true,
-    },
-    {
-      id: "1234567",
-      token1: "USDC",
-      token2: "TSLA",
-      fee: "0.01%",
-      roi: "0.00%",
-      feeApy: "7.20%",
-      liquidity: "$719.39k",
-      isActive: true,
-    },
-    {
-      id: "1234",
-      token1: "USDC",
-      token2: "GOOG",
-      fee: "0.01%",
-      roi: "0.00%",
-      feeApy: "7.20%",
-      liquidity: "$719.39k",
-      isActive: true,
-    },
-    {
-      id: "789012",
-      token1: "XLM",
-      token2: "USDC",
-      fee: "0.3%",
-      roi: "0.15%",
-      feeApy: "45.50%",
-      liquidity: "$1.2M",
-      isActive: true,
-    },
-  ];
+
+  // Get real lending pools from contract
+  const {
+    data: lendingPools = [],
+    isLoading: isLoadingLending,
+    error: lendingError,
+  } = useLendingPools();
+
+  // Get real borrow pools from contract
+  const {
+    data: borrowPools = [],
+    isLoading: isLoadingBorrow,
+    error: borrowError,
+  } = useBorrowPools();
+
+  const isLoading = isLoadingLending || isLoadingBorrow;
+  const error = lendingError || borrowError;
+
+  // Combine and transform lending and borrow pools into unified PoolData format
+  const pools: PoolData[] = useMemo(() => {
+    const combinedPools: PoolData[] = [];
+
+    // Add lending pools (single token pools for supplying liquidity)
+    lendingPools.forEach((pool, index) => {
+      // Calculate APY from interest rate
+      const apy =
+        pool.interestRate > 0 ? `${pool.interestRate.toFixed(2)}%` : "0.00%";
+
+      // Format liquidity
+      const balanceNum = parseFloat(pool.poolBalance);
+      const liquidity =
+        balanceNum >= 1000000
+          ? `$${(balanceNum / 1000000).toFixed(2)}M`
+          : balanceNum >= 1000
+            ? `$${(balanceNum / 1000).toFixed(2)}k`
+            : `$${balanceNum.toFixed(2)}`;
+
+      combinedPools.push({
+        id: `lending-${index}`,
+        token1: pool.assetCode,
+        token2: "Lending",
+        fee: "0%",
+        roi: `${pool.interestRate.toFixed(2)}%`,
+        feeApy: apy,
+        liquidity,
+        isActive: pool.isActive,
+      });
+    });
+
+    // Add borrow pools (RWA token + debt asset pairs)
+    borrowPools.forEach((pool, index) => {
+      // Format liquidity
+      const balanceNum = parseFloat(pool.poolBalance);
+      const liquidity =
+        balanceNum >= 1000000
+          ? `$${(balanceNum / 1000000).toFixed(2)}M`
+          : balanceNum >= 1000
+            ? `$${(balanceNum / 1000).toFixed(2)}k`
+            : `$${balanceNum.toFixed(2)}`;
+
+      combinedPools.push({
+        id: `borrow-${index}`,
+        token1: pool.assetCode,
+        token2: pool.collateralTokenCode,
+        fee: `${pool.collateralFactor}%`,
+        roi: `${pool.interestRate.toFixed(2)}%`,
+        feeApy: `${pool.interestRate.toFixed(2)}%`,
+        liquidity,
+        isActive: pool.isActive,
+      });
+    });
+
+    return combinedPools;
+  }, [lendingPools, borrowPools]);
 
   return (
     <div className="w-full min-h-screen">
@@ -73,98 +107,127 @@ const Pools: React.FC = () => {
         </div>
 
         {/* Pool Cards Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-          {pools.map((pool) => (
-            <div
-              key={pool.id}
-              className="rounded-3xl bg-[#294cab] p-6 shadow-lg border border-[#334EAC]/50 hover:border-[#39bfb7] transition-all duration-300 hover:shadow-xl relative overflow-hidden group"
-            >
-              {/* Background decoration */}
-              <div className="absolute -right-10 -top-10 w-32 h-32 bg-[#334EAC]/20 rounded-full blur-2xl pointer-events-none"></div>
-
-              {/* Header with Pool Info */}
-              <div className="relative z-10 mb-6">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-3">
-                    <div className="relative w-14 h-8">
-                      <div className="absolute left-0 w-8 h-8 rounded-full bg-[#39bfb7] border-2 border-[#334EAC] flex items-center justify-center text-white text-sm font-bold shadow-md">
-                        {pool.token1[0]}
-                      </div>
-                      <div className="absolute left-6 w-8 h-8 rounded-full bg-[#68f9f2] border-2 border-[#334EAC] flex items-center justify-center text-[#081F5C] text-sm font-bold shadow-md">
-                        {pool.token2[0]}
-                      </div>
-                    </div>
-                    <div>
-                      <h3 className="text-white text-xl font-bold">
-                        {pool.token1} / {pool.token2}
-                      </h3>
-                      <div className="inline-block bg-white/10 text-white text-xs font-semibold px-2 py-1 rounded-md mt-1">
-                        V2
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Stats Grid */}
-              <div className="relative z-10 space-y-4 mb-6">
-                <div className="grid grid-cols-3 gap-3">
-                  <div className="bg-[#294cab] rounded-xl p-3 border border-white/10">
-                    <p className="text-[#BAD6EB] text-xs mb-1">ROI</p>
-                    <p className="text-white text-lg font-bold">{pool.roi}</p>
-                  </div>
-                  <div className="bg-[#294cab] rounded-xl p-3 border border-white/10">
-                    <p className="text-[#BAD6EB] text-xs mb-1">Fee APY</p>
-                    <p className="text-white text-lg font-bold">
-                      {pool.feeApy}
-                    </p>
-                  </div>
-                  <div className="bg-[#294cab] rounded-xl p-3 border border-white/10">
-                    <p className="text-[#BAD6EB] text-xs mb-1">Liquidity</p>
-                    <p className="text-white text-lg font-bold">
-                      {pool.liquidity}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Pool Details / Dashboard Link */}
+        {isLoading ? (
+          <div className="flex items-center justify-center py-16">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-4 border-[#334EAC]/30 border-t-[#334EAC] mx-auto mb-4"></div>
+              <p className="text-[#7096D1] text-lg">Loading pools...</p>
+            </div>
+          </div>
+        ) : error ? (
+          <div className="flex items-center justify-center py-16">
+            <div className="text-center bg-red-50 rounded-2xl p-8 border border-red-200">
+              <p className="text-red-600 text-lg font-semibold mb-2">
+                Error loading pools
+              </p>
+              <p className="text-red-500 text-sm">{String(error)}</p>
+            </div>
+          </div>
+        ) : pools.length === 0 ? (
+          <div className="flex items-center justify-center py-16">
+            <div className="text-center bg-[#f3f4f6] rounded-2xl p-8 border border-[#334EAC]/20">
+              <p className="text-[#081F5C] text-lg font-semibold mb-2">
+                No pools available
+              </p>
+              <p className="text-[#7096D1] text-sm">
+                There are currently no active pools in the contract.
+              </p>
+            </div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+            {pools.map((pool) => (
               <div
-                className="relative z-10 bg-[#fff] rounded-2xl p-4 mb-4 border border-[#334EAC]/30 hover:bg-[#f3f4f6] cursor-pointer transition-colors duration-200"
-                onClick={() => {
-                  router.push(`/dashboard/pools/${pool.id}`);
-                }}
+                key={pool.id}
+                className="rounded-3xl bg-[#294cab] p-6 shadow-lg border border-[#334EAC]/50 hover:border-[#39bfb7] transition-all duration-300 hover:shadow-xl relative overflow-hidden group"
               >
-                <div className="flex items-center justify-center">
-                  <button className="text-black px-3 py-1 rounded-lg text-sm font-semibold duration-200 flex items-center gap-1">
-                    Pool Details <span className="opacity-70">→</span>
-                  </button>
-                </div>
-              </div>
+                {/* Background decoration */}
+                <div className="absolute -right-10 -top-10 w-32 h-32 bg-[#334EAC]/20 rounded-full blur-2xl pointer-events-none"></div>
 
-              {/* Action Buttons */}
-              <div className="relative z-10 flex">
-                <button
-                  className="flex-1 bg-[#081F5C] hover:bg-[#12328a] text-[#FFF9F0] px-4 py-3 rounded-xl text-sm font-bold transition-colors duration-200 border border-[#334EAC]/30"
+                {/* Header with Pool Info */}
+                <div className="relative z-10 mb-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="relative w-14 h-8">
+                        <div className="absolute left-0 w-8 h-8 rounded-full bg-[#39bfb7] border-2 border-[#334EAC] flex items-center justify-center text-white text-sm font-bold shadow-md">
+                          {pool.token1[0]}
+                        </div>
+                        <div className="absolute left-6 w-8 h-8 rounded-full bg-[#68f9f2] border-2 border-[#334EAC] flex items-center justify-center text-[#081F5C] text-sm font-bold shadow-md">
+                          {pool.token2[0]}
+                        </div>
+                      </div>
+                      <div>
+                        <h3 className="text-white text-xl font-bold">
+                          {pool.token1} / {pool.token2}
+                        </h3>
+                        <div className="inline-block bg-white/10 text-white text-xs font-semibold px-2 py-1 rounded-md mt-1">
+                          V2
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Stats Grid */}
+                <div className="relative z-10 space-y-4 mb-6">
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="bg-[#294cab] rounded-xl p-3 border border-white/10">
+                      <p className="text-[#BAD6EB] text-xs mb-1">ROI</p>
+                      <p className="text-white text-lg font-bold">{pool.roi}</p>
+                    </div>
+                    <div className="bg-[#294cab] rounded-xl p-3 border border-white/10">
+                      <p className="text-[#BAD6EB] text-xs mb-1">Fee APY</p>
+                      <p className="text-white text-lg font-bold">
+                        {pool.feeApy}
+                      </p>
+                    </div>
+                    <div className="bg-[#294cab] rounded-xl p-3 border border-white/10">
+                      <p className="text-[#BAD6EB] text-xs mb-1">Liquidity</p>
+                      <p className="text-white text-lg font-bold">
+                        {pool.liquidity}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Pool Details / Dashboard Link */}
+                <div
+                  className="relative z-10 bg-[#fff] rounded-2xl p-4 mb-4 border border-[#334EAC]/30 hover:bg-[#f3f4f6] cursor-pointer transition-colors duration-200"
                   onClick={() => {
-                    router.push("/dashboard/lending");
+                    router.push(`/dashboard/pools/${pool.id}`);
                   }}
                 >
-                  Lend
-                </button>
-              </div>
+                  <div className="flex items-center justify-center">
+                    <button className="text-black px-3 py-1 rounded-lg text-sm font-semibold duration-200 flex items-center gap-1">
+                      Pool Details <span className="opacity-70">→</span>
+                    </button>
+                  </div>
+                </div>
 
-              {/* Status Indicator */}
-              <div className="absolute top-4 right-4 z-10 flex items-center gap-2">
-                <div
-                  className={`w-2 h-2 rounded-full ${
-                    pool.isActive ? "bg-[#39bfb7]" : "bg-gray-400"
-                  } animate-pulse`}
-                />
+                {/* Action Buttons */}
+                <div className="relative z-10 flex">
+                  <button
+                    className="flex-1 bg-[#081F5C] hover:bg-[#12328a] text-[#FFF9F0] px-4 py-3 rounded-xl text-sm font-bold transition-colors duration-200 border border-[#334EAC]/30"
+                    onClick={() => {
+                      router.push("/dashboard/lending");
+                    }}
+                  >
+                    Lend
+                  </button>
+                </div>
+
+                {/* Status Indicator */}
+                <div className="absolute top-4 right-4 z-10 flex items-center gap-2">
+                  <div
+                    className={`w-2 h-2 rounded-full ${
+                      pool.isActive ? "bg-[#39bfb7]" : "bg-gray-400"
+                    } animate-pulse`}
+                  />
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
