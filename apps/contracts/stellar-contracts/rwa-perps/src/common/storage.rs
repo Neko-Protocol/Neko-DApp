@@ -106,4 +106,41 @@ impl Storage {
         let key = symbol_short!("mrg_token");
         env.storage().instance().set(&key, token);
     }
+
+    /// Get all RWA tokens for which a trader has positions
+    pub fn get_trader_tokens(env: &Env, trader: &Address) -> Option<Map<Address, bool>> {
+        let key = (symbol_short!("trd_tkns"), trader.clone());
+        env.storage().persistent().get(&key)
+    }
+
+    /// Add RWA token to trader's position list
+    pub fn add_trader_token(env: &Env, trader: &Address, rwa_token: &Address) {
+        let key = (symbol_short!("trd_tkns"), trader.clone());
+        let mut tokens = Self::get_trader_tokens(env, trader).unwrap_or_else(|| Map::new(env));
+        tokens.set(rwa_token.clone(), true);
+        env.storage().persistent().set(&key, &tokens);
+    }
+
+    /// Remove RWA token from trader's position list (when position fully closed)
+    ///
+    /// # Safety
+    /// This function should only be called after verifying the position has been
+    /// completely removed from storage. In the current design, each (trader, rwa_token)
+    /// pair can only have one position, so this is safe to call after position removal.
+    ///
+    /// # Storage Optimization
+    /// If this is the trader's last token, the entire trader tokens map is removed
+    /// from storage to avoid storing empty collections.
+    pub fn remove_trader_token(env: &Env, trader: &Address, rwa_token: &Address) {
+        let key = (symbol_short!("trd_tkns"), trader.clone());
+        if let Some(mut tokens) = Self::get_trader_tokens(env, trader) {
+            tokens.remove(rwa_token.clone());
+            if tokens.is_empty() {
+                // Clean up empty map to optimize storage
+                env.storage().persistent().remove(&key);
+            } else {
+                env.storage().persistent().set(&key, &tokens);
+            }
+        }
+    }
 }
