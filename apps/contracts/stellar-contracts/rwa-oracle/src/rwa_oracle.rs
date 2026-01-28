@@ -107,6 +107,9 @@ impl RWAOracle {
     }
 
     fn set_asset_price_internal(env: &Env, asset_id: Asset, price: i128, timestamp: u64) {
+        if price <= 0 {
+            panic_with_error!(env, Error::InvalidPrice);
+        }
         let mut asset = Self::get_asset_price(env, asset_id.clone()).unwrap_or_else(|| {
             panic_with_error!(env, Error::AssetNotFound);
         });
