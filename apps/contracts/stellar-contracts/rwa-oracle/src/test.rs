@@ -231,6 +231,70 @@ fn test_error_handling() {
 
 }
 
+// ========== Price validation tests ==========
+
+#[test]
+#[should_panic(expected = "Error(Contract, #5)")]
+fn test_negative_price_rejected() {
+    let e = Env::default();
+    e.mock_all_auths();
+
+    let oracle = create_rwa_oracle_contract(&e);
+    let asset: Asset = Asset::Other(Symbol::new(&e, "NVDA"));
+    let timestamp: u64 = 1_000_000_000;
+    let negative_price: i128 = -100;
+
+    oracle.set_asset_price(&asset, &negative_price, &timestamp);
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #5)")]
+fn test_zero_price_rejected() {
+    let e = Env::default();
+    e.mock_all_auths();
+
+    let oracle = create_rwa_oracle_contract(&e);
+    let asset: Asset = Asset::Other(Symbol::new(&e, "NVDA"));
+    let timestamp: u64 = 1_000_000_000;
+    let zero_price: i128 = 0;
+
+    oracle.set_asset_price(&asset, &zero_price, &timestamp);
+}
+
+#[test]
+fn test_positive_price_accepted() {
+    let e = Env::default();
+    e.mock_all_auths();
+
+    let oracle = create_rwa_oracle_contract(&e);
+    let asset: Asset = Asset::Other(Symbol::new(&e, "NVDA"));
+    let timestamp: u64 = 1_000_000_000;
+    let price: i128 = 150_00000000;
+
+    oracle.set_asset_price(&asset, &price, &timestamp);
+
+    let last_price = oracle.lastprice(&asset).unwrap();
+    assert_eq!(last_price.price, price);
+    assert_eq!(last_price.timestamp, timestamp);
+}
+
+#[test]
+fn test_min_positive_price_accepted() {
+    let e = Env::default();
+    e.mock_all_auths();
+
+    let oracle = create_rwa_oracle_contract(&e);
+    let asset: Asset = Asset::Other(Symbol::new(&e, "NVDA"));
+    let timestamp: u64 = 1_000_000_000;
+    let min_price: i128 = 1;
+
+    oracle.set_asset_price(&asset, &min_price, &timestamp);
+
+    let last_price = oracle.lastprice(&asset).unwrap();
+    assert_eq!(last_price.price, min_price);
+    assert_eq!(last_price.timestamp, timestamp);
+}
+
 // ========== Issues Test | TODO -> ==========
 
 #[test]
