@@ -130,4 +130,54 @@ impl Events {
         let topics = (symbol_short!("mrg_rem"), trader, rwa_token);
         env.events().publish(topics, (amount, new_total_margin, margin_ratio));
     }
+
+    /// Event emitted when a position is opened
+    pub fn position_opened(
+        env: &Env,
+        trader: &Address,
+        rwa_token: &Address,
+        size: i128,
+        entry_price: i128,
+        margin: i128,
+        leverage: u32,
+    ) {
+        let topics = (symbol_short!("pos_open"), trader, rwa_token);
+        env.events().publish(topics, (size, entry_price, margin, leverage));
+    }
+
+    /// Event emitted when a position is closed (full or partial)
+    ///
+    /// # Event Data
+    /// * `size_closed` - Amount of position size that was closed
+    /// * `exit_price` - Price at which the position was closed
+    /// * `pnl` - Realized profit/loss for the closed portion
+    /// * `remaining_size` - Size remaining after close (0 if fully closed)
+    ///
+    /// # Note for Indexers
+    /// This event is crucial for tracking position P&L and user balances.
+    /// Future versions may include protocol fees deducted from the payout.
+    pub fn position_closed(
+        env: &Env,
+        trader: &Address,
+        rwa_token: &Address,
+        size_closed: i128,
+        exit_price: i128,
+        pnl: i128,
+        remaining_size: i128,
+    ) {
+        let topics = (symbol_short!("pos_close"), trader, rwa_token);
+        env.events().publish(topics, (size_closed, exit_price, pnl, remaining_size));
+    }
+
+    /// Event emitted when a position is queried
+    pub fn position_queried(
+        env: &Env,
+        trader: &Address,
+        rwa_token: &Address,
+        size: i128,
+        margin: i128,
+    ) {
+        let topics = (symbol_short!("pos_get"), trader, rwa_token);
+        env.events().publish(topics, (size, margin));
+    }
 }

@@ -1,10 +1,11 @@
-use soroban_sdk::{contract, contractimpl, Address, BytesN, Env};
+use soroban_sdk::{contract, contractimpl, Address, BytesN, Env, Vec};
 
 use crate::admin::Admin;
 use crate::common::error::Error;
-use crate::common::types::MarketConfig;
+use crate::common::types::{MarketConfig, Position};
 use crate::operations::liquidation::Liquidations;
 use crate::operations::margin::Margins;
+use crate::operations::positions::Positions;
 
 #[contract]
 pub struct RWAPerpsContract;
@@ -144,5 +145,46 @@ impl RWAPerpsContract {
         rwa_token: Address,
     ) -> Result<i128, Error> {
         Margins::get_available_margin(&env, &trader, &rwa_token)
+    }
+
+    // ========== Position Functions ==========
+
+    /// Open a new position (long or short)
+    pub fn open_position(
+        env: Env,
+        trader: Address,
+        rwa_token: Address,
+        size: i128,
+        leverage: u32,
+        margin: i128,
+    ) -> Result<(), Error> {
+        Positions::open_position(&env, &trader, &rwa_token, size, leverage, margin)
+    }
+
+    /// Close a position (full or partial)
+    pub fn close_position(
+        env: Env,
+        trader: Address,
+        rwa_token: Address,
+        size_to_close: i128,
+    ) -> Result<(), Error> {
+        Positions::close_position(&env, &trader, &rwa_token, size_to_close)
+    }
+
+    /// Get a specific position for a trader
+    pub fn get_position(
+        env: Env,
+        trader: Address,
+        rwa_token: Address,
+    ) -> Result<Position, Error> {
+        Positions::get_position(&env, &trader, &rwa_token)
+    }
+
+    /// Get all positions for a trader
+    pub fn get_user_positions(
+        env: Env,
+        trader: Address,
+    ) -> Vec<Position> {
+        Positions::get_user_positions(&env, &trader)
     }
 }
