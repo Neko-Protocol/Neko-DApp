@@ -386,6 +386,50 @@ fn test_admin_and_liquidation_integration() {
     assert_eq!(client.is_protocol_paused(), false);
 }
 
+// ========== Funding Tests ==========
+
+#[test]
+fn test_update_funding_rate() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let admin = Address::generate(&env);
+    let oracle = create_oracle(&env);
+
+    let client = create_perps_contract(&env, admin.clone(), oracle.clone());
+
+    // Set up market
+    let rwa_token = Address::generate(&env);
+    let config = default_market_config(&env, rwa_token.clone());
+    client.set_market_config(&rwa_token, &config);
+
+    // Update funding rate
+    let new_rate = 200i128; // 2%
+    client.update_funding_rate(&rwa_token, &new_rate); // Should not panic
+
+    // Verify rate was updated
+    let updated_rate = client.get_funding_rate(&rwa_token);
+    assert_eq!(updated_rate, new_rate, "Funding rate should be updated");
+}
+
+#[test]
+fn test_get_funding_rate() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let admin = Address::generate(&env);
+    let oracle = create_oracle(&env);
+
+    let client = create_perps_contract(&env, admin.clone(), oracle.clone());
+
+    // Set up market
+    let rwa_token = Address::generate(&env);
+    let config = default_market_config(&env, rwa_token.clone());
+    client.set_market_config(&rwa_token, &config);
+
+    // Get funding rate
+    let rate = client.get_funding_rate(&rwa_token);
+    assert_eq!(rate, 10i128, "Should return the configured funding rate");
+}
+
 // ========== Margin Management Tests ==========
 
 // Tests for add_margin()

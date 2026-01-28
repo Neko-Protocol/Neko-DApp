@@ -41,8 +41,12 @@ pub enum Error {
     // Protocol state errors
     ProtocolPaused = 63,
 
+    // Funding errors
+    InvalidFundingRate = 70,
+    FundingCalculationError = 71,
+
     // Margin management errors
-    MarginRatioBelowMaintenance = 70,  // Margin removal would violate maintenance requirement
+    MarginRatioBelowMaintenance = 72,  // Margin removal would violate maintenance requirement
     MarginTokenNotSet = 73,            // Margin token not configured
 
     // Position validation errors
