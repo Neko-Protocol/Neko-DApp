@@ -11,6 +11,8 @@ use crate::{Asset, PriceData};
 const ADMIN_KEY: Symbol = symbol_short!("ADMIN");
 const STORAGE: Symbol = symbol_short!("STORAGE");
 
+const MAX_TIMESTAMP_DRIFT_SECONDS: u64 = 300;
+
 #[contracttype]
 #[derive(Clone, Debug)]
 pub struct RWAOracleStorage {
@@ -101,6 +103,17 @@ impl RWAOracle {
     }
 
     fn set_asset_price_internal(env: &Env, asset_id: Asset, price: i128, timestamp: u64) {
+        let current_time = env.ledger().timestamp();
+        if timestamp > current_time + MAX_TIMESTAMP_DRIFT_SECONDS {
+            panic_with_error!(env, Error::TimestampInFuture);
+        }
+
+        if let Some(last_price) = <Self as IsSep40>::lastprice(env, asset_id.clone()) {
+            if timestamp <= last_price.timestamp {
+                panic_with_error!(env, Error::TimestampTooOld);
+            }
+        }
+
         let mut asset = Self::get_asset_price(env, asset_id.clone()).unwrap_or_else(|| {
             panic_with_error!(env, Error::AssetNotFound);
         });
