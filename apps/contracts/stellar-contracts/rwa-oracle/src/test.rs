@@ -1,22 +1,19 @@
 #![cfg(test)]
 extern crate std;
 
-use crate::rwa_oracle::{RWAOracle, RWAOracleClient};
-use crate::rwa_types::*;
 use crate::Asset;
 use crate::Error;
+use crate::rwa_oracle::{RWAOracle, RWAOracleClient};
+use crate::rwa_types::*;
 
-use soroban_sdk::{Address, Env, Symbol, Vec, String, testutils::Address as _};
+use soroban_sdk::{Address, Env, String, Symbol, Vec, testutils::Address as _};
 
 fn create_rwa_oracle_contract<'a>(e: &Env) -> RWAOracleClient<'a> {
     let asset_xlm: Asset = Asset::Other(Symbol::new(e, "NVDA"));
     let asset_usdt: Asset = Asset::Other(Symbol::new(e, "TSLA"));
     let asset_vec = Vec::from_array(e, [asset_xlm.clone(), asset_usdt.clone()]);
     let admin = Address::generate(e);
-    let contract_id = e.register(
-        RWAOracle,
-        (admin, asset_vec, asset_usdt, 14u32, 300u32),
-    );
+    let contract_id = e.register(RWAOracle, (admin, asset_vec, asset_usdt, 14u32, 300u32));
 
     RWAOracleClient::new(e, &contract_id)
 }
@@ -25,10 +22,7 @@ fn create_test_regulatory_info(env: &Env) -> RegulatoryInfo {
     RegulatoryInfo {
         is_regulated: true,
         approval_server: Some(String::from_str(env, "https://example.com/approve")),
-        approval_criteria: Some(String::from_str(
-            env,
-            "Transactions require KYC approval",
-        )),
+        approval_criteria: Some(String::from_str(env, "Transactions require KYC approval")),
         compliance_status: ComplianceStatus::RequiresApproval,
         licensing_authority: Some(String::from_str(env, "SEC")),
         license_type: Some(String::from_str(env, "Securities License")),
@@ -94,7 +88,10 @@ fn test_set_rwa_metadata() {
     let retrieved = retrieved_result.unwrap().unwrap();
     assert_eq!(retrieved.asset_id, asset_id);
     assert_eq!(retrieved.asset_type, RWAAssetType::Bond);
-    assert_eq!(retrieved.name, String::from_str(&e, "US Treasury Bond 2024"));
+    assert_eq!(
+        retrieved.name,
+        String::from_str(&e, "US Treasury Bond 2024")
+    );
     assert_eq!(retrieved.regulatory_info.is_regulated, true);
 }
 
@@ -164,7 +161,10 @@ fn test_regulatory_info() {
     let reg_info_result = oracle.try_get_regulatory_info(&asset_id);
     let reg_info = reg_info_result.unwrap().unwrap();
     assert_eq!(reg_info.is_regulated, true);
-    assert_eq!(reg_info.compliance_status, ComplianceStatus::RequiresApproval);
+    assert_eq!(
+        reg_info.compliance_status,
+        ComplianceStatus::RequiresApproval
+    );
 }
 
 #[test]
@@ -228,7 +228,125 @@ fn test_error_handling() {
     let result = oracle.try_get_rwa_metadata(&non_existent);
     assert!(result.is_err());
     assert_eq!(result.unwrap_err().unwrap(), Error::AssetNotFound.into());
+}
 
+// ========== Price History Pruning Tests ==========
+
+#[test]
+fn test_price_history_pruning_at_capacity() {
+    let e = Env::default();
+    e.mock_all_auths();
+
+    let oracle = create_rwa_oracle_contract(&e);
+    let asset = Asset::Other(Symbol::new(&e, "NVDA"));
+
+    for i in 0..1000 {
+        oracle.set_asset_price(&asset, &(100_000 + i as i128), &(1000 + i as u64));
+    }
+
+    let oldest_price = oracle.price(&asset, &1000);
+    assert!(oldest_price.is_some());
+    assert_eq!(oldest_price.unwrap().price, 100_000);
+
+    oracle.set_asset_price(&asset, &200_000, &2000);
+
+    let removed_price = oracle.price(&asset, &1000);
+    assert!(removed_price.is_none());
+
+    let second_oldest = oracle.price(&asset, &1001);
+    assert!(second_oldest.is_some());
+    assert_eq!(second_oldest.unwrap().price, 100_001);
+
+    let newest = oracle.price(&asset, &2000);
+    assert!(newest.is_some());
+    assert_eq!(newest.unwrap().price, 200_000);
+
+    let last = oracle.lastprice(&asset).unwrap();
+    assert_eq!(last.timestamp, 2000);
+    assert_eq!(last.price, 200_000);
+}
+
+#[test]
+fn test_no_premature_pruning_below_capacity() {
+    let e = Env::default();
+    e.mock_all_auths();
+
+    let oracle = create_rwa_oracle_contract(&e);
+    let asset = Asset::Other(Symbol::new(&e, "TSLA"));
+
+    for i in 0..500 {
+        oracle.set_asset_price(&asset, &(50_000 + i as i128), &(5000 + i as u64));
+    }
+
+    let first_price = oracle.price(&asset, &5000);
+    assert!(first_price.is_some());
+    assert_eq!(first_price.unwrap().price, 50_000);
+
+    let last_price = oracle.price(&asset, &5499);
+    assert!(last_price.is_some());
+    assert_eq!(last_price.unwrap().price, 50_499);
+
+    for i in 500..999 {
+        oracle.set_asset_price(&asset, &(50_000 + i as i128), &(5000 + i as u64));
+    }
+
+    let first_still_exists = oracle.price(&asset, &5000);
+    assert!(first_still_exists.is_some());
+    assert_eq!(first_still_exists.unwrap().price, 50_000);
+
+    let all_prices = oracle.prices(&asset, &999);
+    assert!(all_prices.is_some());
+    assert_eq!(all_prices.unwrap().len(), 999);
+}
+
+#[test]
+fn test_independent_asset_history_pruning() {
+    let e = Env::default();
+    e.mock_all_auths();
+
+    let oracle = create_rwa_oracle_contract(&e);
+    let asset_nvda = Asset::Other(Symbol::new(&e, "NVDA"));
+    let asset_tsla = Asset::Other(Symbol::new(&e, "TSLA"));
+
+    for i in 0..1000 {
+        oracle.set_asset_price(&asset_nvda, &(100_000 + i as i128), &(1000 + i as u64));
+    }
+
+    for i in 0..100 {
+        oracle.set_asset_price(&asset_tsla, &(200_000 + i as i128), &(2000 + i as u64));
+    }
+
+    let nvda_prices = oracle.prices(&asset_nvda, &1000);
+    assert!(nvda_prices.is_some());
+    assert_eq!(nvda_prices.unwrap().len(), 1000);
+
+    let tsla_prices = oracle.prices(&asset_tsla, &200);
+    assert!(tsla_prices.is_some());
+    assert_eq!(tsla_prices.unwrap().len(), 100);
+
+    oracle.set_asset_price(&asset_nvda, &300_000, &3000);
+
+    let nvda_oldest = oracle.price(&asset_nvda, &1000);
+    assert!(nvda_oldest.is_none());
+
+    let nvda_second = oracle.price(&asset_nvda, &1001);
+    assert!(nvda_second.is_some());
+
+    let tsla_first = oracle.price(&asset_tsla, &2000);
+    assert!(tsla_first.is_some());
+    assert_eq!(tsla_first.unwrap().price, 200_000);
+
+    let tsla_last = oracle.price(&asset_tsla, &2099);
+    assert!(tsla_last.is_some());
+    assert_eq!(tsla_last.unwrap().price, 200_099);
+
+    let tsla_all = oracle.prices(&asset_tsla, &100);
+    assert!(tsla_all.is_some());
+    assert_eq!(tsla_all.unwrap().len(), 100);
+
+    let nvda_after_pruning = oracle.prices(&asset_nvda, &1000);
+    assert!(nvda_after_pruning.is_some());
+    assert_eq!(nvda_after_pruning.unwrap().len(), 1000);
 }
 
 // ========== Issues Test | TODO -> ==========
