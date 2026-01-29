@@ -17,9 +17,9 @@ export function extractContractError(error: unknown): string {
 
   // Handle object errors more carefully
   let errorString: string;
-  if (typeof error === 'object') {
+  if (typeof error === "object") {
     const errorObj = error as any;
-    if (errorObj.message && typeof errorObj.message === 'string') {
+    if (errorObj.message && typeof errorObj.message === "string") {
       errorString = errorObj.message;
     } else if (errorObj.name && errorObj.message) {
       errorString = `${errorObj.name}: ${errorObj.message}`;
@@ -27,9 +27,12 @@ export function extractContractError(error: unknown): string {
       // Fallback: try to stringify but avoid [object Object]
       try {
         const stringified = JSON.stringify(error);
-        errorString = stringified === '{}' || stringified === '{""}' ? 'Unknown error' : stringified;
+        errorString =
+          stringified === "{}" || stringified === '{""}'
+            ? "Unknown error"
+            : stringified;
       } catch {
-        errorString = 'An unexpected error occurred';
+        errorString = "An unexpected error occurred";
       }
     }
   } else {
@@ -50,7 +53,9 @@ export function extractContractError(error: unknown): string {
 
   // Try to extract from HostError format
   // Format: "HostError: Error(Contract, #<code>)"
-  const hostErrorMatch = errorString.match(/HostError:.*Error\(Contract,\s*#(\d+)\)/);
+  const hostErrorMatch = errorString.match(
+    /HostError:.*Error\(Contract,\s*#(\d+)\)/
+  );
   if (hostErrorMatch) {
     const errorCode = parseInt(hostErrorMatch[1], 10) as ContractErrorCode;
     const errorInfo = CONTRACT_ERRORS[errorCode];
@@ -75,19 +80,25 @@ export function extractContractError(error: unknown): string {
   }
 
   // Check for common wallet errors
-  if (errorString.toLowerCase().includes("user rejected") || 
-      errorString.toLowerCase().includes("user denied") ||
-      errorString.toLowerCase().includes("cancelled")) {
+  if (
+    errorString.toLowerCase().includes("user rejected") ||
+    errorString.toLowerCase().includes("user denied") ||
+    errorString.toLowerCase().includes("cancelled")
+  ) {
     return "Transaction was cancelled by user";
   }
 
-  if (errorString.toLowerCase().includes("insufficient funds") ||
-      errorString.toLowerCase().includes("insufficient balance")) {
+  if (
+    errorString.toLowerCase().includes("insufficient funds") ||
+    errorString.toLowerCase().includes("insufficient balance")
+  ) {
     return "Insufficient funds for this transaction";
   }
 
-  if (errorString.toLowerCase().includes("network") ||
-      errorString.toLowerCase().includes("timeout")) {
+  if (
+    errorString.toLowerCase().includes("network") ||
+    errorString.toLowerCase().includes("timeout")
+  ) {
     return "Network error. Please check your connection and try again.";
   }
 
@@ -99,7 +110,11 @@ export function extractContractError(error: unknown): string {
     .trim();
 
   // If the error is too long or technical, return a generic message
-  if (cleanedError.length > 150 || cleanedError.includes("0x") || cleanedError.includes("wasm")) {
+  if (
+    cleanedError.length > 150 ||
+    cleanedError.includes("0x") ||
+    cleanedError.includes("wasm")
+  ) {
     return "Transaction failed. Please try again or contact support if the issue persists.";
   }
 
@@ -122,7 +137,7 @@ export function getContractErrorCode(error: unknown): string | null {
 
   const errorString = String(error);
   const match = errorString.match(/Error\(Contract,\s*#(\d+)\)/);
-  
+
   if (match) {
     const errorCode = parseInt(match[1], 10) as ContractErrorCode;
     const errorInfo = CONTRACT_ERRORS[errorCode];
@@ -138,7 +153,10 @@ export function getContractErrorCode(error: unknown): string | null {
  * @param errorCode - The error code to check for
  * @returns True if the error matches the specified code
  */
-export function isContractError(error: unknown, errorCode: ContractErrorCode): boolean {
+export function isContractError(
+  error: unknown,
+  errorCode: ContractErrorCode
+): boolean {
   if (!error) return false;
 
   const errorString = String(error);
@@ -182,9 +200,7 @@ export function isUserCancellationError(error: unknown): boolean {
     "-32603", // Internal error that might be user cancellation
   ];
 
-  return cancellationPatterns.some(pattern =>
-    errorString.includes(pattern)
-  );
+  return cancellationPatterns.some((pattern) => errorString.includes(pattern));
 }
 
 /**
@@ -196,28 +212,6 @@ export function isUserCancellationError(error: unknown): boolean {
 export function extractContractErrorOrNull(error: unknown): string | null {
   if (isUserCancellationError(error)) {
     return null;
-  }
-
-  // Handle cases where error might be an object that stringifies to "[object Object]"
-  if (error && typeof error === 'object') {
-    // Try to extract message property
-    const errorObj = error as any;
-    if (errorObj.message && typeof errorObj.message === 'string') {
-      // Check if the message indicates user cancellation
-      if (isUserCancellationError(errorObj.message)) {
-        return null;
-      }
-      return errorObj.message;
-    }
-
-    // Try to extract name property for better error identification
-    if (errorObj.name && errorObj.message) {
-      const fullError = `${errorObj.name}: ${errorObj.message}`;
-      if (isUserCancellationError(fullError)) {
-        return null;
-      }
-      return fullError;
-    }
   }
 
   return extractContractError(error);

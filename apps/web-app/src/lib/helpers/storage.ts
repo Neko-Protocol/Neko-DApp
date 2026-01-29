@@ -52,7 +52,7 @@ class TypedStorage<T> {
 
   public getItem<U extends keyof T>(
     key: U,
-    retrievalMode: "fail" | "raw" | "safe" = "fail"
+    retrievalMode: "fail" | "raw" | "safe" = "raw"
   ): T[U] | null {
     const item = this.storage?.getItem(key.toString());
 
