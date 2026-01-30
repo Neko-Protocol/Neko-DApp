@@ -94,8 +94,11 @@ fn test_set_rwa_metadata() {
     let retrieved = oracle.try_get_rwa_metadata(&asset_id).unwrap().unwrap();
     assert_eq!(retrieved.asset_id, asset_id);
     assert_eq!(retrieved.asset_type, RWAAssetType::Bond);
-    assert_eq!(retrieved.name, String::from_str(&e, "US Treasury Bond 2024"));
-    assert!(retrieved.regulatory_info.is_regulated);
+    assert_eq!(
+        retrieved.name,
+        String::from_str(&e, "US Treasury Bond 2024")
+    );
+    assert_eq!(retrieved.regulatory_info.is_regulated, true);
 }
 
 #[test]
@@ -157,8 +160,13 @@ fn test_regulatory_info() {
 
     assert!(oracle.try_is_regulated(&asset_id).unwrap().unwrap());
 
-    let reg_info = oracle.try_get_regulatory_info(&asset_id).unwrap().unwrap();
-    assert_eq!(reg_info.compliance_status, ComplianceStatus::RequiresApproval);
+    let reg_info_result = oracle.try_get_regulatory_info(&asset_id);
+    let reg_info = reg_info_result.unwrap().unwrap();
+    assert_eq!(reg_info.is_regulated, true);
+    assert_eq!(
+        reg_info.compliance_status,
+        ComplianceStatus::RequiresApproval
+    );
 }
 
 #[test]
@@ -574,4 +582,161 @@ fn test_different_assets_independent_timestamps() {
     let last_price_tsla = oracle.lastprice(&asset_tsla).unwrap();
     assert_eq!(last_price_tsla.price, 20);
     assert_eq!(last_price_tsla.timestamp, 500);
+}
+
+// ========== Metadata asset_id validation tests ==========
+
+#[test]
+fn test_metadata_asset_id_mismatch_rejected() {
+    let e = Env::default();
+    e.mock_all_auths();
+
+    let oracle = create_rwa_oracle_contract(&e);
+
+    // Create metadata with asset_id = "TSLA"
+    let tsla_id = Symbol::new(&e, "TSLA");
+    let nvda_id = Symbol::new(&e, "NVDA");
+
+    let regulatory_info = create_test_regulatory_info(&e);
+    let tokenization_info = create_test_tokenization_info(&e);
+
+    let metadata = RWAMetadata {
+        asset_id: tsla_id.clone(), // Metadata says "TSLA"
+        name: String::from_str(&e, "Tesla Stock"),
+        description: String::from_str(&e, "Tokenized Tesla stock"),
+        asset_type: RWAAssetType::Stock,
+        underlying_asset: String::from_str(&e, "TSLA Stock"),
+        issuer: String::from_str(&e, "Tesla Inc"),
+        regulatory_info,
+        tokenization_info,
+        metadata: Vec::new(&e),
+        created_at: e.ledger().timestamp(),
+        updated_at: e.ledger().timestamp(),
+    };
+
+    // Try to set it under "NVDA" key - should fail
+    let result = oracle.try_set_rwa_metadata(&nvda_id, &metadata);
+    assert!(result.is_err());
+    assert_eq!(result.unwrap_err().unwrap(), Error::InvalidMetadata.into());
+}
+
+#[test]
+fn test_metadata_asset_id_match_accepted() {
+    let e = Env::default();
+    e.mock_all_auths();
+
+    let oracle = create_rwa_oracle_contract(&e);
+
+    // Create metadata with asset_id = "NVDA"
+    let nvda_id = Symbol::new(&e, "NVDA");
+
+    let regulatory_info = create_test_regulatory_info(&e);
+    let tokenization_info = create_test_tokenization_info(&e);
+
+    let metadata = RWAMetadata {
+        asset_id: nvda_id.clone(), // Metadata says "NVDA"
+        name: String::from_str(&e, "NVIDIA Stock"),
+        description: String::from_str(&e, "Tokenized NVIDIA stock"),
+        asset_type: RWAAssetType::Stock,
+        underlying_asset: String::from_str(&e, "NVDA Stock"),
+        issuer: String::from_str(&e, "NVIDIA Corp"),
+        regulatory_info,
+        tokenization_info,
+        metadata: Vec::new(&e),
+        created_at: e.ledger().timestamp(),
+        updated_at: e.ledger().timestamp(),
+    };
+
+    // Set it under "NVDA" key - should succeed
+    let result = oracle.try_set_rwa_metadata(&nvda_id, &metadata);
+    assert!(result.is_ok());
+
+    // Verify it was stored correctly
+    let retrieved = oracle.get_rwa_metadata(&nvda_id);
+    assert_eq!(retrieved.asset_id, nvda_id);
+}
+
+#[test]
+fn test_metadata_mismatch_no_state_change() {
+    let e = Env::default();
+    e.mock_all_auths();
+
+    let oracle = create_rwa_oracle_contract(&e);
+
+    let tsla_id = Symbol::new(&e, "TSLA");
+    let nvda_id = Symbol::new(&e, "NVDA");
+
+    let regulatory_info = create_test_regulatory_info(&e);
+    let tokenization_info = create_test_tokenization_info(&e);
+
+    let metadata = RWAMetadata {
+        asset_id: tsla_id.clone(), // Metadata says "TSLA"
+        name: String::from_str(&e, "Tesla Stock"),
+        description: String::from_str(&e, "Tokenized Tesla stock"),
+        asset_type: RWAAssetType::Stock,
+        underlying_asset: String::from_str(&e, "TSLA Stock"),
+        issuer: String::from_str(&e, "Tesla Inc"),
+        regulatory_info,
+        tokenization_info,
+        metadata: Vec::new(&e),
+        created_at: e.ledger().timestamp(),
+        updated_at: e.ledger().timestamp(),
+    };
+
+    // Try to set mismatched metadata
+    let result = oracle.try_set_rwa_metadata(&nvda_id, &metadata);
+    assert!(result.is_err());
+
+    // Verify no state was changed - neither NVDA nor TSLA should exist
+    let nvda_result = oracle.try_get_rwa_metadata(&nvda_id);
+    assert!(nvda_result.is_err());
+    assert_eq!(
+        nvda_result.unwrap_err().unwrap(),
+        Error::AssetNotFound.into()
+    );
+
+    let tsla_result = oracle.try_get_rwa_metadata(&tsla_id);
+    assert!(tsla_result.is_err());
+    assert_eq!(
+        tsla_result.unwrap_err().unwrap(),
+        Error::AssetNotFound.into()
+    );
+}
+
+#[test]
+fn test_metadata_consistency_after_set() {
+    let e = Env::default();
+    e.mock_all_auths();
+
+    let oracle = create_rwa_oracle_contract(&e);
+
+    let nvda_id = Symbol::new(&e, "NVDA");
+
+    let regulatory_info = create_test_regulatory_info(&e);
+    let tokenization_info = create_test_tokenization_info(&e);
+
+    let metadata = RWAMetadata {
+        asset_id: nvda_id.clone(), // Metadata says "NVDA"
+        name: String::from_str(&e, "NVIDIA Stock"),
+        description: String::from_str(&e, "Tokenized NVIDIA stock"),
+        asset_type: RWAAssetType::Stock,
+        underlying_asset: String::from_str(&e, "NVDA Stock"),
+        issuer: String::from_str(&e, "NVIDIA Corp"),
+        regulatory_info,
+        tokenization_info,
+        metadata: Vec::new(&e),
+        created_at: e.ledger().timestamp(),
+        updated_at: e.ledger().timestamp(),
+    };
+
+    // Set valid metadata
+    oracle.set_rwa_metadata(&nvda_id, &metadata);
+
+    // Retrieve and verify consistency
+    let retrieved = oracle.get_rwa_metadata(&nvda_id);
+
+    // The key used to query matches the asset_id in the returned metadata
+    assert_eq!(retrieved.asset_id, nvda_id);
+    assert_eq!(retrieved.name, String::from_str(&e, "NVIDIA Stock"));
+    assert_eq!(retrieved.asset_type, RWAAssetType::Stock);
 }
