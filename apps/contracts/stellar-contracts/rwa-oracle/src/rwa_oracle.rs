@@ -1,6 +1,6 @@
 use soroban_sdk::{
-    Address, BytesN, Env, Map, Symbol, Vec, contract, contractimpl,
-    contracttype, panic_with_error, symbol_short,
+    Address, BytesN, Env, Map, Symbol, Vec, contract, contractimpl, contracttype, panic_with_error,
+    symbol_short,
 };
 
 use crate::error::Error;
@@ -40,10 +40,17 @@ impl RWAOracleStorage {
 enum DataKey {
     Prices(Asset),
     TokenToAsset(Address), // Map token contract address to asset Symbol
+    LastTimestamp(Asset),  // Per-asset timestamp tracking
 }
 
 fn new_asset_prices_map(env: &Env) -> Map<u64, i128> {
     Map::new(env)
+}
+
+fn get_asset_last_timestamp(env: &Env, asset_id: &Asset) -> Option<u64> {
+    env.storage()
+        .persistent()
+        .get(&DataKey::LastTimestamp(asset_id.clone()))
 }
 
 #[contract]
@@ -110,9 +117,14 @@ impl RWAOracle {
         asset.set(timestamp, price);
         env.storage()
             .persistent()
-            .set(&DataKey::Prices(asset_id), &asset);
+            .set(&DataKey::Prices(asset_id.clone()), &asset);
 
-        // Update last timestamp
+        // Store per-asset timestamp
+        env.storage()
+            .persistent()
+            .set(&DataKey::LastTimestamp(asset_id.clone()), &timestamp);
+
+        // Update global last_timestamp for SEP-40 compatibility
         let mut state = RWAOracleStorage::get_state(env);
         state.last_timestamp = timestamp;
         RWAOracleStorage::set_state(env, &state);
@@ -128,7 +140,7 @@ impl RWAOracle {
     ) -> Result<(), Error> {
         Self::require_admin(env);
         let mut state = RWAOracleStorage::get_state(env);
-        
+
         // Validate asset type
         if !Self::is_valid_rwa_type(env, &metadata.asset_type) {
             return Err(Error::InvalidRWAType);
@@ -136,17 +148,15 @@ impl RWAOracle {
 
         // Set metadata
         state.rwa_metadata.set(asset_id.clone(), metadata.clone());
-        
+
         // Update asset type mapping if asset exists
-        if let Some(asset) = state.assets.iter().find(|a| {
-            match a {
-                Asset::Other(sym) => sym == &asset_id,
-                _ => false,
-            }
+        if let Some(asset) = state.assets.iter().find(|a| match a {
+            Asset::Other(sym) => sym == &asset_id,
+            _ => false,
         }) {
             state.asset_types.set(asset.clone(), metadata.asset_type);
         }
-        
+
         RWAOracleStorage::set_state(env, &state);
         Ok(())
     }
@@ -159,7 +169,7 @@ impl RWAOracle {
     ) -> Result<(), Error> {
         Self::require_admin(env);
         let mut state = RWAOracleStorage::get_state(env);
-        
+
         let mut metadata = state
             .rwa_metadata
             .get(asset_id.clone())
@@ -180,7 +190,7 @@ impl RWAOracle {
     ) -> Result<(), Error> {
         Self::require_admin(env);
         let mut state = RWAOracleStorage::get_state(env);
-        
+
         let mut metadata = state
             .rwa_metadata
             .get(asset_id.clone())
@@ -198,10 +208,7 @@ impl RWAOracle {
     /// Get complete RWA metadata for an asset
     pub fn get_rwa_metadata(env: &Env, asset_id: Symbol) -> Result<RWAMetadata, Error> {
         let state = RWAOracleStorage::get_state(env);
-        state
-            .rwa_metadata
-            .get(asset_id)
-            .ok_or(Error::AssetNotFound)
+        state.rwa_metadata.get(asset_id).ok_or(Error::AssetNotFound)
     }
 
     /// Get RWA asset type for an asset
@@ -250,7 +257,11 @@ impl RWAOracle {
     /// This allows other contracts to query the oracle without needing to call the token contract
     pub fn get_asset_id_from_token(env: &Env, token_address: &Address) -> Result<Symbol, Error> {
         // First check if we have a direct mapping
-        if let Some(asset_id) = env.storage().persistent().get(&DataKey::TokenToAsset(token_address.clone())) {
+        if let Some(asset_id) = env
+            .storage()
+            .persistent()
+            .get(&DataKey::TokenToAsset(token_address.clone()))
+        {
             return Ok(asset_id);
         }
 
@@ -260,7 +271,9 @@ impl RWAOracle {
             if let Some(token_contract) = &metadata.tokenization_info.token_contract {
                 if token_contract == token_address {
                     // Cache the mapping for future lookups
-                    env.storage().persistent().set(&DataKey::TokenToAsset(token_address.clone()), &asset_id);
+                    env.storage()
+                        .persistent()
+                        .set(&DataKey::TokenToAsset(token_address.clone()), &asset_id);
                     return Ok(asset_id);
                 }
             }
@@ -293,7 +306,7 @@ impl IsSep40Admin for RWAOracle {
         Self::require_admin(env);
         let current_storage = RWAOracleStorage::get_state(env);
         let mut assets_vec = current_storage.assets;
-        
+
         for asset in assets.iter() {
             let asset_clone = asset.clone();
             if assets_vec.contains(&asset_clone) {
@@ -304,7 +317,7 @@ impl IsSep40Admin for RWAOracle {
                 .persistent()
                 .set(&DataKey::Prices(asset_clone), &new_asset_prices_map(env));
         }
-        
+
         RWAOracleStorage::set_state(
             env,
             &RWAOracleStorage {
@@ -374,4 +387,3 @@ impl IsSep40 for RWAOracle {
         RWAOracleStorage::get_state(env).resolution
     }
 }
-

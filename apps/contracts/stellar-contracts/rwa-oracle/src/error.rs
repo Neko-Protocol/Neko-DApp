@@ -25,4 +25,3 @@ pub enum Error {
     /// Invalid compliance data
     InvalidComplianceData = 7,
 }
-
