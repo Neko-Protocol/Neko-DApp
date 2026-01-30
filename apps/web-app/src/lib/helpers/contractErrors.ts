@@ -3,7 +3,11 @@
  * Extracts and formats error messages from Soroban contract errors
  */
 
-import { CONTRACT_ERRORS, ContractErrorCode } from "@/lib/constants/contracts";
+import {
+  CONTRACT_ERRORS,
+  ContractErrorCode,
+  isValidErrorCode,
+} from "@/lib/constants/contracts";
 
 /**
  * Extract a user-friendly error message from a contract error
@@ -43,10 +47,9 @@ export function extractContractError(error: unknown): string {
   // Format: "Error(Contract, #<code>)"
   const contractErrorMatch = errorString.match(/Error\(Contract,\s*#(\d+)\)/);
   if (contractErrorMatch) {
-    const errorCode = parseInt(contractErrorMatch[1], 10) as ContractErrorCode;
-    const errorInfo = CONTRACT_ERRORS[errorCode];
-    if (errorInfo) {
-      return errorInfo.message;
+    const errorCode = parseInt(contractErrorMatch[1], 10);
+    if (isValidErrorCode(errorCode)) {
+      return CONTRACT_ERRORS[errorCode].message;
     }
     return `Contract error #${errorCode}`;
   }
@@ -57,10 +60,9 @@ export function extractContractError(error: unknown): string {
     /HostError:.*Error\(Contract,\s*#(\d+)\)/
   );
   if (hostErrorMatch) {
-    const errorCode = parseInt(hostErrorMatch[1], 10) as ContractErrorCode;
-    const errorInfo = CONTRACT_ERRORS[errorCode];
-    if (errorInfo) {
-      return errorInfo.message;
+    const errorCode = parseInt(hostErrorMatch[1], 10);
+    if (isValidErrorCode(errorCode)) {
+      return CONTRACT_ERRORS[errorCode].message;
     }
     return `Contract error #${errorCode}`;
   }
@@ -70,10 +72,9 @@ export function extractContractError(error: unknown): string {
     // Try to extract the inner error
     const innerMatch = errorString.match(/Error\(Contract,\s*#(\d+)\)/);
     if (innerMatch) {
-      const errorCode = parseInt(innerMatch[1], 10) as ContractErrorCode;
-      const errorInfo = CONTRACT_ERRORS[errorCode];
-      if (errorInfo) {
-        return errorInfo.message;
+      const errorCode = parseInt(innerMatch[1], 10);
+      if (isValidErrorCode(errorCode)) {
+        return CONTRACT_ERRORS[errorCode].message;
       }
     }
     return "Transaction simulation failed. Please check your inputs and try again.";
@@ -139,9 +140,10 @@ export function getContractErrorCode(error: unknown): string | null {
   const match = errorString.match(/Error\(Contract,\s*#(\d+)\)/);
 
   if (match) {
-    const errorCode = parseInt(match[1], 10) as ContractErrorCode;
-    const errorInfo = CONTRACT_ERRORS[errorCode];
-    return errorInfo?.code ?? null;
+    const errorCode = parseInt(match[1], 10);
+    if (isValidErrorCode(errorCode)) {
+      return CONTRACT_ERRORS[errorCode].code;
+    }
   }
 
   return null;
