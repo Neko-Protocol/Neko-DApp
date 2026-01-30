@@ -128,25 +128,24 @@ impl RWAOracle {
     ) -> Result<(), Error> {
         Self::require_admin(env);
         let mut state = RWAOracleStorage::get_state(env);
-        
+
         // Validate asset type
         if !Self::is_valid_rwa_type(env, &metadata.asset_type) {
             return Err(Error::InvalidRWAType);
         }
 
-        // Set metadata
-        state.rwa_metadata.set(asset_id.clone(), metadata.clone());
-        
-        // Update asset type mapping if asset exists
-        if let Some(asset) = state.assets.iter().find(|a| {
-            match a {
-                Asset::Other(sym) => sym == &asset_id,
-                _ => false,
-            }
-        }) {
-            state.asset_types.set(asset.clone(), metadata.asset_type);
+        // Verify asset is registered
+        let asset = Asset::Other(asset_id.clone());
+        if !state.assets.contains(&asset) {
+            return Err(Error::AssetNotRegistered);
         }
-        
+
+        // Set metadata
+        state.rwa_metadata.set(asset_id, metadata.clone());
+
+        // Always update asset_types (no conditional needed since we verified above)
+        state.asset_types.set(asset, metadata.asset_type);
+
         RWAOracleStorage::set_state(env, &state);
         Ok(())
     }

@@ -88,6 +88,9 @@ fn test_set_rwa_metadata() {
         updated_at: e.ledger().timestamp(),
     };
 
+    // Register the asset first
+    oracle.add_assets(&Vec::from_array(&e, [Asset::Other(asset_id.clone())]));
+
     oracle.set_rwa_metadata(&asset_id, &metadata);
 
     let retrieved_result = oracle.try_get_rwa_metadata(&asset_id);
@@ -155,6 +158,9 @@ fn test_regulatory_info() {
         updated_at: e.ledger().timestamp(),
     };
 
+    // Register asset first
+    oracle.add_assets(&Vec::from_array(&e, [Asset::Other(asset_id.clone())]));
+
     oracle.set_rwa_metadata(&asset_id, &metadata);
 
     let is_regulated_result = oracle.try_is_regulated(&asset_id);
@@ -207,6 +213,12 @@ fn test_get_all_rwa_assets() {
         created_at: e.ledger().timestamp(),
         updated_at: e.ledger().timestamp(),
     };
+
+    // Register assets first
+    oracle.add_assets(&Vec::from_array(&e, [
+        Asset::Other(asset_id1.clone()),
+        Asset::Other(asset_id2.clone()),
+    ]));
 
     oracle.set_rwa_metadata(&asset_id1, &metadata1);
     oracle.set_rwa_metadata(&asset_id2, &metadata2);
@@ -294,3 +306,130 @@ fn test_min_positive_price_accepted() {
     assert_eq!(last_price.price, min_price);
     assert_eq!(last_price.timestamp, timestamp);
 }
+
+#[test]
+fn test_metadata_rejected_for_unregistered_asset() {
+    let e = Env::default();
+    e.mock_all_auths();
+
+    let oracle = create_rwa_oracle_contract(&e);
+    let unregistered_id = Symbol::new(&e, "NOT_REGISTERED");
+
+    let metadata = RWAMetadata {
+        asset_id: unregistered_id.clone(),
+        name: String::from_str(&e, "Ghost Asset"),
+        description: String::from_str(&e, "Ghost Description"),
+        asset_type: RWAAssetType::Other,
+        underlying_asset: String::from_str(&e, "None"),
+        issuer: String::from_str(&e, "None"),
+        regulatory_info: create_test_regulatory_info(&e),
+        tokenization_info: create_test_tokenization_info(&e),
+        metadata: Vec::new(&e),
+        created_at: e.ledger().timestamp(),
+        updated_at: e.ledger().timestamp(),
+    };
+
+    let result = oracle.try_set_rwa_metadata(&unregistered_id, &metadata);
+    assert!(result.is_err());
+    assert_eq!(result.unwrap_err().unwrap(), Error::AssetNotRegistered.into());
+}
+
+#[test]
+fn test_metadata_accepted_for_registered_asset() {
+    let e = Env::default();
+    e.mock_all_auths();
+
+    let oracle = create_rwa_oracle_contract(&e);
+    // NVDA is registered in create_rwa_oracle_contract
+    let asset_id = Symbol::new(&e, "NVDA");
+
+    let metadata = RWAMetadata {
+        asset_id: asset_id.clone(),
+        name: String::from_str(&e, "NVIDIA Corp"),
+        description: String::from_str(&e, "GPU Maker"),
+        asset_type: RWAAssetType::Stock,
+        underlying_asset: String::from_str(&e, "NVDA Stock"),
+        issuer: String::from_str(&e, "NVIDIA"),
+        regulatory_info: create_test_regulatory_info(&e),
+        tokenization_info: create_test_tokenization_info(&e),
+        metadata: Vec::new(&e),
+        created_at: e.ledger().timestamp(),
+        updated_at: e.ledger().timestamp(),
+    };
+
+    let result = oracle.try_set_rwa_metadata(&asset_id, &metadata);
+    assert!(result.is_ok());
+
+    let retrieved = oracle.get_rwa_metadata(&asset_id);
+    assert_eq!(retrieved.name, String::from_str(&e, "NVIDIA Corp"));
+    
+    let asset_type = oracle.get_rwa_asset_type(&Asset::Other(asset_id)).unwrap();
+    assert_eq!(asset_type, RWAAssetType::Stock);
+}
+
+#[test]
+fn test_asset_type_always_synced_with_metadata() {
+    let e = Env::default();
+    e.mock_all_auths();
+
+    let oracle = create_rwa_oracle_contract(&e);
+    let asset_id = Symbol::new(&e, "NVDA");
+
+    let metadata = RWAMetadata {
+        asset_id: asset_id.clone(),
+        name: String::from_str(&e, "NVIDIA Corp"),
+        description: String::from_str(&e, "GPU Maker"),
+        asset_type: RWAAssetType::Stock,
+        underlying_asset: String::from_str(&e, "NVDA Stock"),
+        issuer: String::from_str(&e, "NVIDIA"),
+        regulatory_info: create_test_regulatory_info(&e),
+        tokenization_info: create_test_tokenization_info(&e),
+        metadata: Vec::new(&e),
+        created_at: e.ledger().timestamp(),
+        updated_at: e.ledger().timestamp(),
+    };
+
+    oracle.set_rwa_metadata(&asset_id, &metadata);
+    
+    let asset_type = oracle.get_rwa_asset_type(&Asset::Other(asset_id)).unwrap();
+    assert_eq!(asset_type, RWAAssetType::Stock);
+}
+
+#[test]
+fn test_metadata_accepted_after_add_assets() {
+    let e = Env::default();
+    e.mock_all_auths();
+
+    let oracle = create_rwa_oracle_contract(&e);
+    let asset_id = Symbol::new(&e, "NEW_RETAIL_ASSET");
+    let asset = Asset::Other(asset_id.clone());
+
+    // Initially rejected
+    let metadata = RWAMetadata {
+        asset_id: asset_id.clone(),
+        name: String::from_str(&e, "New Asset"),
+        description: String::from_str(&e, "New Description"),
+        asset_type: RWAAssetType::RealEstate,
+        underlying_asset: String::from_str(&e, "Property"),
+        issuer: String::from_str(&e, "RealProp"),
+        regulatory_info: create_test_regulatory_info(&e),
+        tokenization_info: create_test_tokenization_info(&e),
+        metadata: Vec::new(&e),
+        created_at: e.ledger().timestamp(),
+        updated_at: e.ledger().timestamp(),
+    };
+
+    let result = oracle.try_set_rwa_metadata(&asset_id, &metadata);
+    assert!(result.is_err());
+
+    // Add asset
+    oracle.add_assets(&Vec::from_array(&e, [asset.clone()]));
+
+    // Now accepted
+    let result = oracle.try_set_rwa_metadata(&asset_id, &metadata);
+    assert!(result.is_ok());
+
+    let asset_type = oracle.get_rwa_asset_type(&asset).unwrap();
+    assert_eq!(asset_type, RWAAssetType::RealEstate);
+}
+

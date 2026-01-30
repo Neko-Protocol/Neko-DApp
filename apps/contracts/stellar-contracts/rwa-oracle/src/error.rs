@@ -24,5 +24,8 @@ pub enum Error {
 
     /// Invalid compliance data
     InvalidComplianceData = 7,
+
+    /// Asset not registered
+    AssetNotRegistered = 10,
 }
 

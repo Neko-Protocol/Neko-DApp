@@ -13,6 +13,46 @@
           "function": {
             "contract_fn": {
               "contract_address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4",
+              "function_name": "add_assets",
+              "args": [
+                {
+                  "vec": [
+                    {
+                      "vec": [
+                        {
+                          "symbol": "Other"
+                        },
+                        {
+                          "symbol": "RWA_1"
+                        }
+                      ]
+                    },
+                    {
+                      "vec": [
+                        {
+                          "symbol": "Other"
+                        },
+                        {
+                          "symbol": "RWA_2"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          "sub_invocations": []
+        }
+      ]
+    ],
+    [
+      [
+        "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+        {
+          "function": {
+            "contract_fn": {
+              "contract_address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4",
               "function_name": "set_rwa_metadata",
               "args": [
                 {
@@ -491,6 +531,39 @@
             "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
             "key": {
               "ledger_key_nonce": {
+                "nonce": "1033654523790656264"
+              }
+            },
+            "durability": "temporary"
+          }
+        },
+        [
+          {
+            "last_modified_ledger_seq": 0,
+            "data": {
+              "contract_data": {
+                "ext": "v0",
+                "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+                "key": {
+                  "ledger_key_nonce": {
+                    "nonce": "1033654523790656264"
+                  }
+                },
+                "durability": "temporary",
+                "val": "void"
+              }
+            },
+            "ext": "v0"
+          },
+          6311999
+        ]
+      ],
+      [
+        {
+          "contract_data": {
+            "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+            "key": {
+              "ledger_key_nonce": {
                 "nonce": "5541220902715666415"
               }
             },
@@ -561,6 +634,124 @@
                         },
                         {
                           "symbol": "NVDA"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                "durability": "persistent",
+                "val": {
+                  "map": []
+                }
+              }
+            },
+            "ext": "v0"
+          },
+          4095
+        ]
+      ],
+      [
+        {
+          "contract_data": {
+            "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4",
+            "key": {
+              "vec": [
+                {
+                  "symbol": "Prices"
+                },
+                {
+                  "vec": [
+                    {
+                      "symbol": "Other"
+                    },
+                    {
+                      "symbol": "RWA_1"
+                    }
+                  ]
+                }
+              ]
+            },
+            "durability": "persistent"
+          }
+        },
+        [
+          {
+            "last_modified_ledger_seq": 0,
+            "data": {
+              "contract_data": {
+                "ext": "v0",
+                "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4",
+                "key": {
+                  "vec": [
+                    {
+                      "symbol": "Prices"
+                    },
+                    {
+                      "vec": [
+                        {
+                          "symbol": "Other"
+                        },
+                        {
+                          "symbol": "RWA_1"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                "durability": "persistent",
+                "val": {
+                  "map": []
+                }
+              }
+            },
+            "ext": "v0"
+          },
+          4095
+        ]
+      ],
+      [
+        {
+          "contract_data": {
+            "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4",
+            "key": {
+              "vec": [
+                {
+                  "symbol": "Prices"
+                },
+                {
+                  "vec": [
+                    {
+                      "symbol": "Other"
+                    },
+                    {
+                      "symbol": "RWA_2"
+                    }
+                  ]
+                }
+              ]
+            },
+            "durability": "persistent"
+          }
+        },
+        [
+          {
+            "last_modified_ledger_seq": 0,
+            "data": {
+              "contract_data": {
+                "ext": "v0",
+                "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4",
+                "key": {
+                  "vec": [
+                    {
+                      "symbol": "Prices"
+                    },
+                    {
+                      "vec": [
+                        {
+                          "symbol": "Other"
+                        },
+                        {
+                          "symbol": "RWA_2"
                         }
                       ]
                     }
@@ -678,7 +869,46 @@
                                 "symbol": "asset_types"
                               },
                               "val": {
-                                "map": []
+                                "map": [
+                                  {
+                                    "key": {
+                                      "vec": [
+                                        {
+                                          "symbol": "Other"
+                                        },
+                                        {
+                                          "symbol": "RWA_1"
+                                        }
+                                      ]
+                                    },
+                                    "val": {
+                                      "vec": [
+                                        {
+                                          "symbol": "Bond"
+                                        }
+                                      ]
+                                    }
+                                  },
+                                  {
+                                    "key": {
+                                      "vec": [
+                                        {
+                                          "symbol": "Other"
+                                        },
+                                        {
+                                          "symbol": "RWA_2"
+                                        }
+                                      ]
+                                    },
+                                    "val": {
+                                      "vec": [
+                                        {
+                                          "symbol": "Commodity"
+                                        }
+                                      ]
+                                    }
+                                  }
+                                ]
                               }
                             },
                             {
@@ -704,6 +934,26 @@
                                       },
                                       {
                                         "symbol": "TSLA"
+                                      }
+                                    ]
+                                  },
+                                  {
+                                    "vec": [
+                                      {
+                                        "symbol": "Other"
+                                      },
+                                      {
+                                        "symbol": "RWA_1"
+                                      }
+                                    ]
+                                  },
+                                  {
+                                    "vec": [
+                                      {
+                                        "symbol": "Other"
+                                      },
+                                      {
+                                        "symbol": "RWA_2"
                                       }
                                     ]
                                   }
