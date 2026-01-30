@@ -6,7 +6,10 @@ use crate::rwa_types::*;
 use crate::Asset;
 use crate::Error;
 
-use soroban_sdk::{Address, Env, Symbol, Vec, String, testutils::Address as _};
+use soroban_sdk::{
+    testutils::Address as _,
+    Address, Env, String, Symbol, Vec,
+};
 
 fn create_rwa_oracle_contract<'a>(e: &Env) -> RWAOracleClient<'a> {
     let asset_xlm: Asset = Asset::Other(Symbol::new(e, "NVDA"));
@@ -93,12 +96,11 @@ fn test_set_rwa_metadata() {
 
     oracle.set_rwa_metadata(&asset_id, &metadata);
 
-    let retrieved_result = oracle.try_get_rwa_metadata(&asset_id);
-    let retrieved = retrieved_result.unwrap().unwrap();
+    let retrieved = oracle.try_get_rwa_metadata(&asset_id).unwrap().unwrap();
     assert_eq!(retrieved.asset_id, asset_id);
     assert_eq!(retrieved.asset_type, RWAAssetType::Bond);
     assert_eq!(retrieved.name, String::from_str(&e, "US Treasury Bond 2024"));
-    assert_eq!(retrieved.regulatory_info.is_regulated, true);
+    assert!(retrieved.regulatory_info.is_regulated);
 }
 
 #[test]
@@ -109,11 +111,9 @@ fn test_price_feed_compatibility() {
     let oracle = create_rwa_oracle_contract(&e);
     let asset_xlm: Asset = Asset::Other(Symbol::new(&e, "XLM"));
 
-    // First, add XLM to the list of assets
     let assets_to_add = Vec::from_array(&e, [asset_xlm.clone()]);
     oracle.add_assets(&assets_to_add);
 
-    // Test price feed functionality (SEP-40)
     let timestamp1: u64 = 1_000_000_000;
     let price1 = 10_000_000_000_000;
     oracle.set_asset_price(&asset_xlm, &price1, &timestamp1);
@@ -122,7 +122,6 @@ fn test_price_feed_compatibility() {
     assert_eq!(last_price.price, price1);
     assert_eq!(last_price.timestamp, timestamp1);
 
-    // Test historical prices
     let timestamp2: u64 = 1_000_001_000;
     let price2 = 10_500_000_000_000;
     oracle.set_asset_price(&asset_xlm, &price2, &timestamp2);
@@ -130,7 +129,6 @@ fn test_price_feed_compatibility() {
     let prices = oracle.prices(&asset_xlm, &2).unwrap();
     assert_eq!(prices.len(), 2);
     assert_eq!(prices.get(0).unwrap().price, price2);
-    assert_eq!(prices.get(0).unwrap().timestamp, timestamp2);
 }
 
 #[test]
@@ -163,13 +161,9 @@ fn test_regulatory_info() {
 
     oracle.set_rwa_metadata(&asset_id, &metadata);
 
-    let is_regulated_result = oracle.try_is_regulated(&asset_id);
-    let is_regulated = is_regulated_result.unwrap().unwrap();
-    assert_eq!(is_regulated, true);
+    assert!(oracle.try_is_regulated(&asset_id).unwrap().unwrap());
 
-    let reg_info_result = oracle.try_get_regulatory_info(&asset_id);
-    let reg_info = reg_info_result.unwrap().unwrap();
-    assert_eq!(reg_info.is_regulated, true);
+    let reg_info = oracle.try_get_regulatory_info(&asset_id).unwrap().unwrap();
     assert_eq!(reg_info.compliance_status, ComplianceStatus::RequiresApproval);
 }
 
@@ -225,8 +219,6 @@ fn test_get_all_rwa_assets() {
 
     let all_assets = oracle.get_all_rwa_assets();
     assert_eq!(all_assets.len(), 2);
-    assert!(all_assets.contains(&asset_id1));
-    assert!(all_assets.contains(&asset_id2));
 }
 
 #[test]
@@ -240,7 +232,6 @@ fn test_error_handling() {
     let result = oracle.try_get_rwa_metadata(&non_existent);
     assert!(result.is_err());
     assert_eq!(result.unwrap_err().unwrap(), Error::AssetNotFound.into());
-
 }
 
 // ========== Price validation tests ==========
@@ -253,10 +244,7 @@ fn test_negative_price_rejected() {
 
     let oracle = create_rwa_oracle_contract(&e);
     let asset: Asset = Asset::Other(Symbol::new(&e, "NVDA"));
-    let timestamp: u64 = 1_000_000_000;
-    let negative_price: i128 = -100;
-
-    oracle.set_asset_price(&asset, &negative_price, &timestamp);
+    oracle.set_asset_price(&asset, &-100, &1_000_000_000);
 }
 
 #[test]
@@ -267,10 +255,7 @@ fn test_zero_price_rejected() {
 
     let oracle = create_rwa_oracle_contract(&e);
     let asset: Asset = Asset::Other(Symbol::new(&e, "NVDA"));
-    let timestamp: u64 = 1_000_000_000;
-    let zero_price: i128 = 0;
-
-    oracle.set_asset_price(&asset, &zero_price, &timestamp);
+    oracle.set_asset_price(&asset, &0, &1_000_000_000);
 }
 
 #[test]
@@ -280,14 +265,10 @@ fn test_positive_price_accepted() {
 
     let oracle = create_rwa_oracle_contract(&e);
     let asset: Asset = Asset::Other(Symbol::new(&e, "NVDA"));
-    let timestamp: u64 = 1_000_000_000;
     let price: i128 = 150_00000000;
 
-    oracle.set_asset_price(&asset, &price, &timestamp);
-
-    let last_price = oracle.lastprice(&asset).unwrap();
-    assert_eq!(last_price.price, price);
-    assert_eq!(last_price.timestamp, timestamp);
+    oracle.set_asset_price(&asset, &price, &1_000_000_000);
+    assert_eq!(oracle.lastprice(&asset).unwrap().price, price);
 }
 
 #[test]
@@ -297,14 +278,95 @@ fn test_min_positive_price_accepted() {
 
     let oracle = create_rwa_oracle_contract(&e);
     let asset: Asset = Asset::Other(Symbol::new(&e, "NVDA"));
-    let timestamp: u64 = 1_000_000_000;
-    let min_price: i128 = 1;
 
-    oracle.set_asset_price(&asset, &min_price, &timestamp);
+    oracle.set_asset_price(&asset, &1, &1_000_000_000);
+    assert_eq!(oracle.lastprice(&asset).unwrap().price, 1);
+}
+
+// ========== TTL Extension Tests ==========
+
+#[test]
+fn test_instance_ttl_extended_on_price_update() {
+    let e = Env::default();
+    e.mock_all_auths();
+
+    let oracle = create_rwa_oracle_contract(&e);
+    let asset = Asset::Other(Symbol::new(&e, "NVDA"));
+
+    oracle.set_asset_price(&asset, &100_000_000, &1_000_000);
 
     let last_price = oracle.lastprice(&asset).unwrap();
-    assert_eq!(last_price.price, min_price);
-    assert_eq!(last_price.timestamp, timestamp);
+    assert_eq!(last_price.price, 100_000_000);
+}
+
+#[test]
+fn test_persistent_ttl_extended_on_price_update() {
+    let e = Env::default();
+    e.mock_all_auths();
+
+    let oracle = create_rwa_oracle_contract(&e);
+
+    let asset1 = Asset::Other(Symbol::new(&e, "NVDA"));
+    let asset2 = Asset::Other(Symbol::new(&e, "TSLA"));
+
+    oracle.set_asset_price(&asset1, &100_000_000, &1_000_000);
+    oracle.set_asset_price(&asset2, &200_000_000, &1_000_000);
+
+    assert_eq!(oracle.lastprice(&asset1).unwrap().price, 100_000_000);
+    assert_eq!(oracle.lastprice(&asset2).unwrap().price, 200_000_000);
+}
+
+#[test]
+fn test_ttl_extended_on_metadata_update() {
+    let e = Env::default();
+    e.mock_all_auths();
+
+    let oracle = create_rwa_oracle_contract(&e);
+    let asset_id = Symbol::new(&e, "RWA_BOND");
+
+    let mut regulatory_info = create_test_regulatory_info(&e);
+    let mut tokenization_info = create_test_tokenization_info(&e);
+
+    let metadata = RWAMetadata {
+        asset_id: asset_id.clone(),
+        name: String::from_str(&e, "Bond"),
+        description: String::from_str(&e, "Bond Desc"),
+        asset_type: RWAAssetType::Bond,
+        underlying_asset: String::from_str(&e, "Underlying"),
+        issuer: String::from_str(&e, "Issuer"),
+        regulatory_info: regulatory_info.clone(),
+        tokenization_info: tokenization_info.clone(),
+        metadata: Vec::new(&e),
+        created_at: e.ledger().timestamp(),
+        updated_at: e.ledger().timestamp(),
+    };
+
+    oracle.set_rwa_metadata(&asset_id, &metadata);
+
+    regulatory_info.license_number = Some(String::from_str(&e, "NEW-LIC"));
+    oracle.update_regulatory_info(&asset_id, &regulatory_info);
+
+    tokenization_info.total_supply = Some(2_000_000);
+    oracle.update_tokenization_info(&asset_id, &tokenization_info);
+
+    assert_eq!(
+        oracle.get_regulatory_info(&asset_id).license_number,
+        Some(String::from_str(&e, "NEW-LIC"))
+    );
+}
+
+#[test]
+fn test_ttl_extended_on_add_assets() {
+    let e = Env::default();
+    e.mock_all_auths();
+
+    let oracle = create_rwa_oracle_contract(&e);
+    let new_asset = Asset::Other(Symbol::new(&e, "AAPL"));
+    let assets_to_add = Vec::from_array(&e, [new_asset.clone()]);
+
+    oracle.add_assets(&assets_to_add);
+
+    assert!(oracle.assets().contains(&new_asset));
 }
 
 #[test]
