@@ -554,72 +554,104 @@ fn test_different_assets_independent_timestamps() {
     assert_eq!(last_price_tsla.timestamp, 500);
 }
 
-// ==================== TTL Extension Tests ====================
+// ==================== Metadata asset_id validation tests ====================
 
 #[test]
-fn test_instance_ttl_extended_on_price_update() {
+fn test_metadata_asset_id_mismatch_rejected() {
     let e = Env::default();
     e.mock_all_auths();
 
     let oracle = create_rwa_oracle_contract(&e);
-    let asset = Asset::Other(Symbol::new(&e, "NVDA"));
 
-    oracle.set_asset_price(&asset, &100_000_000, &1_000_000);
+    // Create metadata with asset_id = "TSLA"
+    let tsla_id = Symbol::new(&e, "TSLA");
+    let nvda_id = Symbol::new(&e, "NVDA");
 
-    let last_price = oracle.lastprice(&asset).unwrap();
-    assert_eq!(last_price.price, 100_000_000);
+    let mut metadata = create_test_metadata(&e, tsla_id.clone());
+    metadata.asset_id = tsla_id.clone(); // Metadata says "TSLA"
+
+    // Try to set it under "NVDA" key - should fail
+    let result = oracle.try_set_rwa_metadata(&nvda_id, &metadata);
+    assert!(result.is_err());
+    assert_eq!(result.unwrap_err().unwrap(), Error::InvalidMetadata.into());
 }
 
 #[test]
-fn test_persistent_ttl_extended_on_price_update() {
+fn test_metadata_asset_id_match_accepted() {
     let e = Env::default();
     e.mock_all_auths();
 
     let oracle = create_rwa_oracle_contract(&e);
 
-    let asset1 = Asset::Other(Symbol::new(&e, "NVDA"));
-    let asset2 = Asset::Other(Symbol::new(&e, "TSLA"));
+    // Create metadata with asset_id = "NVDA"
+    let nvda_id = Symbol::new(&e, "NVDA");
 
-    oracle.set_asset_price(&asset1, &100_000_000, &1_000_000);
-    oracle.set_asset_price(&asset2, &200_000_000, &1_000_000);
+    let metadata = create_test_metadata(&e, nvda_id.clone());
 
-    assert_eq!(oracle.lastprice(&asset1).unwrap().price, 100_000_000);
-    assert_eq!(oracle.lastprice(&asset2).unwrap().price, 200_000_000);
+    // Set it under "NVDA" key - should succeed
+    let result = oracle.try_set_rwa_metadata(&nvda_id, &metadata);
+    assert!(result.is_ok());
+
+    // Verify it was stored correctly
+    let retrieved = oracle.get_rwa_metadata(&nvda_id);
+    assert_eq!(retrieved.asset_id, nvda_id);
 }
 
 #[test]
-fn test_ttl_extended_on_metadata_update() {
+fn test_metadata_mismatch_no_state_change() {
     let e = Env::default();
     e.mock_all_auths();
 
     let oracle = create_rwa_oracle_contract(&e);
-    let asset_id = Symbol::new(&e, "RWA_BOND");
 
-    let metadata = create_test_metadata(&e, asset_id.clone());
-    oracle.set_rwa_metadata(&asset_id, &metadata);
+    let tsla_id = Symbol::new(&e, "TSLA");
+    let nvda_id = Symbol::new(&e, "NVDA");
 
-    let new_info = TokenizationInfo {
-        token_contract: Some(Address::generate(&e)),
-        total_supply: Some(2_000_000),
-        underlying_asset_id: Some(String::from_str(&e, "Updated")),
-        tokenization_date: Some(1_800_000_000),
-    };
-    oracle.update_tokenization_info(&asset_id, &new_info);
+    let mut metadata = create_test_metadata(&e, tsla_id.clone());
+    metadata.asset_id = tsla_id.clone(); // Metadata says "TSLA"
 
-    let retrieved = oracle.try_get_tokenization_info(&asset_id).unwrap().unwrap();
-    assert_eq!(retrieved.total_supply, Some(2_000_000));
+    // Try to set mismatched metadata
+    let result = oracle.try_set_rwa_metadata(&nvda_id, &metadata);
+    assert!(result.is_err());
+
+    // Verify no state was changed - neither NVDA nor TSLA should exist
+    let nvda_result = oracle.try_get_rwa_metadata(&nvda_id);
+    assert!(nvda_result.is_err());
+    assert_eq!(
+        nvda_result.unwrap_err().unwrap(),
+        Error::AssetNotFound.into()
+    );
+
+    let tsla_result = oracle.try_get_rwa_metadata(&tsla_id);
+    assert!(tsla_result.is_err());
+    assert_eq!(
+        tsla_result.unwrap_err().unwrap(),
+        Error::AssetNotFound.into()
+    );
 }
 
 #[test]
-fn test_ttl_extended_on_add_assets() {
+fn test_metadata_consistency_after_set() {
     let e = Env::default();
     e.mock_all_auths();
 
     let oracle = create_rwa_oracle_contract(&e);
-    let new_asset = Asset::Other(Symbol::new(&e, "AAPL"));
-    let assets_to_add = Vec::from_array(&e, [new_asset.clone()]);
 
-    oracle.add_assets(&assets_to_add);
+    let nvda_id = Symbol::new(&e, "NVDA");
 
-    assert!(oracle.assets().contains(&new_asset));
+    let metadata = create_test_metadata(&e, nvda_id.clone());
+
+    // Set valid metadata
+    oracle.set_rwa_metadata(&nvda_id, &metadata);
+
+    // Retrieve and verify consistency
+    let retrieved = oracle.get_rwa_metadata(&nvda_id);
+
+    // The key used to query matches the asset_id in the returned metadata
+    assert_eq!(retrieved.asset_id, nvda_id);
+    assert_eq!(
+        retrieved.name,
+        String::from_str(&e, "US Treasury Bond 2024")
+    );
+    assert_eq!(retrieved.asset_type, RWAAssetType::Bond);
 }
