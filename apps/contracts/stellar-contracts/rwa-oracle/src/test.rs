@@ -21,7 +21,7 @@ fn create_rwa_oracle_contract<'a>(e: &Env) -> RWAOracleClient<'a> {
     RWAOracleClient::new(e, &contract_id)
 }
 
-fn create_should_return_regulatory_info_for_registered_asset(env: &Env) -> RegulatoryInfo {
+fn create_test_regulatory_info(env: &Env) -> RegulatoryInfo {
     RegulatoryInfo {
         is_regulated: true,
         approval_server: Some(String::from_str(env, "https://example.com/approve")),
@@ -44,7 +44,7 @@ fn create_test_tokenization_info(env: &Env) -> TokenizationInfo {
 }
 
 #[test]
-fn should_initialize_oracle_with_correct_parameters() {
+fn test_rwa_oracle_initialization() {
     let e = Env::default();
     e.mock_all_auths();
 
@@ -61,14 +61,14 @@ fn should_initialize_oracle_with_correct_parameters() {
 }
 
 #[test]
-fn should_store_and_retrieve_rwa_metadata() {
+fn test_set_rwa_metadata() {
     let e = Env::default();
     e.mock_all_auths();
 
     let oracle = create_rwa_oracle_contract(&e);
     let asset_id = Symbol::new(&e, "RWA_BOND_2024");
 
-    let regulatory_info = create_should_return_regulatory_info_for_registered_asset(&e);
+    let regulatory_info = create_test_regulatory_info(&e);
     let tokenization_info = create_test_tokenization_info(&e);
 
     let metadata = RWAMetadata {
@@ -95,7 +95,7 @@ fn should_store_and_retrieve_rwa_metadata() {
 }
 
 #[test]
-fn should_store_and_return_latest_and_historical_prices() {
+fn test_price_feed_compatibility() {
     let e = Env::default();
     e.mock_all_auths();
 
@@ -123,14 +123,14 @@ fn should_store_and_return_latest_and_historical_prices() {
 }
 
 #[test]
-fn should_return_regulatory_info_for_registered_asset() {
+fn test_regulatory_info() {
     let e = Env::default();
     e.mock_all_auths();
 
     let oracle = create_rwa_oracle_contract(&e);
     let asset_id = Symbol::new(&e, "RWA_STOCK");
 
-    let regulatory_info = create_should_return_regulatory_info_for_registered_asset(&e);
+    let regulatory_info = create_test_regulatory_info(&e);
     let tokenization_info = create_test_tokenization_info(&e);
 
     let metadata = RWAMetadata {
@@ -156,7 +156,7 @@ fn should_return_regulatory_info_for_registered_asset() {
 }
 
 #[test]
-fn should_return_all_registered_rwa_assets() {
+fn test_get_all_rwa_assets() {
     let e = Env::default();
     e.mock_all_auths();
 
@@ -165,7 +165,7 @@ fn should_return_all_registered_rwa_assets() {
     let asset_id1 = Symbol::new(&e, "RWA_1");
     let asset_id2 = Symbol::new(&e, "RWA_2");
 
-    let regulatory_info = create_should_return_regulatory_info_for_registered_asset(&e);
+    let regulatory_info = create_test_regulatory_info(&e);
     let tokenization_info = create_test_tokenization_info(&e);
 
     let metadata1 = RWAMetadata {
@@ -204,7 +204,7 @@ fn should_return_all_registered_rwa_assets() {
 }
 
 #[test]
-fn should_return_error_when_asset_not_found() {
+fn test_error_handling() {
     let e = Env::default();
     e.mock_all_auths();
 
@@ -219,7 +219,7 @@ fn should_return_error_when_asset_not_found() {
 // ========== Price History Pruning Tests ==========
 
 #[test]
-fn should_prune_oldest_price_when_capacity_is_reached() {
+fn test_price_history_pruning() {
     let e = Env::default();
     e.mock_all_auths();
 
@@ -253,7 +253,7 @@ fn should_prune_oldest_price_when_capacity_is_reached() {
 }
 
 #[test]
-fn should_not_prune_prices_before_capacity_limit() {
+fn test_history_under_limit_not_pruned() {
     let e = Env::default();
     e.mock_all_auths();
 
@@ -286,7 +286,7 @@ fn should_not_prune_prices_before_capacity_limit() {
 }
 
 #[test]
-fn should_prune_price_history_independently_per_asset() {
+fn test_pruning_per_asset_independent() {
     let e = Env::default();
     e.mock_all_auths();
 
@@ -339,7 +339,7 @@ fn should_prune_price_history_independently_per_asset() {
 
 #[test]
 #[should_panic(expected = "Error(Contract, #5)")]
-fn should_reject_negative_price_input() {
+fn test_negative_price_rejected() {
     let e = Env::default();
     e.mock_all_auths();
 
@@ -350,7 +350,7 @@ fn should_reject_negative_price_input() {
 
 #[test]
 #[should_panic(expected = "Error(Contract, #5)")]
-fn should_reject_zero_price_input() {
+fn test_zero_price_rejected() {
     let e = Env::default();
     e.mock_all_auths();
 
@@ -360,7 +360,7 @@ fn should_reject_zero_price_input() {
 }
 
 #[test]
-fn should_accept_valid_positive_price() {
+fn test_positive_price_accepted() {
     let e = Env::default();
     e.mock_all_auths();
 
@@ -373,7 +373,7 @@ fn should_accept_valid_positive_price() {
 }
 
 #[test]
-fn should_accept_minimum_positive_price() {
+fn test_min_positive_price_accepted() {
     let e = Env::default();
     e.mock_all_auths();
 
@@ -387,7 +387,7 @@ fn should_accept_minimum_positive_price() {
 // ========== TTL Extension Tests ==========
 
 #[test]
-fn should_extend_instance_ttl_on_price_update() {
+fn test_instance_ttl_extended_on_price_update() {
     let e = Env::default();
     e.mock_all_auths();
 
@@ -401,7 +401,7 @@ fn should_extend_instance_ttl_on_price_update() {
 }
 
 #[test]
-fn should_extend_storage_ttl_on_price_update() {
+fn test_persistent_ttl_extended_on_price_update() {
     let e = Env::default();
     e.mock_all_auths();
 
@@ -418,14 +418,14 @@ fn should_extend_storage_ttl_on_price_update() {
 }
 
 #[test]
-fn should_extend_ttl_when_metadata_is_updated() {
+fn test_ttl_extended_on_metadata_update() {
     let e = Env::default();
     e.mock_all_auths();
 
     let oracle = create_rwa_oracle_contract(&e);
     let asset_id = Symbol::new(&e, "RWA_BOND");
 
-    let mut regulatory_info = create_should_return_regulatory_info_for_registered_asset(&e);
+    let mut regulatory_info = create_test_regulatory_info(&e);
     let mut tokenization_info = create_test_tokenization_info(&e);
 
     let metadata = RWAMetadata {
@@ -457,7 +457,7 @@ fn should_extend_ttl_when_metadata_is_updated() {
 }
 
 #[test]
-fn should_extend_ttl_when_new_assets_are_added() {
+fn test_ttl_extended_on_add_assets() {
     let e = Env::default();
     e.mock_all_auths();
 
