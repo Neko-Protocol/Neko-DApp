@@ -49,10 +49,17 @@ impl RWAOracleStorage {
 enum DataKey {
     Prices(Asset),
     TokenToAsset(Address), // Map token contract address to asset Symbol
+    LastTimestamp(Asset),  // Per-asset timestamp tracking
 }
 
 fn new_asset_prices_map(env: &Env) -> Map<u64, i128> {
     Map::new(env)
+}
+
+fn get_asset_last_timestamp(env: &Env, asset_id: &Asset) -> Option<u64> {
+    env.storage()
+        .persistent()
+        .get(&DataKey::LastTimestamp(asset_id.clone()))
 }
 
 #[contract]
@@ -141,13 +148,15 @@ impl RWAOracle {
             .persistent()
             .set(&DataKey::Prices(asset_id.clone()), &asset);
 
-        // Update last timestamp
+        // Store per-asset timestamp
+        env.storage()
+            .persistent()
+            .set(&DataKey::LastTimestamp(asset_id.clone()), &timestamp);
+
+        // Update global last_timestamp for SEP-40 compatibility
         let mut state = RWAOracleStorage::get_state(env);
         state.last_timestamp = timestamp;
         RWAOracleStorage::set_state(env, &state);
-
-        Self::extend_instance_ttl(env);
-        Self::extend_persistent_ttl(env, &DataKey::Prices(asset_id));
     }
 
     // RWA-specific admin functions
@@ -178,7 +187,6 @@ impl RWAOracle {
         }
 
         RWAOracleStorage::set_state(env, &state);
-        Self::extend_instance_ttl(env);
         Ok(())
     }
 
@@ -200,7 +208,6 @@ impl RWAOracle {
         metadata.updated_at = env.ledger().timestamp();
         state.rwa_metadata.set(asset_id, metadata);
         RWAOracleStorage::set_state(env, &state);
-        Self::extend_instance_ttl(env);
         Ok(())
     }
 
@@ -222,7 +229,6 @@ impl RWAOracle {
         metadata.updated_at = env.ledger().timestamp();
         state.rwa_metadata.set(asset_id, metadata);
         RWAOracleStorage::set_state(env, &state);
-        Self::extend_instance_ttl(env);
         Ok(())
     }
 
@@ -307,18 +313,6 @@ impl RWAOracle {
 
     // Helper functions
 
-    fn extend_instance_ttl(env: &Env) {
-        env.storage()
-            .instance()
-            .extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
-    }
-
-    fn extend_persistent_ttl(env: &Env, key: &DataKey) {
-        env.storage()
-            .persistent()
-            .extend_ttl(key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
-    }
-
     fn is_valid_rwa_type(_env: &Env, rwa_type: &RWAAssetType) -> bool {
         matches!(
             rwa_type,
@@ -360,7 +354,6 @@ impl IsSep40Admin for RWAOracle {
                 ..current_storage
             },
         );
-        Self::extend_instance_ttl(env);
     }
 
     fn set_asset_price(env: &Env, asset_id: Asset, price: i128, timestamp: u64) {

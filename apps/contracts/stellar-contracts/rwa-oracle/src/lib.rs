@@ -2,14 +2,14 @@
 
 use soroban_sdk::{self, Address, Symbol, contracttype};
 
+mod error;
 pub mod rwa_oracle;
 pub mod rwa_types;
-mod error;
 mod sep40;
 
 pub use error::Error;
-pub use rwa_types::*;
 pub use rwa_oracle::{RWAOracle, RWAOracleClient};
+pub use rwa_types::*;
 
 /// Quoted asset definition (SEP-40 compatible)
 #[contracttype]
@@ -30,4 +30,3 @@ pub struct PriceData {
 }
 
 mod test;
-

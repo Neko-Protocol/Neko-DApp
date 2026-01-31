@@ -31,4 +31,3 @@ pub enum Error {
     /// Timestamp is too old or not strictly increasing
     TimestampTooOld = 9,
 }
-

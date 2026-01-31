@@ -101,4 +101,3 @@ pub struct RWAMetadata {
     /// Last update timestamp
     pub updated_at: u64,
 }
-

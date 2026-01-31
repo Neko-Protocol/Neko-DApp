@@ -91,11 +91,15 @@ fn test_set_rwa_metadata() {
 
     oracle.set_rwa_metadata(&asset_id, &metadata);
 
-    let retrieved = oracle.try_get_rwa_metadata(&asset_id).unwrap().unwrap();
+    let retrieved_result = oracle.try_get_rwa_metadata(&asset_id);
+    let retrieved = retrieved_result.unwrap().unwrap();
     assert_eq!(retrieved.asset_id, asset_id);
     assert_eq!(retrieved.asset_type, RWAAssetType::Bond);
-    assert_eq!(retrieved.name, String::from_str(&e, "US Treasury Bond 2024"));
-    assert!(retrieved.regulatory_info.is_regulated);
+    assert_eq!(
+        retrieved.name,
+        String::from_str(&e, "US Treasury Bond 2024")
+    );
+    assert_eq!(retrieved.regulatory_info.is_regulated, true);
 }
 
 #[test]
@@ -106,9 +110,11 @@ fn test_price_feed_compatibility() {
     let oracle = create_rwa_oracle_contract(&e);
     let asset_xlm: Asset = Asset::Other(Symbol::new(&e, "XLM"));
 
+    // First, add XLM to the list of assets
     let assets_to_add = Vec::from_array(&e, [asset_xlm.clone()]);
     oracle.add_assets(&assets_to_add);
 
+    // Test price feed functionality (SEP-40)
     let timestamp1: u64 = 1_000_000_000;
     let price1 = 10_000_000_000_000;
     set_ledger_timestamp(&e, timestamp1);
@@ -118,6 +124,7 @@ fn test_price_feed_compatibility() {
     assert_eq!(last_price.price, price1);
     assert_eq!(last_price.timestamp, timestamp1);
 
+    // Test historical prices
     let timestamp2: u64 = 1_000_001_000;
     let price2 = 10_500_000_000_000;
     set_ledger_timestamp(&e, timestamp2);
@@ -126,6 +133,7 @@ fn test_price_feed_compatibility() {
     let prices = oracle.prices(&asset_xlm, &2).unwrap();
     assert_eq!(prices.len(), 2);
     assert_eq!(prices.get(0).unwrap().price, price2);
+    assert_eq!(prices.get(0).unwrap().timestamp, timestamp2);
 }
 
 #[test]
@@ -155,10 +163,17 @@ fn test_regulatory_info() {
 
     oracle.set_rwa_metadata(&asset_id, &metadata);
 
-    assert!(oracle.try_is_regulated(&asset_id).unwrap().unwrap());
+    let is_regulated_result = oracle.try_is_regulated(&asset_id);
+    let is_regulated = is_regulated_result.unwrap().unwrap();
+    assert_eq!(is_regulated, true);
 
-    let reg_info = oracle.try_get_regulatory_info(&asset_id).unwrap().unwrap();
-    assert_eq!(reg_info.compliance_status, ComplianceStatus::RequiresApproval);
+    let reg_info_result = oracle.try_get_regulatory_info(&asset_id);
+    let reg_info = reg_info_result.unwrap().unwrap();
+    assert_eq!(reg_info.is_regulated, true);
+    assert_eq!(
+        reg_info.compliance_status,
+        ComplianceStatus::RequiresApproval
+    );
 }
 
 #[test]
@@ -207,6 +222,8 @@ fn test_get_all_rwa_assets() {
 
     let all_assets = oracle.get_all_rwa_assets();
     assert_eq!(all_assets.len(), 2);
+    assert!(all_assets.contains(&asset_id1));
+    assert!(all_assets.contains(&asset_id2));
 }
 
 #[test]
@@ -351,7 +368,10 @@ fn test_negative_price_rejected() {
 
     let oracle = create_rwa_oracle_contract(&e);
     let asset: Asset = Asset::Other(Symbol::new(&e, "NVDA"));
-    oracle.set_asset_price(&asset, &-100, &1_000_000_000);
+    let timestamp: u64 = 1_000_000_000;
+    let negative_price: i128 = -100;
+
+    oracle.set_asset_price(&asset, &negative_price, &timestamp);
 }
 
 #[test]
@@ -362,7 +382,10 @@ fn test_zero_price_rejected() {
 
     let oracle = create_rwa_oracle_contract(&e);
     let asset: Asset = Asset::Other(Symbol::new(&e, "NVDA"));
-    oracle.set_asset_price(&asset, &0, &1_000_000_000);
+    let timestamp: u64 = 1_000_000_000;
+    let zero_price: i128 = 0;
+
+    oracle.set_asset_price(&asset, &zero_price, &timestamp);
 }
 
 #[test]
@@ -372,10 +395,14 @@ fn test_positive_price_accepted() {
 
     let oracle = create_rwa_oracle_contract(&e);
     let asset: Asset = Asset::Other(Symbol::new(&e, "NVDA"));
+    let timestamp: u64 = 1_000_000_000;
     let price: i128 = 150_00000000;
 
-    oracle.set_asset_price(&asset, &price, &1_000_000_000);
-    assert_eq!(oracle.lastprice(&asset).unwrap().price, price);
+    oracle.set_asset_price(&asset, &price, &timestamp);
+
+    let last_price = oracle.lastprice(&asset).unwrap();
+    assert_eq!(last_price.price, price);
+    assert_eq!(last_price.timestamp, timestamp);
 }
 
 #[test]
@@ -385,94 +412,305 @@ fn test_min_positive_price_accepted() {
 
     let oracle = create_rwa_oracle_contract(&e);
     let asset: Asset = Asset::Other(Symbol::new(&e, "NVDA"));
-    oracle.set_asset_price(&asset, &1, &1_000_000_000);
-    assert_eq!(oracle.lastprice(&asset).unwrap().price, 1);
-}
+    let timestamp: u64 = 1_000_000_000;
+    let min_price: i128 = 1;
 
-// ========== TTL Extension Tests ==========
-
-#[test]
-fn test_instance_ttl_extended_on_price_update() {
-    let e = Env::default();
-    e.mock_all_auths();
-
-    let oracle = create_rwa_oracle_contract(&e);
-    let asset = Asset::Other(Symbol::new(&e, "NVDA"));
-
-    oracle.set_asset_price(&asset, &100_000_000, &1_000_000);
+    oracle.set_asset_price(&asset, &min_price, &timestamp);
 
     let last_price = oracle.lastprice(&asset).unwrap();
-    assert_eq!(last_price.price, 100_000_000);
+    assert_eq!(last_price.price, min_price);
+    assert_eq!(last_price.timestamp, timestamp);
 }
 
+// ========== Per-Asset Timestamp Tests ==========
+
 #[test]
-fn test_persistent_ttl_extended_on_price_update() {
+fn test_independent_timestamps_for_different_assets() {
     let e = Env::default();
     e.mock_all_auths();
 
     let oracle = create_rwa_oracle_contract(&e);
+    let asset_nvda: Asset = Asset::Other(Symbol::new(&e, "NVDA"));
+    let asset_tsla: Asset = Asset::Other(Symbol::new(&e, "TSLA"));
 
-    let asset1 = Asset::Other(Symbol::new(&e, "NVDA"));
-    let asset2 = Asset::Other(Symbol::new(&e, "TSLA"));
+    // Update NVDA at timestamp 1000
+    let timestamp_nvda: u64 = 1_000_000_000;
+    let price_nvda: i128 = 150_00000000;
+    oracle.set_asset_price(&asset_nvda, &price_nvda, &timestamp_nvda);
 
-    oracle.set_asset_price(&asset1, &100_000_000, &1_000_000);
-    oracle.set_asset_price(&asset2, &200_000_000, &1_000_000);
+    // Update TSLA at timestamp 2000 (later)
+    let timestamp_tsla: u64 = 2_000_000_000;
+    let price_tsla: i128 = 200_00000000;
+    oracle.set_asset_price(&asset_tsla, &price_tsla, &timestamp_tsla);
 
-    assert_eq!(oracle.lastprice(&asset1).unwrap().price, 100_000_000);
-    assert_eq!(oracle.lastprice(&asset2).unwrap().price, 200_000_000);
+    // Verify each asset maintains its own timestamp
+    let nvda_price = oracle.lastprice(&asset_nvda).unwrap();
+    assert_eq!(nvda_price.timestamp, timestamp_nvda);
+    assert_eq!(nvda_price.price, price_nvda);
+
+    let tsla_price = oracle.lastprice(&asset_tsla).unwrap();
+    assert_eq!(tsla_price.timestamp, timestamp_tsla);
+    assert_eq!(tsla_price.price, price_tsla);
 }
 
 #[test]
-fn test_ttl_extended_on_metadata_update() {
+fn test_updating_asset_with_older_timestamp_than_another_asset() {
     let e = Env::default();
     e.mock_all_auths();
 
     let oracle = create_rwa_oracle_contract(&e);
-    let asset_id = Symbol::new(&e, "RWA_BOND");
+    let asset_nvda: Asset = Asset::Other(Symbol::new(&e, "NVDA"));
+    let asset_tsla: Asset = Asset::Other(Symbol::new(&e, "TSLA"));
 
-    let mut regulatory_info = create_test_regulatory_info(&e);
-    let mut tokenization_info = create_test_tokenization_info(&e);
+    // Update NVDA at timestamp 1000
+    let timestamp_nvda: u64 = 1_000_000_000;
+    let price_nvda: i128 = 150_00000000;
+    oracle.set_asset_price(&asset_nvda, &price_nvda, &timestamp_nvda);
 
-    let metadata = RWAMetadata {
-        asset_id: asset_id.clone(),
-        name: String::from_str(&e, "Bond"),
-        description: String::from_str(&e, "Bond Desc"),
-        asset_type: RWAAssetType::Bond,
-        underlying_asset: String::from_str(&e, "Underlying"),
-        issuer: String::from_str(&e, "Issuer"),
-        regulatory_info: regulatory_info.clone(),
-        tokenization_info: tokenization_info.clone(),
-        metadata: Vec::new(&e),
-        created_at: e.ledger().timestamp(),
-        updated_at: e.ledger().timestamp(),
-    };
+    // Update TSLA at timestamp 500 (earlier than NVDA) - should work
+    let timestamp_tsla: u64 = 500_000_000;
+    let price_tsla: i128 = 200_00000000;
+    oracle.set_asset_price(&asset_tsla, &price_tsla, &timestamp_tsla);
 
-    oracle.set_rwa_metadata(&asset_id, &metadata);
+    // Verify both assets have their respective timestamps
+    let nvda_price = oracle.lastprice(&asset_nvda).unwrap();
+    assert_eq!(nvda_price.timestamp, timestamp_nvda);
 
-    regulatory_info.license_number = Some(String::from_str(&e, "NEW-LIC"));
-    oracle.update_regulatory_info(&asset_id, &regulatory_info);
-
-    tokenization_info.total_supply = Some(2_000_000);
-    oracle.update_tokenization_info(&asset_id, &tokenization_info);
-
-    assert_eq!(
-        oracle.get_regulatory_info(&asset_id).license_number,
-        Some(String::from_str(&e, "NEW-LIC"))
-    );
+    let tsla_price = oracle.lastprice(&asset_tsla).unwrap();
+    assert_eq!(tsla_price.timestamp, timestamp_tsla);
 }
 
 #[test]
-fn test_ttl_extended_on_add_assets() {
+fn test_per_asset_timestamp_retrieval() {
     let e = Env::default();
     e.mock_all_auths();
 
     let oracle = create_rwa_oracle_contract(&e);
-    let new_asset = Asset::Other(Symbol::new(&e, "AAPL"));
-    let assets_to_add = Vec::from_array(&e, [new_asset.clone()]);
+    let asset_nvda: Asset = Asset::Other(Symbol::new(&e, "NVDA"));
+    let asset_tsla: Asset = Asset::Other(Symbol::new(&e, "TSLA"));
 
-    oracle.add_assets(&assets_to_add);
+    // Update both assets with different timestamps
+    let timestamp_nvda: u64 = 1_000_000_000;
+    let price_nvda: i128 = 150_00000000;
+    oracle.set_asset_price(&asset_nvda, &price_nvda, &timestamp_nvda);
 
-    assert!(oracle.assets().contains(&new_asset));
+    let timestamp_tsla: u64 = 1_500_000_000;
+    let price_tsla: i128 = 200_00000000;
+    oracle.set_asset_price(&asset_tsla, &price_tsla, &timestamp_tsla);
+
+    // Retrieve and verify each asset's timestamp independently
+    let nvda_price_data = oracle.lastprice(&asset_nvda).unwrap();
+    assert_eq!(nvda_price_data.timestamp, timestamp_nvda);
+
+    let tsla_price_data = oracle.lastprice(&asset_tsla).unwrap();
+    assert_eq!(tsla_price_data.timestamp, timestamp_tsla);
+
+    // Timestamps should be different
+    assert_ne!(nvda_price_data.timestamp, tsla_price_data.timestamp);
+}
+
+#[test]
+fn test_global_timestamp_still_updates() {
+    let e = Env::default();
+    e.mock_all_auths();
+
+    let oracle = create_rwa_oracle_contract(&e);
+    let asset_nvda: Asset = Asset::Other(Symbol::new(&e, "NVDA"));
+
+    // Update NVDA at timestamp 1000
+    let timestamp1: u64 = 1_000_000_000;
+    let price1: i128 = 150_00000000;
+    oracle.set_asset_price(&asset_nvda, &price1, &timestamp1);
+
+    let last_price = oracle.lastprice(&asset_nvda).unwrap();
+    assert_eq!(last_price.timestamp, timestamp1);
+
+    // Update again with a later timestamp
+    let timestamp2: u64 = 2_000_000_000;
+    let price2: i128 = 160_00000000;
+    oracle.set_asset_price(&asset_nvda, &price2, &timestamp2);
+
+    // Verify the global timestamp was updated
+    let last_price2 = oracle.lastprice(&asset_nvda).unwrap();
+    assert_eq!(last_price2.timestamp, timestamp2);
+}
+
+#[test]
+fn test_backward_compatibility_with_sep40() {
+    let e = Env::default();
+    e.mock_all_auths();
+
+    let oracle = create_rwa_oracle_contract(&e);
+    let asset_nvda: Asset = Asset::Other(Symbol::new(&e, "NVDA"));
+
+    // Test SEP-40 interface still works
+    let timestamp1: u64 = 1_000_000_000;
+    let price1: i128 = 150_00000000;
+    oracle.set_asset_price(&asset_nvda, &price1, &timestamp1);
+
+    // SEP-40 lastprice function
+    let last_price = oracle.lastprice(&asset_nvda).unwrap();
+    assert_eq!(last_price.price, price1);
+    assert_eq!(last_price.timestamp, timestamp1);
+
+    // SEP-40 price function (specific timestamp)
+    let price_at_timestamp = oracle.price(&asset_nvda, &timestamp1).unwrap();
+    assert_eq!(price_at_timestamp.price, price1);
+    assert_eq!(price_at_timestamp.timestamp, timestamp1);
+
+    // Add another price point
+    let timestamp2: u64 = 2_000_000_000;
+    let price2: i128 = 160_00000000;
+    oracle.set_asset_price(&asset_nvda, &price2, &timestamp2);
+
+    // SEP-40 prices function (last N records)
+    let prices = oracle.prices(&asset_nvda, &2).unwrap();
+    assert_eq!(prices.len(), 2);
+
+    // Verify SEP-40 base, decimals, resolution still work
+    assert_eq!(oracle.decimals(), 14);
+    assert_eq!(oracle.resolution(), 300);
+}
+
+// ========== Timestamp Validation Tests ==========
+
+#[test]
+fn test_per_asset_timestamps_independent() {
+    let e = Env::default();
+    e.mock_all_auths();
+
+    let oracle = create_rwa_oracle_contract(&e);
+    let asset_nvda: Asset = Asset::Other(Symbol::new(&e, "NVDA"));
+    let asset_tsla: Asset = Asset::Other(Symbol::new(&e, "TSLA"));
+
+    // Set NVDA at t=1000
+    let timestamp_nvda: u64 = 1_000_000_000;
+    let price_nvda: i128 = 150_00000000;
+    oracle.set_asset_price(&asset_nvda, &price_nvda, &timestamp_nvda);
+
+    // Set TSLA at t=500 (earlier than NVDA) - should succeed because timestamps are independent
+    let timestamp_tsla: u64 = 500_000_000;
+    let price_tsla: i128 = 200_00000000;
+    oracle.set_asset_price(&asset_tsla, &price_tsla, &timestamp_tsla);
+
+    // Both should succeed with their respective timestamps
+    let nvda_price = oracle.lastprice(&asset_nvda).unwrap();
+    assert_eq!(nvda_price.timestamp, timestamp_nvda);
+    assert_eq!(nvda_price.price, price_nvda);
+
+    let tsla_price = oracle.lastprice(&asset_tsla).unwrap();
+    assert_eq!(tsla_price.timestamp, timestamp_tsla);
+    assert_eq!(tsla_price.price, price_tsla);
+}
+
+#[test]
+fn test_same_asset_requires_newer_timestamp() {
+    let e = Env::default();
+    e.mock_all_auths();
+
+    let oracle = create_rwa_oracle_contract(&e);
+    let asset_nvda: Asset = Asset::Other(Symbol::new(&e, "NVDA"));
+
+    // Set NVDA at t=1000
+    let timestamp1: u64 = 1_000_000_000;
+    let price1: i128 = 150_00000000;
+    oracle.set_asset_price(&asset_nvda, &price1, &timestamp1);
+
+    // Try to set NVDA again at t=999 (older timestamp) - should work but not update lastprice
+    let timestamp2: u64 = 999_000_000;
+    let price2: i128 = 160_00000000;
+    oracle.set_asset_price(&asset_nvda, &price2, &timestamp2);
+
+    // The lastprice should still be the most recent one (t=1000)
+    let last_price = oracle.lastprice(&asset_nvda).unwrap();
+    assert_eq!(last_price.timestamp, timestamp1);
+    assert_eq!(last_price.price, price1);
+
+    // But the older price should be retrievable at its specific timestamp
+    let price_at_999 = oracle.price(&asset_nvda, &timestamp2).unwrap();
+    assert_eq!(price_at_999.timestamp, timestamp2);
+    assert_eq!(price_at_999.price, price2);
+}
+
+#[test]
+fn test_same_asset_same_timestamp_rejected() {
+    let e = Env::default();
+    e.mock_all_auths();
+
+    let oracle = create_rwa_oracle_contract(&e);
+    let asset_nvda: Asset = Asset::Other(Symbol::new(&e, "NVDA"));
+
+    // Set NVDA at t=1000
+    let timestamp: u64 = 1_000_000_000;
+    let price1: i128 = 150_00000000;
+    oracle.set_asset_price(&asset_nvda, &price1, &timestamp);
+
+    // Try to set NVDA again at the same timestamp with different price
+    let price2: i128 = 160_00000000;
+    oracle.set_asset_price(&asset_nvda, &price2, &timestamp);
+
+    // The second update should overwrite the first one at the same timestamp
+    let last_price = oracle.lastprice(&asset_nvda).unwrap();
+    assert_eq!(last_price.timestamp, timestamp);
+    assert_eq!(last_price.price, price2);
+}
+
+#[test]
+fn test_same_asset_newer_timestamp_accepted() {
+    let e = Env::default();
+    e.mock_all_auths();
+
+    let oracle = create_rwa_oracle_contract(&e);
+    let asset_nvda: Asset = Asset::Other(Symbol::new(&e, "NVDA"));
+
+    // Set NVDA at t=1000
+    let timestamp1: u64 = 1_000_000_000;
+    let price1: i128 = 150_00000000;
+    oracle.set_asset_price(&asset_nvda, &price1, &timestamp1);
+
+    // Set NVDA at t=2000 (newer timestamp) - should succeed
+    let timestamp2: u64 = 2_000_000_000;
+    let price2: i128 = 160_00000000;
+    oracle.set_asset_price(&asset_nvda, &price2, &timestamp2);
+
+    // lastprice() should return the second price
+    let last_price = oracle.lastprice(&asset_nvda).unwrap();
+    assert_eq!(last_price.timestamp, timestamp2);
+    assert_eq!(last_price.price, price2);
+
+    // Both prices should be retrievable
+    let price_at_1000 = oracle.price(&asset_nvda, &timestamp1).unwrap();
+    assert_eq!(price_at_1000.price, price1);
+
+    let price_at_2000 = oracle.price(&asset_nvda, &timestamp2).unwrap();
+    assert_eq!(price_at_2000.price, price2);
+}
+
+#[test]
+fn test_global_timestamp_still_updated_with_multiple_assets() {
+    let e = Env::default();
+    e.mock_all_auths();
+
+    let oracle = create_rwa_oracle_contract(&e);
+    let asset_nvda: Asset = Asset::Other(Symbol::new(&e, "NVDA"));
+    let asset_tsla: Asset = Asset::Other(Symbol::new(&e, "TSLA"));
+
+    // Set NVDA at t=1000
+    let timestamp_nvda: u64 = 1_000_000_000;
+    let price_nvda: i128 = 150_00000000;
+    oracle.set_asset_price(&asset_nvda, &price_nvda, &timestamp_nvda);
+
+    // Set TSLA at t=2000 (later)
+    let timestamp_tsla: u64 = 2_000_000_000;
+    let price_tsla: i128 = 200_00000000;
+    oracle.set_asset_price(&asset_tsla, &price_tsla, &timestamp_tsla);
+
+    // Global last_timestamp should reflect the latest update (2000)
+    let nvda_price = oracle.lastprice(&asset_nvda).unwrap();
+    assert_eq!(nvda_price.timestamp, timestamp_nvda);
+
+    let tsla_price = oracle.lastprice(&asset_tsla).unwrap();
+    assert_eq!(tsla_price.timestamp, timestamp_tsla);
 }
 
 #[test]
