@@ -16,6 +16,9 @@ pub enum Error {
     /// Invalid metadata
     InvalidMetadata = 4,
 
+    /// Invalid price (zero or negative)
+    InvalidPrice = 5,
+
     /// Unauthorized access
     Unauthorized = 6,
 
