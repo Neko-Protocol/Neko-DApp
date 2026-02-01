@@ -33,4 +33,3 @@ pub trait IsSep40Admin {
     /// Record new price feed history snapshot. Can be invoked only by the admin account.
     fn set_asset_price(env: &Env, asset: Asset, price: i128, timestamp: u64);
 }
-
