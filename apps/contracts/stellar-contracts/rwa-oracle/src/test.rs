@@ -6,12 +6,10 @@ use crate::Error;
 use crate::rwa_oracle::{RWAOracle, RWAOracleClient};
 use crate::rwa_types::*;
 
-use soroban_sdk::{
-    testutils::Address as _,
-    Address, Env, String, Symbol, Vec,
-};
+use soroban_sdk::{testutils::Address as _, testutils::Ledger, Address, Env, String, Symbol, Vec};
 
 fn create_rwa_oracle_contract<'a>(e: &Env) -> RWAOracleClient<'a> {
+    set_ledger_timestamp(e, 2_000_000_000);
     let asset_xlm: Asset = Asset::Other(Symbol::new(e, "NVDA"));
     let asset_usdt: Asset = Asset::Other(Symbol::new(e, "TSLA"));
     let asset_vec = Vec::from_array(e, [asset_xlm.clone(), asset_usdt.clone()]);
@@ -41,6 +39,12 @@ fn create_test_tokenization_info(env: &Env) -> TokenizationInfo {
         underlying_asset: Some(String::from_str(env, "US Treasury Bond 2024")),
         tokenization_date: Some(1_700_000_000),
     }
+}
+
+fn set_ledger_timestamp(e: &Env, timestamp: u64) {
+    e.ledger().with_mut(|li| {
+        li.timestamp = timestamp;
+    });
 }
 
 #[test]
@@ -107,6 +111,7 @@ fn test_price_feed_compatibility() {
 
     let timestamp1: u64 = 1_000_000_000;
     let price1 = 10_000_000_000_000;
+    set_ledger_timestamp(&e, timestamp1);
     oracle.set_asset_price(&asset_xlm, &price1, &timestamp1);
 
     let last_price = oracle.lastprice(&asset_xlm).unwrap();
@@ -115,6 +120,7 @@ fn test_price_feed_compatibility() {
 
     let timestamp2: u64 = 1_000_001_000;
     let price2 = 10_500_000_000_000;
+    set_ledger_timestamp(&e, timestamp2);
     oracle.set_asset_price(&asset_xlm, &price2, &timestamp2);
 
     let prices = oracle.prices(&asset_xlm, &2).unwrap();
@@ -379,7 +385,6 @@ fn test_min_positive_price_accepted() {
 
     let oracle = create_rwa_oracle_contract(&e);
     let asset: Asset = Asset::Other(Symbol::new(&e, "NVDA"));
-
     oracle.set_asset_price(&asset, &1, &1_000_000_000);
     assert_eq!(oracle.lastprice(&asset).unwrap().price, 1);
 }
@@ -468,4 +473,105 @@ fn test_ttl_extended_on_add_assets() {
     oracle.add_assets(&assets_to_add);
 
     assert!(oracle.assets().contains(&new_asset));
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #8)")]
+fn test_future_timestamp_rejected() {
+    let e = Env::default();
+    e.mock_all_auths();
+
+    let oracle = create_rwa_oracle_contract(&e);
+    let asset: Asset = Asset::Other(Symbol::new(&e, "NVDA"));
+
+    set_ledger_timestamp(&e, 1000);
+    let price: i128 = 1;
+    let timestamp: u64 = 4600;
+    oracle.set_asset_price(&asset, &price, &timestamp);
+}
+
+#[test]
+fn test_timestamp_within_drift_accepted() {
+    let e = Env::default();
+    e.mock_all_auths();
+
+    let oracle = create_rwa_oracle_contract(&e);
+    let asset: Asset = Asset::Other(Symbol::new(&e, "NVDA"));
+
+    set_ledger_timestamp(&e, 1000);
+    let price: i128 = 123;
+    let timestamp: u64 = 1200;
+    oracle.set_asset_price(&asset, &price, &timestamp);
+
+    let last_price = oracle.lastprice(&asset).unwrap();
+    assert_eq!(last_price.price, price);
+    assert_eq!(last_price.timestamp, timestamp);
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #9)")]
+fn test_old_timestamp_rejected() {
+    let e = Env::default();
+    e.mock_all_auths();
+
+    let oracle = create_rwa_oracle_contract(&e);
+    let asset: Asset = Asset::Other(Symbol::new(&e, "NVDA"));
+
+    set_ledger_timestamp(&e, 1000);
+    oracle.set_asset_price(&asset, &10, &1000);
+
+    oracle.set_asset_price(&asset, &11, &999);
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #9)")]
+fn test_same_timestamp_rejected() {
+    let e = Env::default();
+    e.mock_all_auths();
+
+    let oracle = create_rwa_oracle_contract(&e);
+    let asset: Asset = Asset::Other(Symbol::new(&e, "NVDA"));
+
+    set_ledger_timestamp(&e, 1000);
+    oracle.set_asset_price(&asset, &10, &1000);
+
+    oracle.set_asset_price(&asset, &11, &1000);
+}
+
+#[test]
+fn test_newer_timestamp_accepted() {
+    let e = Env::default();
+    e.mock_all_auths();
+
+    let oracle = create_rwa_oracle_contract(&e);
+    let asset: Asset = Asset::Other(Symbol::new(&e, "NVDA"));
+
+    set_ledger_timestamp(&e, 1000);
+    oracle.set_asset_price(&asset, &10, &1000);
+
+    set_ledger_timestamp(&e, 2000);
+    oracle.set_asset_price(&asset, &20, &2000);
+
+    let last_price = oracle.lastprice(&asset).unwrap();
+    assert_eq!(last_price.price, 20);
+    assert_eq!(last_price.timestamp, 2000);
+}
+
+#[test]
+fn test_different_assets_independent_timestamps() {
+    let e = Env::default();
+    e.mock_all_auths();
+
+    let oracle = create_rwa_oracle_contract(&e);
+    let asset_aapl: Asset = Asset::Other(Symbol::new(&e, "NVDA"));
+    let asset_tsla: Asset = Asset::Other(Symbol::new(&e, "TSLA"));
+
+    set_ledger_timestamp(&e, 1000);
+    oracle.set_asset_price(&asset_aapl, &10, &1000);
+
+    oracle.set_asset_price(&asset_tsla, &20, &500);
+
+    let last_price_tsla = oracle.lastprice(&asset_tsla).unwrap();
+    assert_eq!(last_price_tsla.price, 20);
+    assert_eq!(last_price_tsla.timestamp, 500);
 }

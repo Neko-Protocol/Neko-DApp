@@ -18,6 +18,8 @@ const INSTANCE_BUMP_AMOUNT: u32 = 518_400;
 const PERSISTENT_LIFETIME_THRESHOLD: u32 = 17_280;
 const PERSISTENT_BUMP_AMOUNT: u32 = 518_400;
 
+const MAX_TIMESTAMP_DRIFT_SECONDS: u64 = 300;
+
 #[contracttype]
 #[derive(Clone, Debug)]
 pub struct RWAOracleStorage {
@@ -111,6 +113,18 @@ impl RWAOracle {
         if price <= 0 {
             panic_with_error!(env, Error::InvalidPrice);
         }
+
+        let current_time = env.ledger().timestamp();
+        if timestamp > current_time + MAX_TIMESTAMP_DRIFT_SECONDS {
+            panic_with_error!(env, Error::TimestampInFuture);
+        }
+
+        if let Some(last_price) = <Self as IsSep40>::lastprice(env, asset_id.clone()) {
+            if timestamp <= last_price.timestamp {
+                panic_with_error!(env, Error::TimestampTooOld);
+            }
+        }
+
         let mut asset = Self::get_asset_price(env, asset_id.clone()).unwrap_or_else(|| {
             panic_with_error!(env, Error::AssetNotFound);
         });

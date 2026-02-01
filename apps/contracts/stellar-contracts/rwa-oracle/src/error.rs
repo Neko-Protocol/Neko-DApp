@@ -24,5 +24,11 @@ pub enum Error {
 
     /// Invalid compliance data
     InvalidComplianceData = 7,
+
+    /// Timestamp is too far in the future
+    TimestampInFuture = 8,
+
+    /// Timestamp is too old or not strictly increasing
+    TimestampTooOld = 9,
 }
 
