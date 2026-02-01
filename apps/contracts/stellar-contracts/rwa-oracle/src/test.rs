@@ -604,6 +604,7 @@ fn test_per_asset_timestamps_independent() {
 }
 
 #[test]
+#[should_panic(expected = "Error(Contract, #9)")]
 fn test_same_asset_requires_newer_timestamp() {
     let e = Env::default();
     e.mock_all_auths();
@@ -616,23 +617,14 @@ fn test_same_asset_requires_newer_timestamp() {
     let price1: i128 = 150_00000000;
     oracle.set_asset_price(&asset_nvda, &price1, &timestamp1);
 
-    // Try to set NVDA again at t=999 (older timestamp) - should work but not update lastprice
+    // Try to set NVDA again at t=999 (older timestamp) - should panic with TimestampTooOld error
     let timestamp2: u64 = 999_000_000;
     let price2: i128 = 160_00000000;
     oracle.set_asset_price(&asset_nvda, &price2, &timestamp2);
-
-    // The lastprice should still be the most recent one (t=1000)
-    let last_price = oracle.lastprice(&asset_nvda).unwrap();
-    assert_eq!(last_price.timestamp, timestamp1);
-    assert_eq!(last_price.price, price1);
-
-    // But the older price should be retrievable at its specific timestamp
-    let price_at_999 = oracle.price(&asset_nvda, &timestamp2).unwrap();
-    assert_eq!(price_at_999.timestamp, timestamp2);
-    assert_eq!(price_at_999.price, price2);
 }
 
 #[test]
+#[should_panic(expected = "Error(Contract, #9)")]
 fn test_same_asset_same_timestamp_rejected() {
     let e = Env::default();
     e.mock_all_auths();
@@ -645,14 +637,9 @@ fn test_same_asset_same_timestamp_rejected() {
     let price1: i128 = 150_00000000;
     oracle.set_asset_price(&asset_nvda, &price1, &timestamp);
 
-    // Try to set NVDA again at the same timestamp with different price
+    // Try to set NVDA again at the same timestamp - should panic with TimestampTooOld error
     let price2: i128 = 160_00000000;
     oracle.set_asset_price(&asset_nvda, &price2, &timestamp);
-
-    // The second update should overwrite the first one at the same timestamp
-    let last_price = oracle.lastprice(&asset_nvda).unwrap();
-    assert_eq!(last_price.timestamp, timestamp);
-    assert_eq!(last_price.price, price2);
 }
 
 #[test]
