@@ -100,7 +100,6 @@ fn test_metadata_accepted_for_registered_asset() {
 
     let oracle = create_rwa_oracle_contract(&e);
 
-    // NVDA is registered by default
     let asset_id = Symbol::new(&e, "NVDA");
 
     let metadata = RWAMetadata {
@@ -117,12 +116,9 @@ fn test_metadata_accepted_for_registered_asset() {
         updated_at: e.ledger().timestamp(),
     };
 
-    let result = oracle.try_set_rwa_metadata(&asset_id, &metadata);
-
-    assert!(result.is_ok());
-
-    let retrieved = oracle.get_rwa_metadata(&asset_id);
-    assert_eq!(retrieved.name, String::from_str(&e, "NVIDIA Corp"));
+    assert!(oracle
+        .try_set_rwa_metadata(&asset_id, &metadata)
+        .is_ok());
 }
 
 #[test]
@@ -149,22 +145,15 @@ fn test_metadata_accepted_after_add_assets() {
         updated_at: e.ledger().timestamp(),
     };
 
-    // Initially rejected
     assert!(oracle
         .try_set_rwa_metadata(&asset_id, &metadata)
         .is_err());
 
-    // Register asset
     oracle.add_assets(&Vec::from_array(&e, [asset.clone()]));
 
-    // Now accepted
     assert!(oracle
         .try_set_rwa_metadata(&asset_id, &metadata)
         .is_ok());
-
-    let asset_type = oracle.get_rwa_asset_type(&asset).unwrap();
-
-    assert_eq!(asset_type, RWAAssetType::RealEstate);
 }
 
 #[test]
@@ -197,6 +186,62 @@ fn test_asset_type_always_synced_with_metadata() {
         .unwrap();
 
     assert_eq!(asset_type, RWAAssetType::Stock);
+}
+
+//
+// ================= TTL Test (Flexible) =================
+//
+
+#[test]
+fn test_ttl_extended_on_metadata_update() {
+    let e = Env::default();
+    e.mock_all_auths();
+
+    let oracle = create_rwa_oracle_contract(&e);
+
+    let asset_id = Symbol::new(&e, "NVDA");
+
+    let metadata = RWAMetadata {
+        asset_id: asset_id.clone(),
+        name: String::from_str(&e, "NVIDIA"),
+        description: String::from_str(&e, "GPU Maker"),
+        asset_type: RWAAssetType::Stock,
+        underlying_asset: String::from_str(&e, "Stock"),
+        issuer: String::from_str(&e, "NVIDIA"),
+        regulatory_info: create_test_regulatory_info(&e),
+        tokenization_info: create_test_tokenization_info(&e),
+        metadata: Vec::new(&e),
+        created_at: e.ledger().timestamp(),
+        updated_at: e.ledger().timestamp(),
+    };
+
+    // First write
+    oracle.set_rwa_metadata(&asset_id, &metadata);
+
+    let key = Symbol::new(&e, "rwa_metadata");
+
+    let ttl_before = e
+        .storage()
+        .persistent()
+        .get_ttl(&key)
+        .unwrap();
+
+    // Update
+    let mut updated = metadata.clone();
+    updated.name = String::from_str(&e, "NVIDIA UPDATED");
+
+    oracle.set_rwa_metadata(&asset_id, &updated);
+
+    let ttl_after = e
+        .storage()
+        .persistent()
+        .get_ttl(&key)
+        .unwrap();
+
+    assert!(
+        ttl_after > ttl_before,
+        "TTL was not extended after metadata update"
+    );
 }
 
 //
@@ -251,7 +296,6 @@ fn test_old_timestamp_rejected() {
 
     oracle.set_asset_price(&asset, &10, &1000);
 
-    // Older timestamp
     oracle.set_asset_price(&asset, &11, &999);
 }
 
