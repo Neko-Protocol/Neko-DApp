@@ -1,6 +1,6 @@
 use soroban_sdk::{
-    Address, BytesN, Env, Map, Symbol, Vec, contract, contractimpl, contracttype, panic_with_error,
-    symbol_short,
+    contract, contractimpl, contracttype, panic_with_error, symbol_short, Address, BytesN, Env,
+    Map, Symbol, Vec,
 };
 
 use crate::error::Error;
@@ -159,6 +159,12 @@ impl RWAOracle {
         metadata: RWAMetadata,
     ) -> Result<(), Error> {
         Self::require_admin(env);
+
+        // Validate asset_id consistency
+        if metadata.asset_id != asset_id {
+            return Err(Error::InvalidMetadata);
+        }
+
         let mut state = RWAOracleStorage::get_state(env);
 
         // Validate asset type
