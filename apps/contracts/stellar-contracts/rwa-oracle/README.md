@@ -309,7 +309,7 @@ cargo build --target wasm32v1-none --release -p rwa-oracle
 
 ## License
 
-Apache-2.0
+MIT
 
 ---
 

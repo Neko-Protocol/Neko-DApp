@@ -367,7 +367,7 @@ Build the oracle before building the token.
 
 ## License
 
-Apache-2.0
+MIT
 
 ---
 
