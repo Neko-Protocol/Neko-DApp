@@ -1,9 +1,9 @@
 [package]
 name = "rwa-perps"
 description = "RWA Perpetual contract - A Perpetual Future contract for RWA stocks"
-version = "1.0.0"
+version.workspace = true
 authors = ["OppiaLabs <contact@oppiasotfwarelabs.com>"]
-license = "Apache-2.0"
+license.workspace = true
 edition.workspace = true
 repository.workspace = true
 publish = false

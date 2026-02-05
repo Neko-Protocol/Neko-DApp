@@ -1,9 +1,9 @@
 [package]
 name = "rwa-token"
 description = "RWA Token contract - A simplified fungible token for Real-World Assets with RWA Oracle price integration"
-version = "1.0.0"
+version.workspace = true
 authors = ["OppiaLabs <contact@oppiasotfwarelabs.com>"]
-license = "Apache-2.0"
+license.workspace = true
 edition.workspace = true
 repository.workspace = true
 publish = false
