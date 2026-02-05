@@ -11,9 +11,12 @@ pub enum DataKey {
     Authorized(Address),
 }
 
-/// Instance storage key
+/// Instance storage keys
 pub const STORAGE: Symbol = symbol_short!("STOR");
 pub const ADMIN_KEY: Symbol = symbol_short!("ADMIN");
+pub const COMPLIANCE_KEY: Symbol = symbol_short!("COMPL");
+pub const IDENTITY_KEY: Symbol = symbol_short!("IDENT");
+pub const TOTAL_SUPPLY_KEY: Symbol = symbol_short!("SUPPLY");
 
 /// Token metadata storage (instance storage)
 #[contracttype]
@@ -43,4 +46,3 @@ pub struct Allowance {
     pub amount: i128,
     pub live_until_ledger: u32,
 }
-

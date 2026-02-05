@@ -1,9 +1,15 @@
-use soroban_sdk::{contract, contractimpl, Address, BytesN, Env, MuxedAddress, String, Symbol, panic_with_error};
+use soroban_sdk::{
+    contract, contractimpl, Address, BytesN, Env, MuxedAddress, String, Symbol, panic_with_error,
+};
 
 use crate::admin::Admin;
-use crate::error::Error;
-use crate::interfaces::{TokenInterface, TokenInterfaceImpl};
+use crate::admin::supply::TotalSupplyStorage;
+use crate::common::error::Error;
+use crate::common::events::Events;
+use crate::compliance::sep57::Compliance;
 use crate::oracle::Oracle;
+use crate::token::allowance::AllowanceStorage;
+use crate::token::interface::{TokenInterface, TokenInterfaceImpl};
 
 /// RWA Token Contract
 #[contract]
@@ -12,14 +18,6 @@ pub struct RWATokenContract;
 #[contractimpl]
 impl RWATokenContract {
     /// Constructor for RWA Token
-    ///
-    /// # Arguments
-    /// * `admin` - Admin address with mint/burn permissions
-    /// * `asset_contract` - RWA Oracle contract ID for price feed
-    /// * `pegged_asset` - Symbol of the RWA asset in the oracle (e.g., "NVDA", "TSLA")
-    /// * `name` - Full name of the token
-    /// * `symbol` - Token symbol
-    /// * `decimals` - Number of decimal places
     pub fn __constructor(
         env: Env,
         admin: Address,
@@ -31,6 +29,8 @@ impl RWATokenContract {
     ) {
         Admin::initialize(&env, &admin, &asset_contract, &pegged_asset, &name, &symbol, decimals);
     }
+
+    // ==================== Admin ====================
 
     /// Upgrade the contract to new wasm. Admin-only.
     pub fn upgrade(env: Env, new_wasm_hash: BytesN<32>) {
@@ -62,6 +62,8 @@ impl RWATokenContract {
         Admin::authorized(&env, &id)
     }
 
+    // ==================== Token Helpers ====================
+
     /// Return the spendable balance of tokens for a specific address
     pub fn spendable_balance(env: Env, id: Address) -> i128 {
         TokenInterfaceImpl::balance(&env, &id)
@@ -75,19 +77,53 @@ impl RWATokenContract {
             .checked_add(amount)
             .unwrap_or_else(|| panic_with_error!(&env, Error::ArithmeticError));
         let current_ledger = env.ledger().sequence();
-        TokenInterfaceImpl::approve(&env, &from, &spender, new_amount, current_ledger + 1000);
+        let live_until = current_ledger + 1000;
+        AllowanceStorage::set(&env, &from, &spender, new_amount, live_until);
+        Events::approve(&env, &from, &spender, new_amount, live_until);
     }
 
     /// Decrease the allowance that one address can spend on behalf of another address.
     pub fn decrease_allowance(env: Env, from: Address, spender: Address, amount: i128) {
         from.require_auth();
         let current_allowance = TokenInterfaceImpl::allowance(&env, &from, &spender);
-        let new_amount = current_allowance.checked_sub(amount).unwrap_or(0);
+        let new_amount = current_allowance.saturating_sub(amount).max(0);
         let current_ledger = env.ledger().sequence();
-        TokenInterfaceImpl::approve(&env, &from, &spender, new_amount, current_ledger + 1000);
+        let live_until = current_ledger + 1000;
+        AllowanceStorage::set(&env, &from, &spender, new_amount, live_until);
+        Events::approve(&env, &from, &spender, new_amount, live_until);
     }
 
-    // Oracle functions
+    // ==================== SEP-57 Compatibility ====================
+
+    /// Set the compliance contract address. Admin-only.
+    pub fn set_compliance(env: Env, compliance: Address) {
+        Admin::require_admin(&env);
+        Compliance::set_compliance(&env, &compliance);
+    }
+
+    /// Set the identity verifier contract address. Admin-only.
+    pub fn set_identity_verifier(env: Env, identity_verifier: Address) {
+        Admin::require_admin(&env);
+        Compliance::set_identity_verifier(&env, &identity_verifier);
+    }
+
+    /// Get the compliance contract address (if configured)
+    pub fn compliance(env: Env) -> Option<Address> {
+        Compliance::get_compliance(&env)
+    }
+
+    /// Get the identity verifier contract address (if configured)
+    pub fn identity_verifier(env: Env) -> Option<Address> {
+        Compliance::get_identity_verifier(&env)
+    }
+
+    /// Get the total supply of tokens
+    pub fn total_supply(env: Env) -> i128 {
+        TotalSupplyStorage::get(&env)
+    }
+
+    // ==================== Oracle ====================
+
     /// Get the RWA Oracle contract address
     pub fn asset_contract(env: Env) -> Address {
         Oracle::get_asset_contract(&env)
@@ -99,7 +135,6 @@ impl RWATokenContract {
     }
 
     /// Get the current price of this RWA token from the RWA Oracle
-    /// Returns the price in the oracle's base asset (typically USDC)
     pub fn get_price(env: Env) -> Result<crate::rwa_oracle::PriceData, Error> {
         Oracle::get_price(&env)
     }
@@ -114,30 +149,19 @@ impl RWATokenContract {
         Oracle::get_decimals(&env)
     }
 
-    // SEP-0001: Get RWA metadata from Oracle
-    /// Get complete RWA metadata from the RWA Oracle (SEP-0001)
+    /// Get complete RWA metadata from the oracle
     pub fn get_rwa_metadata(env: Env) -> Result<crate::rwa_oracle::RWAMetadata, Error> {
         Oracle::get_rwa_metadata(&env)
     }
 
-    /// Get the asset type of this RWA token (SEP-0001)
+    /// Get the asset type of this RWA token
     pub fn get_asset_type(env: Env) -> Result<crate::rwa_oracle::RWAAssetType, Error> {
         Oracle::get_asset_type(&env)
     }
-
-    // SEP-0008: Compliance checking
-    /// Check if this RWA token is regulated (SEP-0008)
-    pub fn is_regulated(env: Env) -> Result<bool, Error> {
-        Oracle::is_regulated(&env)
-    }
-
-    /// Get regulatory information for this RWA token (SEP-0008)
-    pub fn get_regulatory_info(env: Env) -> Result<crate::rwa_oracle::RegulatoryInfo, Error> {
-        Oracle::get_regulatory_info(&env)
-    }
 }
 
-// Standard Token Interface implementation
+// ==================== SEP-41 Token Interface ====================
+
 #[contractimpl]
 impl TokenInterface for RWATokenContract {
     fn allowance(env: Env, from: Address, spender: Address) -> i128 {
@@ -159,27 +183,23 @@ impl TokenInterface for RWATokenContract {
     }
 
     fn transfer(env: Env, from: Address, to: MuxedAddress, amount: i128) {
-        // Check compliance (SEP-0008)
-        Oracle::check_compliance_before_transfer(&env, &from, &to.address(), amount)
-            .unwrap_or_else(|e| panic_with_error!(&env, e));
-
+        Compliance::check_transfer(&env, &from, &to.address(), amount);
         TokenInterfaceImpl::transfer(&env, &from, &to.address(), amount);
     }
 
     fn transfer_from(env: Env, spender: Address, from: Address, to: Address, amount: i128) {
-        // Check compliance (SEP-0008)
-        Oracle::check_compliance_before_transfer(&env, &from, &to, amount)
-            .unwrap_or_else(|e| panic_with_error!(&env, e));
-
+        Compliance::check_transfer(&env, &from, &to, amount);
         TokenInterfaceImpl::transfer_from(&env, &spender, &from, &to, amount);
     }
 
     fn burn(env: Env, from: Address, amount: i128) {
         TokenInterfaceImpl::burn(&env, &from, amount);
+        TotalSupplyStorage::subtract(&env, amount);
     }
 
     fn burn_from(env: Env, spender: Address, from: Address, amount: i128) {
         TokenInterfaceImpl::burn_from(&env, &spender, &from, amount);
+        TotalSupplyStorage::subtract(&env, amount);
     }
 
     fn decimals(env: Env) -> u32 {

@@ -1,4 +1,3 @@
-
 use soroban_sdk::contracterror;
 
 #[contracterror]
@@ -29,21 +28,18 @@ pub enum Error {
     /// Cannot transfer to self
     CannotTransferToSelf = 8,
 
-    /// Asset requires approval before transfer (SEP-0008)
-    RequiresApproval = 9,
+    /// Address is frozen (not authorized for transfers)
+    AddressFrozen = 9,
 
-    /// Asset approval is pending (SEP-0008)
-    ApprovalPending = 10,
+    /// Compliance check failed (SEP-57 compliance contract rejected transfer)
+    ComplianceCheckFailed = 10,
 
-    /// Asset approval was rejected (SEP-0008)
-    ApprovalRejected = 11,
-
-    /// Metadata not found in RWA Oracle (SEP-0001)
-    MetadataNotFound = 12,
+    /// Metadata not found in RWA Oracle
+    MetadataNotFound = 11,
 
     /// Contract is not initialized
-    NotInitialized = 13,
+    NotInitialized = 12,
 
     /// Contract is already initialized
-    AlreadyInitialized = 14,
+    AlreadyInitialized = 13,
 }
