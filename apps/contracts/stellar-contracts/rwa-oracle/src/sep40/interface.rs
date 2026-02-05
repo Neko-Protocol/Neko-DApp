@@ -1,5 +1,6 @@
-use crate::{Asset, PriceData};
 use soroban_sdk::{Env, Vec};
+
+use crate::{Asset, PriceData};
 
 /// Oracle Consumer Interface from SEP-0040
 pub trait IsSep40 {
@@ -33,4 +34,3 @@ pub trait IsSep40Admin {
     /// Record new price feed history snapshot. Can be invoked only by the admin account.
     fn set_asset_price(env: &Env, asset: Asset, price: i128, timestamp: u64);
 }
-

@@ -1,10 +1,8 @@
 #![cfg(test)]
 extern crate std;
 
-use crate::Asset;
-use crate::Error;
-use crate::rwa_oracle::{RWAOracle, RWAOracleClient};
-use crate::rwa_types::*;
+use crate::{Asset, Error, RWAOracle, RWAOracleClient};
+use crate::{RWAAssetType, RWAMetadata, TokenizationInfo, ValuationMethod};
 
 use soroban_sdk::{testutils::Address as _, testutils::Ledger, Address, Env, String, Symbol, Vec};
 
