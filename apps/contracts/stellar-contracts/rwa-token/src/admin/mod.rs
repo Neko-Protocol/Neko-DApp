@@ -1,9 +1,15 @@
+pub mod supply;
+
 use soroban_sdk::{assert_with_error, panic_with_error, Address, BytesN, Env, String, Symbol};
 
-use crate::error::Error;
-use crate::events::Events;
-use crate::storage::{AuthorizationStorage, BalanceStorage, MetadataStorage};
-use crate::types::TokenStorage;
+use crate::common::error::Error;
+use crate::common::events::Events;
+use crate::common::metadata::MetadataStorage;
+use crate::common::types::TokenStorage;
+use crate::compliance::freeze::AuthorizationStorage;
+use crate::token::balance::BalanceStorage;
+
+use self::supply::TotalSupplyStorage;
 
 /// Administrative functions for the token contract
 pub struct Admin;
@@ -53,6 +59,7 @@ impl Admin {
         assert_with_error!(env, amount > 0, Error::ValueNotPositive);
 
         BalanceStorage::add(env, to, amount);
+        TotalSupplyStorage::add(env, amount);
         Events::mint(env, to, amount);
     }
 
@@ -62,6 +69,7 @@ impl Admin {
         assert_with_error!(env, amount > 0, Error::ValueNotPositive);
 
         BalanceStorage::subtract(env, from, amount);
+        TotalSupplyStorage::subtract(env, amount);
         Events::clawback(env, from, amount);
     }
 
@@ -82,4 +90,3 @@ impl Admin {
         AuthorizationStorage::get(env, id)
     }
 }
-

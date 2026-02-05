@@ -1,8 +1,10 @@
 use soroban_sdk::{assert_with_error, panic_with_error, Address, Env, MuxedAddress};
 
-use crate::error::Error;
-use crate::events::Events;
-use crate::storage::{AllowanceStorage, BalanceStorage, MetadataStorage};
+use crate::common::error::Error;
+use crate::common::events::Events;
+use crate::common::metadata::MetadataStorage;
+use crate::token::allowance::AllowanceStorage;
+use crate::token::balance::BalanceStorage;
 
 /// TokenInterface trait definition according to SEP-0041
 #[allow(clippy::module_name_repetitions)]
@@ -71,15 +73,11 @@ impl TokenInterfaceImpl {
             Error::CannotTransferToSelf
         );
 
-        // Check balance
         let balance = BalanceStorage::get(env, from);
         assert_with_error!(env, balance >= amount, Error::InsufficientBalance);
 
-        // Update balances
         BalanceStorage::subtract(env, from, amount);
         BalanceStorage::add(env, to, amount);
-
-        // Emit transfer event
         Events::transfer(env, from, to, amount);
     }
 
@@ -93,7 +91,6 @@ impl TokenInterfaceImpl {
         spender.require_auth();
         assert_with_error!(env, amount > 0, Error::ValueNotPositive);
 
-        // Check and consume allowance
         let allowance = AllowanceStorage::get(env, from, spender);
         if !AllowanceStorage::is_valid(env, &allowance) {
             panic_with_error!(env, Error::InsufficientAllowance);
@@ -103,15 +100,11 @@ impl TokenInterfaceImpl {
         }
         AllowanceStorage::subtract(env, from, spender, amount);
 
-        // Check balance
         let balance = BalanceStorage::get(env, from);
         assert_with_error!(env, balance >= amount, Error::InsufficientBalance);
 
-        // Update balances
         BalanceStorage::subtract(env, from, amount);
         BalanceStorage::add(env, to, amount);
-
-        // Emit transfer event
         Events::transfer(env, from, to, amount);
     }
 
@@ -127,7 +120,6 @@ impl TokenInterfaceImpl {
         spender.require_auth();
         assert_with_error!(env, amount > 0, Error::ValueNotPositive);
 
-        // Check and consume allowance
         let allowance = AllowanceStorage::get(env, from, spender);
         if !AllowanceStorage::is_valid(env, &allowance) {
             panic_with_error!(env, Error::InsufficientAllowance);
@@ -153,4 +145,3 @@ impl TokenInterfaceImpl {
         MetadataStorage::get_symbol(env)
     }
 }
-
