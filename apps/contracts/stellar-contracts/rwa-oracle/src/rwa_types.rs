@@ -1,104 +1,91 @@
 use soroban_sdk::{Address, String, Symbol, Vec, contracttype};
 
-/// RWA Asset Type based on SEP-0001 anchor_asset_type
+/// RWA asset type classification
 #[contracttype]
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum RWAAssetType {
-    /// Fiat currency (USD, EUR, etc.)
-    Fiat,
-    /// Cryptocurrency (BTC, ETH, etc.)
-    Crypto,
-    /// Stock/Shares
-    Stock,
-    /// Bond
-    Bond,
-    /// Commodity (gold, oil, etc.)
-    Commodity,
-    /// Real estate
+    /// Commercial or residential real estate
     RealEstate,
-    /// NFT
-    Nft,
-    /// Other type
+    /// Stocks, shares, or equity instruments
+    Equity,
+    /// Government or corporate bonds
+    Bond,
+    /// Physical commodities (gold, oil, grain)
+    Commodity,
+    /// Trade receivables and invoice factoring
+    Invoice,
+    /// ETFs, mutual funds, or pooled investments
+    Fund,
+    /// Private credit and loan instruments
+    PrivateDebt,
+    /// Infrastructure projects and utilities
+    Infrastructure,
+    /// Any other RWA not covered above
     Other,
 }
 
-/// Compliance status for regulated assets (SEP-0008)
+/// Valuation methodology for the underlying asset
 #[contracttype]
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum ComplianceStatus {
-    /// Asset is not regulated
-    NotRegulated,
-    /// Asset requires approval (SEP-0008)
-    RequiresApproval,
-    /// Asset is approved for specific transaction
-    Approved,
-    /// Asset approval is pending
-    Pending,
-    /// Asset approval was rejected
-    Rejected,
+pub enum ValuationMethod {
+    /// Professional third-party appraisal
+    Appraisal,
+    /// Market-based pricing (comparable sales/trades)
+    Market,
+    /// Index-linked pricing
+    Index,
+    /// On-chain oracle price feed
+    Oracle,
+    /// Net Asset Value calculation (funds)
+    Nav,
+    /// Other valuation methodology
+    Other,
 }
 
-/// Regulatory information for RWA assets
-#[contracttype]
-#[derive(Clone, Debug)]
-pub struct RegulatoryInfo {
-    /// Whether this asset is regulated (SEP-0008)
-    pub is_regulated: bool,
-    /// Approval server URL if regulated (SEP-0008)
-    pub approval_server: Option<String>,
-    /// Approval criteria for transactions
-    pub approval_criteria: Option<String>,
-    /// Current compliance status
-    pub compliance_status: ComplianceStatus,
-    /// Licensing authority if applicable
-    pub licensing_authority: Option<String>,
-    /// License type if applicable
-    pub license_type: Option<String>,
-    /// License number if applicable
-    pub license_number: Option<String>,
-}
-
-/// Tokenization details for RWA
+/// Tokenization details for an RWA
 #[contracttype]
 #[derive(Clone, Debug)]
 pub struct TokenizationInfo {
-    /// Whether the asset is tokenized
-    pub is_tokenized: bool,
-    /// Token contract address if tokenized
+    /// Token contract address (if tokenized)
     pub token_contract: Option<Address>,
     /// Total supply of tokens
     pub total_supply: Option<i128>,
-    /// Underlying asset identifier
-    pub underlying_asset: Option<String>,
-    /// Tokenization date timestamp
+    /// Identifier of the underlying off-chain asset
+    pub underlying_asset_id: Option<String>,
+    /// Tokenization date (unix timestamp)
     pub tokenization_date: Option<u64>,
 }
 
-/// Complete RWA metadata
+/// Complete on-chain RWA metadata
 #[contracttype]
 #[derive(Clone, Debug)]
 pub struct RWAMetadata {
-    /// Asset identifier (code/symbol)
+    /// Asset identifier (code/symbol in the oracle)
     pub asset_id: Symbol,
-    /// Asset name
+    /// Human-readable name
     pub name: String,
-    /// Asset description
+    /// Description of the asset
     pub description: String,
-    /// RWA asset type
+    /// RWA asset type classification
     pub asset_type: RWAAssetType,
-    /// Underlying asset code/symbol ("USD", "TREASURY_2024", etc.)
+    /// Underlying asset identifier or description
     pub underlying_asset: String,
-    /// Issuer address or identifier
-    pub issuer: String,
-    /// Regulatory information
-    pub regulatory_info: RegulatoryInfo,
+    /// Issuer address
+    pub issuer: Address,
+    /// Jurisdiction code (ISO 3166-1 alpha-2)
+    pub jurisdiction: Symbol,
     /// Tokenization information
     pub tokenization_info: TokenizationInfo,
-    /// Additional metadata as key-value pairs
+    /// External identifiers as key-value pairs (ISIN, LEI, CUSIP, etc.)
+    pub external_ids: Vec<(Symbol, String)>,
+    /// URI pointing to legal documentation
+    pub legal_docs_uri: Option<String>,
+    /// Valuation methodology
+    pub valuation_method: ValuationMethod,
+    /// Extensible key-value metadata
     pub metadata: Vec<(Symbol, String)>,
     /// Creation timestamp
     pub created_at: u64,
     /// Last update timestamp
     pub updated_at: u64,
 }
-
