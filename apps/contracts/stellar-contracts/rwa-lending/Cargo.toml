@@ -1,7 +1,7 @@
 [package]
 name = "rwa-lending"
 description = "RWA Lending contract - A Blend-based lending/borrowing protocol for Real-World Assets"
-version.workspace = true
+version = "0.0.1"
 authors = ["OppiaLabs <contact@oppiasotfwarelabs.com>"]
 license.workspace = true
 edition.workspace = true
