@@ -20,6 +20,9 @@ const PERSISTENT_BUMP_AMOUNT: u32 = 518_400;
 
 const MAX_TIMESTAMP_DRIFT_SECONDS: u64 = 300;
 
+/// Default max staleness: 24 hours
+const DEFAULT_MAX_STALENESS: u64 = 86_400;
+
 #[contracttype]
 #[derive(Clone, Debug)]
 pub struct RWAOracleStorage {
@@ -33,6 +36,8 @@ pub struct RWAOracleStorage {
     rwa_metadata: Map<Symbol, RWAMetadata>,
     // Asset type mapping
     asset_types: Map<Asset, RWAAssetType>,
+    // Maximum acceptable age for price data (seconds)
+    max_staleness: u64,
 }
 
 impl RWAOracleStorage {
@@ -78,6 +83,7 @@ impl RWAOracle {
             last_timestamp: 0,
             rwa_metadata: Map::new(env),
             asset_types: Map::new(env),
+            max_staleness: DEFAULT_MAX_STALENESS,
         };
         RWAOracleStorage::set_state(env, &oracle);
         let new_map: Map<u64, i128> = Map::new(env);
@@ -150,9 +156,9 @@ impl RWAOracle {
         Self::extend_persistent_ttl(env, &DataKey::Prices(asset_id));
     }
 
-    // RWA-specific admin functions
+    // ==================== RWA Admin Functions ====================
 
-    /// Register or update RWA metadata
+    /// Register or update RWA metadata for an asset
     pub fn set_rwa_metadata(
         env: &Env,
         asset_id: Symbol,
@@ -179,7 +185,7 @@ impl RWAOracle {
         // Set metadata
         state.rwa_metadata.set(asset_id.clone(), metadata.clone());
 
-        // Update asset type mapping if asset exists
+        // Update asset type mapping if asset exists in price feed
         if let Some(asset) = state.assets.iter().find(|a| match a {
             Asset::Other(sym) => sym == &asset_id,
             _ => false,
@@ -192,29 +198,7 @@ impl RWAOracle {
         Ok(())
     }
 
-    /// Update regulatory/compliance information
-    pub fn update_regulatory_info(
-        env: &Env,
-        asset_id: Symbol,
-        regulatory_info: RegulatoryInfo,
-    ) -> Result<(), Error> {
-        Self::require_admin(env);
-        let mut state = RWAOracleStorage::get_state(env);
-
-        let mut metadata = state
-            .rwa_metadata
-            .get(asset_id.clone())
-            .unwrap_or_else(|| panic_with_error!(env, Error::AssetNotFound));
-
-        metadata.regulatory_info = regulatory_info;
-        metadata.updated_at = env.ledger().timestamp();
-        state.rwa_metadata.set(asset_id, metadata);
-        RWAOracleStorage::set_state(env, &state);
-        Self::extend_instance_ttl(env);
-        Ok(())
-    }
-
-    /// Update tokenization information
+    /// Update tokenization information for a previously registered asset
     pub fn update_tokenization_info(
         env: &Env,
         asset_id: Symbol,
@@ -236,7 +220,17 @@ impl RWAOracle {
         Ok(())
     }
 
-    // RWA query functions
+    /// Set the maximum acceptable age (in seconds) for price data.
+    /// Consumer contracts SHOULD reject prices older than this threshold.
+    pub fn set_max_staleness(env: &Env, max_seconds: u64) {
+        Self::require_admin(env);
+        let mut state = RWAOracleStorage::get_state(env);
+        state.max_staleness = max_seconds;
+        RWAOracleStorage::set_state(env, &state);
+        Self::extend_instance_ttl(env);
+    }
+
+    // ==================== RWA Query Functions ====================
 
     /// Get complete RWA metadata for an asset
     pub fn get_rwa_metadata(env: &Env, asset_id: Symbol) -> Result<RWAMetadata, Error> {
@@ -250,16 +244,6 @@ impl RWAOracle {
         state.asset_types.get(asset)
     }
 
-    /// Get regulatory information for an RWA
-    pub fn get_regulatory_info(env: &Env, asset_id: Symbol) -> Result<RegulatoryInfo, Error> {
-        let state = RWAOracleStorage::get_state(env);
-        let metadata = state
-            .rwa_metadata
-            .get(asset_id)
-            .ok_or(Error::AssetNotFound)?;
-        Ok(metadata.regulatory_info)
-    }
-
     /// Get tokenization information for an RWA
     pub fn get_tokenization_info(env: &Env, asset_id: Symbol) -> Result<TokenizationInfo, Error> {
         let state = RWAOracleStorage::get_state(env);
@@ -268,12 +252,6 @@ impl RWAOracle {
             .get(asset_id)
             .ok_or(Error::AssetNotFound)?;
         Ok(metadata.tokenization_info)
-    }
-
-    /// Check if an asset is regulated (SEP-0008)
-    pub fn is_regulated(env: &Env, asset_id: Symbol) -> Result<bool, Error> {
-        let regulatory_info = Self::get_regulatory_info(env, asset_id)?;
-        Ok(regulatory_info.is_regulated)
     }
 
     /// Get all registered RWA asset IDs
@@ -286,8 +264,7 @@ impl RWAOracle {
         assets
     }
 
-    /// Get asset Symbol from token contract address
-    /// This allows other contracts to query the oracle without needing to call the token contract
+    /// Resolve a token contract address to its oracle asset identifier
     pub fn get_asset_id_from_token(env: &Env, token_address: &Address) -> Result<Symbol, Error> {
         // First check if we have a direct mapping
         if let Some(asset_id) = env
@@ -315,7 +292,13 @@ impl RWAOracle {
         Err(Error::AssetNotFound)
     }
 
-    // Helper functions
+    /// Get the configured maximum staleness in seconds
+    pub fn max_staleness(env: &Env) -> u64 {
+        let state = RWAOracleStorage::get_state(env);
+        state.max_staleness
+    }
+
+    // ==================== Internal Helpers ====================
 
     fn extend_instance_ttl(env: &Env) {
         env.storage()
@@ -328,23 +311,10 @@ impl RWAOracle {
             .persistent()
             .extend_ttl(key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
     }
-
-    fn is_valid_rwa_type(_env: &Env, rwa_type: &RWAAssetType) -> bool {
-        matches!(
-            rwa_type,
-            RWAAssetType::Fiat
-                | RWAAssetType::Crypto
-                | RWAAssetType::Stock
-                | RWAAssetType::Bond
-                | RWAAssetType::Commodity
-                | RWAAssetType::RealEstate
-                | RWAAssetType::Nft
-                | RWAAssetType::Other
-        )
-    }
 }
 
-// SEP-40 Implementation (price feed interface)
+// ==================== SEP-40 Implementation ====================
+
 #[contractimpl]
 impl IsSep40Admin for RWAOracle {
     fn add_assets(env: &Env, assets: Vec<Asset>) {

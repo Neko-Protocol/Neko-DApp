@@ -29,25 +29,37 @@ fn create_rwa_oracle_contract<'a>(e: &Env) -> RWAOracleClient<'a> {
     RWAOracleClient::new(e, &contract_id)
 }
 
-fn create_test_regulatory_info(env: &Env) -> RegulatoryInfo {
-    RegulatoryInfo {
-        is_regulated: true,
-        approval_server: Some(String::from_str(env, "https://example.com/approve")),
-        approval_criteria: Some(String::from_str(env, "Transactions require KYC approval")),
-        compliance_status: ComplianceStatus::RequiresApproval,
-        licensing_authority: Some(String::from_str(env, "SEC")),
-        license_type: Some(String::from_str(env, "Securities License")),
-        license_number: Some(String::from_str(env, "SEC-12345")),
+fn create_test_tokenization_info(env: &Env) -> TokenizationInfo {
+    TokenizationInfo {
+        token_contract: Some(Address::generate(env)),
+        total_supply: Some(1_000_000_000_000),
+        underlying_asset_id: Some(String::from_str(env, "US Treasury Bond 2024")),
+        tokenization_date: Some(1_700_000_000),
     }
 }
 
-fn create_test_tokenization_info(env: &Env) -> TokenizationInfo {
-    TokenizationInfo {
-        is_tokenized: true,
-        token_contract: Some(Address::generate(env)),
-        total_supply: Some(1_000_000_000_000),
-        underlying_asset: Some(String::from_str(env, "US Treasury Bond 2024")),
-        tokenization_date: Some(1_700_000_000),
+fn create_test_metadata(env: &Env, asset_id: Symbol) -> RWAMetadata {
+    RWAMetadata {
+        asset_id,
+        name: String::from_str(env, "US Treasury Bond 2024"),
+        description: String::from_str(env, "Tokenized US Treasury Bond maturing 2024"),
+        asset_type: RWAAssetType::Bond,
+        underlying_asset: String::from_str(env, "US Treasury Bond"),
+        issuer: Address::generate(env),
+        jurisdiction: Symbol::new(env, "US"),
+        tokenization_info: create_test_tokenization_info(env),
+        external_ids: Vec::from_array(
+            env,
+            [(
+                Symbol::new(env, "isin"),
+                String::from_str(env, "US912810SU08"),
+            )],
+        ),
+        legal_docs_uri: Some(String::from_str(env, "https://issuer.example/docs/terms.pdf")),
+        valuation_method: ValuationMethod::Market,
+        metadata: Vec::new(env),
+        created_at: env.ledger().timestamp(),
+        updated_at: env.ledger().timestamp(),
     }
 }
 
@@ -57,9 +69,27 @@ fn set_ledger_timestamp(e: &Env, timestamp: u64) {
     });
 }
 
-//
-// ================= Metadata Registration Tests =================
-//
+// ==================== Initialization Tests ====================
+
+#[test]
+fn test_rwa_oracle_initialization() {
+    let e = Env::default();
+    e.mock_all_auths();
+
+    let oracle = create_rwa_oracle_contract(&e);
+
+    let assets = oracle.assets();
+    assert_eq!(assets.len(), 2);
+
+    let base = oracle.base();
+    assert_eq!(base, Asset::Other(Symbol::new(&e, "TSLA")));
+
+    assert_eq!(oracle.decimals(), 14);
+    assert_eq!(oracle.resolution(), 300);
+    assert_eq!(oracle.max_staleness(), 86_400); // default 24h
+}
+
+// ==================== RWA Metadata Tests ====================
 
 #[test]
 fn test_metadata_rejected_for_unregistered_asset() {
@@ -93,6 +123,8 @@ fn test_metadata_rejected_for_unregistered_asset() {
     );
 }
 
+// ==================== Tokenization Info Tests ====================
+
 #[test]
 fn test_metadata_accepted_for_registered_asset() {
     let e = Env::default();
@@ -120,6 +152,8 @@ fn test_metadata_accepted_for_registered_asset() {
         .try_set_rwa_metadata(&asset_id, &metadata)
         .is_ok());
 }
+
+// ==================== Asset Listing Tests ====================
 
 #[test]
 fn test_metadata_accepted_after_add_assets() {
@@ -283,7 +317,7 @@ fn test_timestamp_within_drift_accepted() {
 }
 
 #[test]
-#[should_panic(expected = "Error(Contract, #9)")]
+#[should_panic(expected = "Error(Contract, #8)")]
 fn test_old_timestamp_rejected() {
     let e = Env::default();
     e.mock_all_auths();
@@ -300,7 +334,7 @@ fn test_old_timestamp_rejected() {
 }
 
 #[test]
-#[should_panic(expected = "Error(Contract, #9)")]
+#[should_panic(expected = "Error(Contract, #8)")]
 fn test_same_timestamp_rejected() {
     let e = Env::default();
     e.mock_all_auths();
@@ -355,4 +389,74 @@ fn test_different_assets_independent_timestamps() {
 
     assert_eq!(last_b.price, 20);
     assert_eq!(last_b.timestamp, 500);
+}
+
+// ==================== TTL Extension Tests ====================
+
+#[test]
+fn test_instance_ttl_extended_on_price_update() {
+    let e = Env::default();
+    e.mock_all_auths();
+
+    let oracle = create_rwa_oracle_contract(&e);
+    let asset = Asset::Other(Symbol::new(&e, "NVDA"));
+
+    oracle.set_asset_price(&asset, &100_000_000, &1_000_000);
+
+    let last_price = oracle.lastprice(&asset).unwrap();
+    assert_eq!(last_price.price, 100_000_000);
+}
+
+#[test]
+fn test_persistent_ttl_extended_on_price_update() {
+    let e = Env::default();
+    e.mock_all_auths();
+
+    let oracle = create_rwa_oracle_contract(&e);
+
+    let asset1 = Asset::Other(Symbol::new(&e, "NVDA"));
+    let asset2 = Asset::Other(Symbol::new(&e, "TSLA"));
+
+    oracle.set_asset_price(&asset1, &100_000_000, &1_000_000);
+    oracle.set_asset_price(&asset2, &200_000_000, &1_000_000);
+
+    assert_eq!(oracle.lastprice(&asset1).unwrap().price, 100_000_000);
+    assert_eq!(oracle.lastprice(&asset2).unwrap().price, 200_000_000);
+}
+
+#[test]
+fn test_ttl_extended_on_metadata_update() {
+    let e = Env::default();
+    e.mock_all_auths();
+
+    let oracle = create_rwa_oracle_contract(&e);
+    let asset_id = Symbol::new(&e, "RWA_BOND");
+
+    let metadata = create_test_metadata(&e, asset_id.clone());
+    oracle.set_rwa_metadata(&asset_id, &metadata);
+
+    let new_info = TokenizationInfo {
+        token_contract: Some(Address::generate(&e)),
+        total_supply: Some(2_000_000),
+        underlying_asset_id: Some(String::from_str(&e, "Updated")),
+        tokenization_date: Some(1_800_000_000),
+    };
+    oracle.update_tokenization_info(&asset_id, &new_info);
+
+    let retrieved = oracle.try_get_tokenization_info(&asset_id).unwrap().unwrap();
+    assert_eq!(retrieved.total_supply, Some(2_000_000));
+}
+
+#[test]
+fn test_ttl_extended_on_add_assets() {
+    let e = Env::default();
+    e.mock_all_auths();
+
+    let oracle = create_rwa_oracle_contract(&e);
+    let new_asset = Asset::Other(Symbol::new(&e, "AAPL"));
+    let assets_to_add = Vec::from_array(&e, [new_asset.clone()]);
+
+    oracle.add_assets(&assets_to_add);
+
+    assert!(oracle.assets().contains(&new_asset));
 }

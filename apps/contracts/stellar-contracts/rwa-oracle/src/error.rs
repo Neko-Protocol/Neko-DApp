@@ -28,9 +28,9 @@ pub enum Error {
     /// Asset not registered
     AssetNotRegistered = 10,
     /// Timestamp is too far in the future
-    TimestampInFuture = 8,
+    TimestampInFuture = 7,
 
     /// Timestamp is too old or not strictly increasing
-    TimestampTooOld = 9,
+    TimestampTooOld = 8,
 }
 
