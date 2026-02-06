@@ -54,7 +54,8 @@ impl Oracles {
         let storage = Storage::get(env);
         
         // Reflector Oracle implements SEP-40 interface (same as RWA Oracle)
-        // We can use the same client pattern since both implement SEP-40
+        // We reuse rwa_oracle::Client here because both oracles share the same SEP-40 interface.
+        // The client is generic - it works with any contract implementing SEP-40 methods.
         // The Reflector Oracle contract address is stored in storage.reflector_oracle
         let oracle_client = rwa_oracle::Client::new(env, &storage.reflector_oracle);
         

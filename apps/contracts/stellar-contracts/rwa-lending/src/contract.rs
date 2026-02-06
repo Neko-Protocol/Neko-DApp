@@ -5,9 +5,11 @@ use crate::common::error::Error;
 use crate::common::storage::Storage;
 use crate::common::types::{InterestRateParams, PoolState};
 use crate::operations::backstop::Backstop;
+use crate::operations::bad_debt::BadDebt;
 use crate::operations::borrowing::Borrowing;
 use crate::operations::collateral::Collateral;
 use crate::operations::interest::Interest;
+use crate::operations::interest_auction::InterestAuction;
 use crate::operations::lending::Lending;
 use crate::operations::liquidations::Liquidations;
 
@@ -185,17 +187,17 @@ impl LendingContract {
         rwa_token: Address,
         debt_asset: Symbol,
         liquidation_percent: u32,
-    ) -> Result<Address, Error> {
+    ) -> Result<u32, Error> {
         Liquidations::initiate_liquidation(&env, &borrower, &rwa_token, &debt_asset, liquidation_percent)
     }
 
     /// Fill a liquidation auction
     pub fn fill_auction(
         env: Env,
-        auction_id: Address,
+        auction_id: u32,
         liquidator: Address,
     ) -> Result<(), Error> {
-        Liquidations::fill_auction(&env, &auction_id, &liquidator)
+        Liquidations::fill_auction(&env, auction_id, &liquidator)
     }
 
     // ========== Backstop Functions ==========
@@ -208,6 +210,60 @@ impl LendingContract {
     /// Withdraw from backstop
     pub fn withdraw_from_backstop(env: Env, depositor: Address, amount: i128) -> Result<(), Error> {
         Backstop::withdraw(&env, &depositor, amount)
+    }
+
+    // ========== Bad Debt Auction Functions ==========
+
+    /// Create a bad debt auction for uncovered debt
+    pub fn create_bad_debt_auction(
+        env: Env,
+        borrower: Address,
+        debt_asset: Symbol,
+    ) -> Result<u32, Error> {
+        BadDebt::create_bad_debt_auction(&env, &borrower, &debt_asset)
+    }
+
+    /// Fill a bad debt auction
+    pub fn fill_bad_debt_auction(
+        env: Env,
+        auction_id: u32,
+        bidder: Address,
+        amount: i128,
+    ) -> Result<i128, Error> {
+        BadDebt::fill_bad_debt_auction(&env, auction_id, &bidder, amount)
+    }
+
+    /// Check if a borrower has bad debt
+    pub fn has_bad_debt(env: Env, borrower: Address) -> bool {
+        BadDebt::has_bad_debt(&env, &borrower)
+    }
+
+    // ========== Interest Auction Functions ==========
+
+    /// Create an interest auction for accumulated protocol interest
+    pub fn create_interest_auction(env: Env, asset: Symbol) -> Result<u32, Error> {
+        InterestAuction::create_interest_auction(&env, &asset)
+    }
+
+    /// Fill an interest auction
+    pub fn fill_interest_auction(
+        env: Env,
+        auction_id: u32,
+        bidder: Address,
+        asset: Symbol,
+        fill_percent: i128,
+    ) -> Result<(i128, i128), Error> {
+        InterestAuction::fill_interest_auction(&env, auction_id, &bidder, &asset, fill_percent)
+    }
+
+    /// Get accumulated interest for an asset
+    pub fn get_accumulated_interest(env: Env, asset: Symbol) -> i128 {
+        InterestAuction::get_accumulated_interest(&env, &asset)
+    }
+
+    /// Check if an interest auction can be created
+    pub fn can_create_interest_auction(env: Env, asset: Symbol) -> bool {
+        InterestAuction::can_create_auction(&env, &asset)
     }
 
     // ========== View Functions ==========
@@ -225,6 +281,11 @@ impl LendingContract {
     /// Get collateral factor for an RWA token
     pub fn get_collateral_factor(env: Env, rwa_token: Address) -> u32 {
         Admin::get_collateral_factor(&env, &rwa_token)
+    }
+
+    /// Calculate health factor for a borrower (7 decimals)
+    pub fn calculate_health_factor(env: Env, borrower: Address) -> Result<u32, Error> {
+        Liquidations::calculate_health_factor(&env, &borrower)
     }
 }
 

@@ -4,7 +4,7 @@ use crate::admin::Admin;
 use crate::common::error::Error;
 use crate::common::events::Events;
 use crate::common::storage::Storage;
-use crate::common::types::{self, BASIS_POINTS, PoolState};
+use crate::common::types::{self, PoolState, SCALAR_7, SCALAR_12};
 use crate::operations::interest::Interest;
 
 /// Lending functions for bTokens
@@ -42,7 +42,7 @@ impl Lending {
         let token_address = Storage::get_token_contract(env, asset)
             .ok_or(Error::TokenContractNotSet)?;
         let token_client = TokenClient::new(env, &token_address);
-        token_client.transfer(lender, &env.current_contract_address(), &amount);
+        token_client.transfer(lender, env.current_contract_address(), &amount);
 
         // Update pool balance
         let current_balance = Storage::get_pool_balance(env, asset);
@@ -97,11 +97,11 @@ impl Lending {
         // Get current bTokenRate
         let b_token_rate = Storage::get_b_token_rate(env, asset);
 
-        // Calculate amount to withdraw: bTokens × bTokenRate / SCALAR
+        // Calculate amount to withdraw: bTokens × bTokenRate / SCALAR_12
         let amount = b_tokens_to_burn
             .checked_mul(b_token_rate)
             .ok_or(Error::ArithmeticError)?
-            .checked_div(types::SCALAR_9)
+            .checked_div(SCALAR_12)
             .ok_or(Error::ArithmeticError)?;
 
         // Check pool has enough balance
@@ -120,9 +120,9 @@ impl Lending {
         // Update pool balance
         Storage::set_pool_balance(env, asset, pool_balance - amount);
 
-        // Verify utilization is below 100% AFTER updating supply
+        // Verify utilization is below 100% AFTER updating supply (7 decimals)
         let utilization = Interest::calculate_utilization(env, asset)?;
-        if utilization >= BASIS_POINTS {
+        if utilization >= SCALAR_7 {
             return Err(Error::InvalidUtilRate);
         }
 
@@ -150,8 +150,7 @@ impl Lending {
 
     /// Get total bToken supply for an asset
     pub fn get_b_token_supply(env: &Env, asset: &Symbol) -> i128 {
-        let storage = Storage::get(env);
-        storage.b_token_supply.get(asset.clone()).unwrap_or(0)
+        Storage::get_b_token_supply(env, asset)
     }
 }
 
