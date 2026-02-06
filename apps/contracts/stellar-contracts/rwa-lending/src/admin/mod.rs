@@ -1,8 +1,8 @@
-use soroban_sdk::{panic_with_error, Address, Env, Map, Symbol, Vec};
+use soroban_sdk::{Address, Env, Map, Symbol, Vec, panic_with_error};
 
 use crate::common::error::Error;
 use crate::common::storage::Storage;
-use crate::common::types::{InterestRateParams, PoolState, BASIS_POINTS};
+use crate::common::types::{InterestRateParams, PoolState, SCALAR_7};
 
 /// Administrative functions for the lending pool
 pub struct Admin;
@@ -27,26 +27,34 @@ impl Admin {
         let storage = crate::common::storage::PoolStorage {
             pool_state: PoolState::OnIce, // Pools start on ice
             pool_balances: Map::new(env),
-            b_token_rates: Map::new(env),
-            b_token_supply: Map::new(env),
+
+            // Reserve data
+            reserve_data: Map::new(env),
+
+            // User balances
             b_token_balances: Map::new(env),
-            d_token_rates: Map::new(env),
-            d_token_supply: Map::new(env),
             d_token_balances: Map::new(env),
             collateral: Map::new(env),
+
+            // Interest rate parameters
             interest_rate_params: Map::new(env),
-            rate_modifiers: Map::new(env),
-            last_accrual_time: Map::new(env),
-            backstop_credit: Map::new(env),
-            auctions: Map::new(env),
+
+            // Auctions (unified structure)
+            auction_data: Map::new(env),
+
+            // Backstop
             backstop_deposits: Map::new(env),
             backstop_total: 0,
             backstop_threshold,
             backstop_take_rate,
             withdrawal_queue: Vec::new(env),
             backstop_token: None,
+
+            // Oracles
             rwa_oracle: rwa_oracle.clone(),
             reflector_oracle: reflector_oracle.clone(),
+
+            // Admin
             admin: admin.clone(),
             collateral_factors: Map::new(env),
             token_contracts: Map::new(env),
@@ -66,12 +74,13 @@ impl Admin {
         admin.require_auth();
     }
 
-    /// Set collateral factor for an RWA token
+    /// Set collateral factor for an RWA token (7 decimals)
+    /// Example: 7_500_000 = 75%
     pub fn set_collateral_factor(env: &Env, rwa_token: &Address, factor: u32) {
         Self::require_admin(env);
 
-        // Validate factor is within [0, 10000] (0% to 100%)
-        if factor > BASIS_POINTS as u32 {
+        // Validate factor is within [0, SCALAR_7] (0% to 100%)
+        if factor > SCALAR_7 as u32 {
             panic_with_error!(env, Error::InvalidCollateralFactor);
         }
 
@@ -80,31 +89,34 @@ impl Admin {
         Storage::set(env, &storage);
     }
 
-    /// Get collateral factor for an RWA token
+    /// Get collateral factor for an RWA token (7 decimals)
     pub fn get_collateral_factor(env: &Env, rwa_token: &Address) -> u32 {
         let storage = Storage::get(env);
         storage
             .collateral_factors
             .get(rwa_token.clone())
-            .unwrap_or(7500) // Default: 75%
+            .unwrap_or(7_500_000) // Default: 75% (7 decimals)
     }
 
     /// Set interest rate parameters for an asset
-    pub fn set_interest_rate_params(
-        env: &Env,
-        asset: &Symbol,
-        params: &InterestRateParams,
-    ) {
+    pub fn set_interest_rate_params(env: &Env, asset: &Symbol, params: &InterestRateParams) {
         Self::require_admin(env);
 
-        // Validate parameters
-        if params.target_utilization > 9500 {
-            // Max 95%
+        // Validate parameters (7 decimals)
+        // target_util should be <= 95% (9_500_000)
+        if params.target_util > 9_500_000 {
+            panic_with_error!(env, Error::InvalidInterestRateParams);
+        }
+
+        // max_util should be > target_util and <= 100%
+        if params.max_util <= params.target_util || params.max_util > SCALAR_7 as u32 {
             panic_with_error!(env, Error::InvalidInterestRateParams);
         }
 
         let mut storage = Storage::get(env);
-        storage.interest_rate_params.set(asset.clone(), params.clone());
+        storage
+            .interest_rate_params
+            .set(asset.clone(), params.clone());
         Storage::set(env, &storage);
     }
 
@@ -132,11 +144,12 @@ impl Admin {
         Storage::set(env, &storage);
     }
 
-    /// Set backstop take rate
+    /// Set backstop take rate (7 decimals)
+    /// Example: 500_000 = 5%
     pub fn set_backstop_take_rate(env: &Env, take_rate: u32) {
         Self::require_admin(env);
 
-        if take_rate > BASIS_POINTS as u32 {
+        if take_rate > SCALAR_7 as u32 {
             panic_with_error!(env, Error::InvalidInterestRateParams);
         }
 
@@ -163,7 +176,7 @@ impl Admin {
     /// Only the admin can call this function
     pub fn upgrade(env: &Env, new_wasm_hash: &soroban_sdk::BytesN<32>) {
         Self::require_admin(env);
-        env.deployer().update_current_contract_wasm(new_wasm_hash.clone());
+        env.deployer()
+            .update_current_contract_wasm(new_wasm_hash.clone());
     }
 }
-

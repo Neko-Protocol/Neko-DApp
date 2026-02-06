@@ -1,8 +1,9 @@
 pub mod backstop;
+pub mod bad_debt;
 pub mod borrowing;
 pub mod collateral;
 pub mod interest;
+pub mod interest_auction;
 pub mod lending;
 pub mod liquidations;
 pub mod oracles;
-

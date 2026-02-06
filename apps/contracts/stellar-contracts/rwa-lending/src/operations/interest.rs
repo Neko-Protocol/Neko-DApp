@@ -2,36 +2,42 @@ use soroban_sdk::{Env, Symbol};
 
 use crate::common::error::Error;
 use crate::common::events::Events;
-use crate::common::storage::Storage;
-use crate::common::types::{BASIS_POINTS, InterestRateParams, SECONDS_PER_YEAR};
+use crate::common::storage::{PoolStorage, Storage};
+use crate::common::types::{
+    InterestRateParams, ReserveData, SCALAR_7, SCALAR_12, SECONDS_PER_YEAR,
+};
 
 /// Interest rate calculations and accrual
+///
+/// Interest Rate Model:
+/// - 3-segment piecewise linear based on utilization
+/// - Dynamic rate modifier (ir_mod) adjusts based on deviation from target
+/// - All rate parameters use 7 decimals (SCALAR_7)
+/// - Token rates (b_rate, d_rate) use 12 decimals (SCALAR_12)
 pub struct Interest;
 
 impl Interest {
-    /// Accrue interest for both lenders and borrowers
+    /// Accrue interest for an asset
+    /// Updates b_rate, d_rate, ir_mod, and backstop_credit
     pub fn accrue_interest(env: &Env, asset: &Symbol) -> Result<(), Error> {
         let current_time = env.ledger().timestamp();
         let mut storage = Storage::get(env);
 
-        // Get last accrual time
-        let last_accrual = storage
-            .last_accrual_time
+        // Get or create reserve data
+        let mut reserve = storage
+            .reserve_data
             .get(asset.clone())
-            .unwrap_or(current_time);
+            .unwrap_or_else(|| ReserveData::new(current_time));
 
-        if current_time <= last_accrual {
-            // No time has passed, no accrual needed
+        // No time has passed, no accrual needed
+        if current_time <= reserve.last_time {
             return Ok(());
         }
 
-        let elapsed = current_time - last_accrual;
-
-        // Get bToken supply - if zero, no accrual needed
-        let b_token_supply = storage.b_token_supply.get(asset.clone()).unwrap_or(0);
-        if b_token_supply == 0 {
-            // Update last accrual time and return
-            storage.last_accrual_time.set(asset.clone(), current_time);
+        // No supply, no accrual needed
+        if reserve.b_supply == 0 {
+            reserve.last_time = current_time;
+            storage.reserve_data.set(asset.clone(), reserve);
             Storage::set(env, &storage);
             return Ok(());
         }
@@ -40,402 +46,395 @@ impl Interest {
         let params = storage
             .interest_rate_params
             .get(asset.clone())
-            .unwrap_or_else(|| {
-                // Default parameters
-                InterestRateParams {
-                    target_utilization: 7500,      // 75%
-                    base_rate: 100,                // 1%
-                    slope_1: 500,                  // 5%
-                    slope_2: 2000,                  // 20%
-                    slope_3: 10000,                 // 100%
-                    reactivity_constant: 1,         // 0.01%
-                }
-            });
+            .unwrap_or_else(Self::default_params);
 
-        // Calculate utilization ratio
-        let utilization = Self::calculate_utilization(env, asset)?;
+        // Calculate utilization (7 decimals)
+        let utilization = Self::calculate_utilization_internal(&reserve)?;
 
-        // If utilization is 0 (no borrowing), no accrual needed
+        // No borrowing, no accrual needed
         if utilization == 0 {
-            // Update last accrual time and return
-            storage.last_accrual_time.set(asset.clone(), current_time);
+            reserve.last_time = current_time;
+            storage.reserve_data.set(asset.clone(), reserve);
             Storage::set(env, &storage);
             return Ok(());
         }
 
-        // Calculate interest rate based on utilization
-        let interest_rate = Self::calculate_interest_rate(
-            env,
-            asset,
+        // Calculate accrual and update reserve
+        let (accrual, new_ir_mod) = Self::calc_accrual(
             &params,
             utilization,
+            reserve.ir_mod,
+            reserve.last_time,
+            current_time,
         )?;
 
-        // Update rate modifier
-        Self::update_rate_modifier(env, asset, &params, utilization, elapsed)?;
+        // Update reserve data
+        Self::apply_accrual(
+            env,
+            &mut reserve,
+            &storage,
+            asset,
+            accrual,
+            new_ir_mod,
+            current_time,
+        )?;
 
-        // Accrue interest to lenders (update bTokenRate)
-        Self::accrue_interest_to_lenders(env, asset, interest_rate, elapsed)?;
-
-        // Accrue interest to borrowers (update dTokenRate)
-        Self::accrue_interest_to_borrowers(env, asset, interest_rate, elapsed)?;
-
-        // Update last accrual time
-        storage.last_accrual_time.set(asset.clone(), current_time);
+        // Save updated reserve
+        storage.reserve_data.set(asset.clone(), reserve.clone());
         Storage::set(env, &storage);
 
         // Emit event
-        let rate_modifier = storage.rate_modifiers.get(asset.clone()).unwrap_or(1_000_000_000);
-        let b_token_rate = Storage::get_b_token_rate(env, asset);
-        let d_token_rate = Storage::get_d_token_rate(env, asset);
-        Events::interest_accrued(env, asset, b_token_rate, d_token_rate, rate_modifier);
+        Events::interest_accrued(env, asset, reserve.b_rate, reserve.d_rate, reserve.ir_mod);
 
         Ok(())
     }
 
-    /// Calculate utilization ratio
+    /// Calculate accrual ratio and new interest rate modifier
+    /// Returns (accrual_12d, new_ir_mod_7d)
+    fn calc_accrual(
+        params: &InterestRateParams,
+        cur_util: i128, // 7 decimals
+        ir_mod: i128,   // 7 decimals
+        last_time: u64,
+        current_time: u64,
+    ) -> Result<(i128, i128), Error> {
+        let delta_time = current_time.saturating_sub(last_time);
+        if delta_time == 0 {
+            return Ok((SCALAR_12, ir_mod));
+        }
+
+        let target_util = params.target_util as i128;
+        let max_util = params.max_util as i128;
+        let r_base = params.r_base as i128;
+        let r_one = params.r_one as i128;
+        let r_two = params.r_two as i128;
+        let r_three = params.r_three as i128;
+        let reactivity = params.reactivity as i128;
+
+        // Calculate interest rate based on utilization segment
+        let interest_rate = if cur_util <= target_util {
+            // Segment 1: 0 <= util <= target
+            // rate = (util / target) * R1 + R0
+            // rate = rate * ir_mod / SCALAR_7
+            let rate = if target_util > 0 {
+                cur_util
+                    .checked_mul(r_one)
+                    .ok_or(Error::ArithmeticError)?
+                    .checked_div(target_util)
+                    .ok_or(Error::ArithmeticError)?
+                    .checked_add(r_base)
+                    .ok_or(Error::ArithmeticError)?
+            } else {
+                r_base
+            };
+            rate.checked_mul(ir_mod)
+                .ok_or(Error::ArithmeticError)?
+                .checked_div(SCALAR_7)
+                .ok_or(Error::ArithmeticError)?
+        } else if cur_util <= max_util {
+            // Segment 2: target < util <= max (95%)
+            // rate = ((util - target) / (max - target)) * R2 + R1 + R0
+            // rate = rate * ir_mod / SCALAR_7
+            let util_diff = cur_util
+                .checked_sub(target_util)
+                .ok_or(Error::ArithmeticError)?;
+            let range = max_util
+                .checked_sub(target_util)
+                .ok_or(Error::ArithmeticError)?;
+            let rate = if range > 0 {
+                util_diff
+                    .checked_mul(r_two)
+                    .ok_or(Error::ArithmeticError)?
+                    .checked_div(range)
+                    .ok_or(Error::ArithmeticError)?
+                    .checked_add(r_one)
+                    .ok_or(Error::ArithmeticError)?
+                    .checked_add(r_base)
+                    .ok_or(Error::ArithmeticError)?
+            } else {
+                r_one.checked_add(r_base).ok_or(Error::ArithmeticError)?
+            };
+            rate.checked_mul(ir_mod)
+                .ok_or(Error::ArithmeticError)?
+                .checked_div(SCALAR_7)
+                .ok_or(Error::ArithmeticError)?
+        } else {
+            // Segment 3: util > max (95%)
+            // rate = ((util - max) / (1 - max)) * R3 + R2 + R1 + R0
+            // Note: No ir_mod multiplication in segment 3 (like Blend)
+            let util_diff = cur_util
+                .checked_sub(max_util)
+                .ok_or(Error::ArithmeticError)?;
+            let range = SCALAR_7
+                .checked_sub(max_util)
+                .ok_or(Error::ArithmeticError)?;
+            if range > 0 {
+                util_diff
+                    .checked_mul(r_three)
+                    .ok_or(Error::ArithmeticError)?
+                    .checked_div(range)
+                    .ok_or(Error::ArithmeticError)?
+                    .checked_add(r_two)
+                    .ok_or(Error::ArithmeticError)?
+                    .checked_add(r_one)
+                    .ok_or(Error::ArithmeticError)?
+                    .checked_add(r_base)
+                    .ok_or(Error::ArithmeticError)?
+            } else {
+                r_three
+                    .checked_add(r_two)
+                    .ok_or(Error::ArithmeticError)?
+                    .checked_add(r_one)
+                    .ok_or(Error::ArithmeticError)?
+                    .checked_add(r_base)
+                    .ok_or(Error::ArithmeticError)?
+            }
+        };
+
+        // Calculate accrual ratio (12 decimals)
+        // accrual = SCALAR_12 + (interest_rate * delta_time * SCALAR_12) / (SECONDS_PER_YEAR * SCALAR_7)
+        let time_weight_numerator = (delta_time as i128)
+            .checked_mul(interest_rate)
+            .ok_or(Error::ArithmeticError)?
+            .checked_mul(SCALAR_12)
+            .ok_or(Error::ArithmeticError)?;
+
+        let time_weight_denominator = (SECONDS_PER_YEAR as i128)
+            .checked_mul(SCALAR_7)
+            .ok_or(Error::ArithmeticError)?;
+
+        let accrual_increase = time_weight_numerator
+            .checked_div(time_weight_denominator)
+            .ok_or(Error::ArithmeticError)?;
+
+        let accrual = SCALAR_12
+            .checked_add(accrual_increase)
+            .ok_or(Error::ArithmeticError)?;
+
+        // Calculate new rate modifier
+        // util_dif = cur_util - target_util
+        // ir_mod_change = delta_time * util_dif * reactivity / SCALAR_7
+        let util_dif = cur_util
+            .checked_sub(target_util)
+            .ok_or(Error::ArithmeticError)?;
+
+        let ir_mod_change = (delta_time as i128)
+            .checked_mul(util_dif)
+            .ok_or(Error::ArithmeticError)?
+            .checked_mul(reactivity)
+            .ok_or(Error::ArithmeticError)?
+            .checked_div(SCALAR_7)
+            .ok_or(Error::ArithmeticError)?;
+
+        let new_ir_mod_raw = ir_mod
+            .checked_add(ir_mod_change)
+            .ok_or(Error::ArithmeticError)?;
+
+        // Bound ir_mod: min = 0.1 (SCALAR_7 / 10), max = 10 (SCALAR_7 * 10)
+        let min_ir_mod = SCALAR_7 / 10; // 0.1
+        let max_ir_mod = SCALAR_7 * 10; // 10.0
+        let new_ir_mod = new_ir_mod_raw.clamp(min_ir_mod, max_ir_mod);
+
+        Ok((accrual, new_ir_mod))
+    }
+
+    /// Apply accrual to reserve data
+    fn apply_accrual(
+        _env: &Env,
+        reserve: &mut ReserveData,
+        storage: &PoolStorage,
+        _asset: &Symbol,
+        accrual: i128,    // 12 decimals
+        new_ir_mod: i128, // 7 decimals
+        current_time: u64,
+    ) -> Result<(), Error> {
+        // Save old d_rate before updating
+        let old_d_rate = reserve.d_rate;
+
+        // Update d_rate: new_d_rate = old_d_rate * accrual / SCALAR_12
+        reserve.d_rate = old_d_rate
+            .checked_mul(accrual)
+            .ok_or(Error::ArithmeticError)?
+            .checked_div(SCALAR_12)
+            .ok_or(Error::ArithmeticError)?;
+
+        // Calculate backstop take from interest earned
+        let backstop_take_rate = storage.backstop_take_rate as i128;
+        if backstop_take_rate > 0 && reserve.d_supply > 0 {
+            // Interest earned = d_supply * (new_d_rate - old_d_rate) / SCALAR_12
+            let rate_increase = reserve
+                .d_rate
+                .checked_sub(old_d_rate)
+                .ok_or(Error::ArithmeticError)?;
+
+            let interest_earned = reserve
+                .d_supply
+                .checked_mul(rate_increase)
+                .ok_or(Error::ArithmeticError)?
+                .checked_div(SCALAR_12)
+                .ok_or(Error::ArithmeticError)?;
+
+            // Backstop credit = interest_earned * backstop_take_rate / SCALAR_7
+            let backstop_credit = interest_earned
+                .checked_mul(backstop_take_rate)
+                .ok_or(Error::ArithmeticError)?
+                .checked_div(SCALAR_7)
+                .ok_or(Error::ArithmeticError)?;
+
+            reserve.backstop_credit += backstop_credit;
+        }
+
+        // Update b_rate based on new total supply value minus backstop
+        // b_rate increases as interest accrues to lenders
+        if reserve.b_supply > 0 {
+            // Total supply value = b_supply * b_rate / SCALAR_12
+            // After accrual, supply increases by (interest_earned - backstop_take)
+            // new_b_rate = (total_supply * accrual - backstop_credit_increase) * SCALAR_12 / b_supply
+
+            // Simplified: b_rate grows proportionally to accrual minus backstop take
+            let lender_accrual = if backstop_take_rate > 0 {
+                // lender_portion = accrual * (SCALAR_7 - backstop_take_rate) / SCALAR_7
+                let lender_portion = SCALAR_7
+                    .checked_sub(backstop_take_rate)
+                    .ok_or(Error::ArithmeticError)?;
+
+                // Calculate the accrual increase portion
+                let accrual_increase = accrual
+                    .checked_sub(SCALAR_12)
+                    .ok_or(Error::ArithmeticError)?;
+
+                let lender_increase = accrual_increase
+                    .checked_mul(lender_portion)
+                    .ok_or(Error::ArithmeticError)?
+                    .checked_div(SCALAR_7)
+                    .ok_or(Error::ArithmeticError)?;
+
+                SCALAR_12
+                    .checked_add(lender_increase)
+                    .ok_or(Error::ArithmeticError)?
+            } else {
+                accrual
+            };
+
+            reserve.b_rate = reserve
+                .b_rate
+                .checked_mul(lender_accrual)
+                .ok_or(Error::ArithmeticError)?
+                .checked_div(SCALAR_12)
+                .ok_or(Error::ArithmeticError)?;
+        }
+
+        // Update ir_mod and last_time
+        reserve.ir_mod = new_ir_mod;
+        reserve.last_time = current_time;
+
+        Ok(())
+    }
+
+    /// Calculate utilization ratio (7 decimals)
     /// U = TotalLiabilities / TotalSupply
-    /// Returns utilization in basis points (0-10000 = 0%-100%)
     pub fn calculate_utilization(env: &Env, asset: &Symbol) -> Result<i128, Error> {
         let storage = Storage::get(env);
+        let reserve = storage
+            .reserve_data
+            .get(asset.clone())
+            .unwrap_or_else(|| ReserveData::new(env.ledger().timestamp()));
 
-        // Get total supply: bTokenSupply × bTokenRate (in underlying tokens)
-        let b_token_supply = storage.b_token_supply.get(asset.clone()).unwrap_or(0);
-        let b_token_rate = Storage::get_b_token_rate(env, asset);
-        let total_supply = b_token_supply
-            .checked_mul(b_token_rate)
+        Self::calculate_utilization_internal(&reserve)
+    }
+
+    /// Internal utilization calculation from reserve data
+    fn calculate_utilization_internal(reserve: &ReserveData) -> Result<i128, Error> {
+        if reserve.b_supply == 0 {
+            return Ok(0);
+        }
+
+        // Total supply = b_supply * b_rate / SCALAR_12
+        let total_supply = reserve
+            .b_supply
+            .checked_mul(reserve.b_rate)
             .ok_or(Error::ArithmeticError)?
-            .checked_div(1_000_000_000) // Scale back from 9 decimals
+            .checked_div(SCALAR_12)
             .ok_or(Error::ArithmeticError)?;
 
         if total_supply == 0 {
             return Ok(0);
         }
 
-        // Get total liabilities: dTokenSupply × dTokenRate (in underlying tokens)
-        let d_token_supply = Storage::get_d_token_supply(env, asset);
-        let d_token_rate = Storage::get_d_token_rate(env, asset);
-        let total_liabilities = d_token_supply
-            .checked_mul(d_token_rate)
+        // Total liabilities = d_supply * d_rate / SCALAR_12
+        let total_liabilities = reserve
+            .d_supply
+            .checked_mul(reserve.d_rate)
             .ok_or(Error::ArithmeticError)?
-            .checked_div(1_000_000_000) // Scale back from 9 decimals
+            .checked_div(SCALAR_12)
             .ok_or(Error::ArithmeticError)?;
 
-        // Calculate utilization: U = TotalLiabilities / TotalSupply
+        // Utilization = (liabilities * SCALAR_7) / supply
+        // Cap at SCALAR_7 (100%)
         if total_liabilities >= total_supply {
-            return Ok(BASIS_POINTS);
+            return Ok(SCALAR_7);
         }
 
-        // In basis points: U = (TotalLiabilities * 10000) / TotalSupply
         let utilization = total_liabilities
-            .checked_mul(BASIS_POINTS)
+            .checked_mul(SCALAR_7)
             .ok_or(Error::ArithmeticError)?
             .checked_div(total_supply)
             .ok_or(Error::ArithmeticError)?;
 
-        // Cap at 100% (10000 basis points) - though this should never be reached after the check above
-        Ok(utilization.min(BASIS_POINTS))
+        Ok(utilization.min(SCALAR_7))
     }
 
-    /// Calculate interest rate based on utilization
-    fn calculate_interest_rate(
-        env: &Env,
-        asset: &Symbol,
-        params: &InterestRateParams,
-        utilization: i128,
-    ) -> Result<i128, Error> {
-        let storage = Storage::get(env);
-        let rate_modifier = storage
-            .rate_modifiers
-            .get(asset.clone())
-            .unwrap_or(1_000_000_000); // Default: 1.0 with 9 decimals
-
-        let target_util = params.target_utilization as i128;
-        let base_rate = params.base_rate as i128;
-        let slope_1 = params.slope_1 as i128;
-        let slope_2 = params.slope_2 as i128;
-        let slope_3 = params.slope_3 as i128;
-
-        let interest_rate = if utilization <= target_util {
-            // Segment 1: U ≤ U_T
-            let rate = base_rate
-                + (utilization
-                    .checked_mul(slope_1)
-                    .ok_or(Error::ArithmeticError)?
-                    .checked_div(target_util)
-                    .ok_or(Error::ArithmeticError)?);
-            rate_modifier
-                .checked_mul(rate)
-                .ok_or(Error::ArithmeticError)?
-                .checked_div(1_000_000_000)
-                .ok_or(Error::ArithmeticError)?
-        } else if utilization <= 9500 {
-            // Segment 2: U_T < U ≤ 0.95
-            let rate = base_rate
-                + slope_1
-                + ((utilization - target_util)
-                    .checked_mul(slope_2)
-                    .ok_or(Error::ArithmeticError)?
-                    .checked_div(9500 - target_util)
-                    .ok_or(Error::ArithmeticError)?);
-            rate_modifier
-                .checked_mul(rate)
-                .ok_or(Error::ArithmeticError)?
-                .checked_div(1_000_000_000)
-                .ok_or(Error::ArithmeticError)?
-        } else {
-            // Segment 3: U > 0.95
-            let rate = base_rate
-                + slope_1
-                + slope_2
-                + ((utilization - 9500)
-                    .checked_mul(slope_3)
-                    .ok_or(Error::ArithmeticError)?
-                    .checked_div(500)
-                    .ok_or(Error::ArithmeticError)?);
-            rate_modifier
-                .checked_mul(rate)
-                .ok_or(Error::ArithmeticError)?
-                .checked_div(1_000_000_000)
-                .ok_or(Error::ArithmeticError)?
-        };
-
-        Ok(interest_rate)
-    }
-
-    /// Update rate modifier based on utilization error
-    /// Same formula as Blend: util_dif = cur_util - target_util
-    /// If util_dif >= 0: rate increases (use floor for rounding)
-    /// If util_dif < 0: rate decreases (use ceil for rounding)
-    fn update_rate_modifier(
-        env: &Env,
-        asset: &Symbol,
-        params: &InterestRateParams,
-        utilization: i128,
-        elapsed: u64,
-    ) -> Result<(), Error> {
-        let mut storage = Storage::get(env);
-        let target_util = params.target_utilization as i128;
-        let reactivity = params.reactivity_constant as i128;
-
-        // Calculate utilization difference
-        // util_dif = cur_util - target_util (in basis points)
-        let util_dif = utilization
-            .checked_sub(target_util)
-            .ok_or(Error::ArithmeticError)?;
-
-        // Calculate utilization error: util_error = delta_time * util_dif
-        let util_error = (elapsed as i128)
-            .checked_mul(util_dif)
-            .ok_or(Error::ArithmeticError)?;
-
-        // Get current rate modifier (in 9 decimals, default 1.0)
-        let current_rm = storage
-            .rate_modifiers
-            .get(asset.clone())
-            .unwrap_or(1_000_000_000);
-
-        // Calculate rate difference based on utilization error
-        // We use 9 decimals, so: rate_dif = (util_error * reactivity) / BASIS_POINTS
-        // But we need to handle rounding: floor when increasing, ceil when decreasing
-        let new_rm: i128;
-        if util_dif >= 0 {
-            // Rate modifier increasing (utilization above target)
-            // Use floor rounding (round down) - favors the protocol
-            // util_error is positive, rate_dif will be positive
-            let rate_dif = util_error
-                .checked_mul(reactivity)
-                .ok_or(Error::ArithmeticError)?
-                .checked_div(BASIS_POINTS)
-                .ok_or(Error::ArithmeticError)?;
-            
-            let next_rm = current_rm
-                .checked_add(rate_dif)
-                .ok_or(Error::ArithmeticError)?;
-            
-            // Bound: max = 10.0 (in 9 decimals: 10_000_000_000)
-            let max_rm = 10_000_000_000;
-            new_rm = next_rm.min(max_rm);
-        } else {
-            // Rate modifier decreasing (utilization below target)
-            // Use ceil rounding - for negative numbers, ceil means round towards zero
-            // util_error is negative, rate_dif will be negative
-            let numerator = util_error
-                .checked_mul(reactivity)
-                .ok_or(Error::ArithmeticError)?;
-            
-            // For negative ceil: normal division rounds towards zero (which is correct)
-            let rate_dif = numerator
-                .checked_div(BASIS_POINTS)
-                .ok_or(Error::ArithmeticError)?;
-            
-            let next_rm = current_rm
-                .checked_add(rate_dif)
-                .ok_or(Error::ArithmeticError)?;
-            
-            // Bound: min = 0.1 (in 9 decimals: 100_000_000)
-            let min_rm = 100_000_000;
-            new_rm = next_rm.max(min_rm);
-        }
-
-        storage.rate_modifiers.set(asset.clone(), new_rm);
-        Storage::set(env, &storage);
-
-        Ok(())
-    }
-
-    /// Accrue interest to lenders (update bTokenRate)
-    /// Interest is earned on the total borrowed amount (not pool balance)
-    /// bTokenRate increases based on interest earned minus backstop take
-    fn accrue_interest_to_lenders(
-        env: &Env,
-        asset: &Symbol,
-        interest_rate: i128,
-        elapsed: u64,
-    ) -> Result<(), Error> {
-        let mut storage = Storage::get(env);
-        let b_token_supply = storage.b_token_supply.get(asset.clone()).unwrap_or(0);
-
-        if b_token_supply == 0 {
-            return Ok(());
-        }
-
-        // Calculate total borrowed amount (total liabilities)
-        // Total liabilities = dTokenSupply × dTokenRate
-        let d_token_supply = Storage::get_d_token_supply(env, asset);
-        let d_token_rate = Storage::get_d_token_rate(env, asset);
-        let total_liabilities = d_token_supply
-            .checked_mul(d_token_rate)
-            .ok_or(Error::ArithmeticError)?
-            .checked_div(1_000_000_000)
-            .ok_or(Error::ArithmeticError)?;
-
-        if total_liabilities <= 0 {
-            // No borrowing, no interest to accrue
-            return Ok(());
-        }
-
-        // Interest earned by lenders = (total_liabilities × interest_rate × elapsed) / (SECONDS_PER_YEAR × BASIS_POINTS)
-        // This is the accrued interest on the borrowed amount
-        let accrued_interest = total_liabilities
-            .checked_mul(interest_rate)
-            .ok_or(Error::ArithmeticError)?
-            .checked_mul(elapsed as i128)
-            .ok_or(Error::ArithmeticError)?
-            .checked_div(SECONDS_PER_YEAR as i128)
-            .ok_or(Error::ArithmeticError)?
-            .checked_div(BASIS_POINTS)
-            .ok_or(Error::ArithmeticError)?;
-
-        // Calculate backstop take (portion of interest that goes to backstop)
-        let new_backstop_credit = if storage.backstop_take_rate > 0 {
-            accrued_interest
-                .checked_mul(storage.backstop_take_rate as i128)
-                .ok_or(Error::ArithmeticError)?
-                .checked_div(BASIS_POINTS)
-                .ok_or(Error::ArithmeticError)?
-        } else {
-            0
-        };
-
-        // Update backstop credit for this asset (accumulate)
-        let current_credit = storage.backstop_credit.get(asset.clone()).unwrap_or(0);
-        storage.backstop_credit.set(asset.clone(), current_credit + new_backstop_credit);
-        Storage::set(env, &storage); // Save storage after updating backstop_credit
-        
-        let backstop_take = new_backstop_credit;
-
-        // Update bTokenRate:
-        // b_rate = (pre_update_supply + accrued - new_backstop_credit) / b_supply
-        // Where pre_update_supply = b_supply * b_rate / SCALAR
-            let current_rate = Storage::get_b_token_rate(env, asset);
-        let pre_update_supply = b_token_supply
-            .checked_mul(current_rate)
-            .ok_or(Error::ArithmeticError)?
-            .checked_div(1_000_000_000)
-            .ok_or(Error::ArithmeticError)?;
-
-        // New supply = pre_update_supply + accrued_interest - backstop_take
-        let new_supply = pre_update_supply
-            .checked_add(accrued_interest)
-            .ok_or(Error::ArithmeticError)?
-            .checked_sub(backstop_take)
-            .ok_or(Error::ArithmeticError)?;
-
-        // New rate = new_supply * SCALAR / b_supply
-        let new_rate = new_supply
-                .checked_mul(1_000_000_000)
-                .ok_or(Error::ArithmeticError)?
-                .checked_div(b_token_supply)
-                .ok_or(Error::ArithmeticError)?;
-        
-        Storage::set_b_token_rate(env, asset, new_rate);
-
-        Ok(())
-    }
-
-    /// Accrue interest to borrowers (update dTokenRate)
-    /// dTokenRate is updated by multiplying by the accrual factor
-    /// accrual_factor = 1 + (interest_rate × elapsed) / (SECONDS_PER_YEAR × BASIS_POINTS)
-    fn accrue_interest_to_borrowers(
-        env: &Env,
-        asset: &Symbol,
-        interest_rate: i128,
-        elapsed: u64,
-    ) -> Result<(), Error> {
-        // Calculate accrual factor: 1 + (interest_rate × elapsed) / (SECONDS_PER_YEAR × BASIS_POINTS)
-        // This represents the multiplier for the dTokenRate
-        let accrual_numerator = interest_rate
-            .checked_mul(elapsed as i128)
-            .ok_or(Error::ArithmeticError)?;
-        
-        let accrual_denominator = (SECONDS_PER_YEAR as i128)
-            .checked_mul(BASIS_POINTS)
-            .ok_or(Error::ArithmeticError)?;
-        
-        // accrual_factor = 1 + (accrual_numerator / accrual_denominator)
-        // In 9 decimals: 1_000_000_000 + (accrual_numerator * 1_000_000_000 / accrual_denominator)
-        let accrual_increase = accrual_numerator
-            .checked_mul(1_000_000_000)
-            .ok_or(Error::ArithmeticError)?
-            .checked_div(accrual_denominator)
-            .ok_or(Error::ArithmeticError)?;
-
-        let accrual_factor = 1_000_000_000_i128
-            .checked_add(accrual_increase)
-            .ok_or(Error::ArithmeticError)?;
-
-        // Update dTokenRate: new_rate = current_rate × accrual_factor / 1_000_000_000
-        let current_rate = Storage::get_d_token_rate(env, asset);
-        let new_rate = current_rate
-            .checked_mul(accrual_factor)
-            .ok_or(Error::ArithmeticError)?
-            .checked_div(1_000_000_000)
-            .ok_or(Error::ArithmeticError)?;
-        
-        Storage::set_d_token_rate(env, asset, new_rate);
-
-        Ok(())
-    }
-
-    /// Get current interest rate for an asset
+    /// Get current interest rate for an asset (7 decimals)
     pub fn get_interest_rate(env: &Env, asset: &Symbol) -> Result<i128, Error> {
-        let utilization = Self::calculate_utilization(env, asset)?;
         let storage = Storage::get(env);
+        let reserve = storage
+            .reserve_data
+            .get(asset.clone())
+            .unwrap_or_else(|| ReserveData::new(env.ledger().timestamp()));
+
         let params = storage
             .interest_rate_params
             .get(asset.clone())
-            .unwrap_or_else(|| {
-                InterestRateParams {
-                    target_utilization: 7500,
-                    base_rate: 100,
-                    slope_1: 500,
-                    slope_2: 2000,
-                    slope_3: 10000,
-                    reactivity_constant: 1,
-                }
-            });
-        Self::calculate_interest_rate(env, asset, &params, utilization)
+            .unwrap_or_else(Self::default_params);
+
+        let utilization = Self::calculate_utilization_internal(&reserve)?;
+
+        // Calculate rate without accruing
+        let (accrual, _) = Self::calc_accrual(
+            &params,
+            utilization,
+            reserve.ir_mod,
+            reserve.last_time,
+            reserve.last_time + 1, // Simulate 1 second
+        )?;
+
+        // Convert accrual to annual rate (7 decimals)
+        // rate = (accrual - SCALAR_12) * SECONDS_PER_YEAR / SCALAR_12 * SCALAR_7
+        let accrual_increase = accrual
+            .checked_sub(SCALAR_12)
+            .ok_or(Error::ArithmeticError)?;
+
+        let annual_rate = accrual_increase
+            .checked_mul(SECONDS_PER_YEAR as i128)
+            .ok_or(Error::ArithmeticError)?
+            .checked_mul(SCALAR_7)
+            .ok_or(Error::ArithmeticError)?
+            .checked_div(SCALAR_12)
+            .ok_or(Error::ArithmeticError)?;
+
+        Ok(annual_rate)
+    }
+
+    /// Default interest rate parameters (Blend-style)
+    pub fn default_params() -> InterestRateParams {
+        InterestRateParams {
+            target_util: 7_500_000, // 75%
+            max_util: 9_500_000,    // 95%
+            r_base: 100_000,        // 1%
+            r_one: 500_000,         // 5%
+            r_two: 5_000_000,       // 50%
+            r_three: 15_000_000,    // 150%
+            reactivity: 200,        // 0.00002
+        }
     }
 }
-

@@ -104,3 +104,20 @@ NEXT_PUBLIC_SOROSWAP_API_KEY=your_api_key_here
 - Rust v1.70+ (for Stellar contracts)
 - Stellar CLI v23.1.0+ (for contract bindings)
 - Foundry (for EVM contracts)
+
+## Skills
+
+Additional skills available in `.claude/skills/` for specific patterns:
+
+- **tanstack-query**: React Query best practices and patterns
+- **tailwind-patterns**: Tailwind CSS component patterns
+- **next-best-practices**: Next.js optimization guidelines
+- **vercel-react-best-practices**: React performance patterns from Vercel
+- **vercel-composition-patterns**: Component composition patterns
+- **remotion-best-practices**: Video generation with Remotion
+- **codex**: OpenAI Codex CLI integration
+
+## Preferences
+
+- Do not add Co-Authored-By signature in commits
+- Use conventional commits: feat, fix, chore, refactor, docs, test, etc.

@@ -3,7 +3,7 @@ use soroban_sdk::{Address, Env};
 use crate::admin::Admin;
 use crate::common::error::Error;
 use crate::common::storage::Storage;
-use crate::common::types::{Position, MarketConfig, FundingPayment, BASIS_POINTS};
+use crate::common::types::{BASIS_POINTS, FundingPayment, MarketConfig, Position};
 
 /// Funding operations for RWA Perpetuals
 pub struct Funding;
@@ -31,8 +31,8 @@ impl Funding {
         Admin::require_admin(env);
 
         // Get market configuration
-        let mut market_config = Storage::get_market_config(env, rwa_token)
-            .ok_or(Error::MarketNotFound)?;
+        let mut market_config =
+            Storage::get_market_config(env, rwa_token).ok_or(Error::MarketNotFound)?;
 
         // Update funding rate and timestamp
         market_config.funding_rate = new_rate;
@@ -57,28 +57,22 @@ impl Funding {
     /// # Returns
     /// * `Ok(funding_payment)` - The funding payment amount (positive = trader pays)
     /// * `Err(Error)` - Position or market not found, calculation error
-    pub fn accrue_funding(
-        env: &Env,
-        trader: &Address,
-        rwa_token: &Address,
-    ) -> Result<i128, Error> {
+    pub fn accrue_funding(env: &Env, trader: &Address, rwa_token: &Address) -> Result<i128, Error> {
         // Get position and market config
-        let mut position = Storage::get_position(env, trader, rwa_token)
-            .ok_or(Error::PositionNotFound)?;
-        
-        let market_config = Storage::get_market_config(env, rwa_token)
-            .ok_or(Error::MarketNotFound)?;
+        let mut position =
+            Storage::get_position(env, trader, rwa_token).ok_or(Error::PositionNotFound)?;
+
+        let market_config =
+            Storage::get_market_config(env, rwa_token).ok_or(Error::MarketNotFound)?;
 
         // Calculate funding payment
         let current_time = env.ledger().timestamp();
-        let funding_payment = Self::calculate_funding_payment(
-            &position,
-            &market_config,
-            current_time,
-        );
+        let funding_payment =
+            Self::calculate_funding_payment(&position, &market_config, current_time);
 
         // Update position margin (subtract if positive payment, add if negative)
-        position.margin = position.margin
+        position.margin = position
+            .margin
             .checked_sub(funding_payment)
             .ok_or(Error::FundingCalculationError)?;
 
@@ -105,12 +99,9 @@ impl Funding {
     /// # Returns
     /// * `Ok(funding_rate)` - Current funding rate in basis points
     /// * `Err(Error)` - Market not found
-    pub fn get_funding_rate(
-        env: &Env,
-        rwa_token: &Address,
-    ) -> Result<i128, Error> {
-        let market_config = Storage::get_market_config(env, rwa_token)
-            .ok_or(Error::MarketNotFound)?;
+    pub fn get_funding_rate(env: &Env, rwa_token: &Address) -> Result<i128, Error> {
+        let market_config =
+            Storage::get_market_config(env, rwa_token).ok_or(Error::MarketNotFound)?;
 
         Ok(market_config.funding_rate)
     }
@@ -148,7 +139,8 @@ impl Funding {
 
         // Calculate funding payment: position_size * funding_rate * time_elapsed / BASIS_POINTS
         // Note: We use time_elapsed directly (in seconds) for simplicity
-        let payment = position.size
+        let payment = position
+            .size
             .saturating_mul(market_config.funding_rate)
             .saturating_mul(time_elapsed as i128)
             .saturating_div(BASIS_POINTS);
@@ -189,12 +181,12 @@ impl Funding {
 mod tests {
     use super::*;
     use crate::common::types::{MarketConfig, Position, SCALAR_9};
-    use soroban_sdk::{testutils::Address as _, Address, Env};
+    use soroban_sdk::{Address, Env, testutils::Address as _};
 
     #[test]
     fn test_calculate_funding_payment_positive_rate_long() {
         let env = Env::default();
-        
+
         let position = Position {
             trader: Address::generate(&env),
             rwa_token: Address::generate(&env),
@@ -223,13 +215,16 @@ mod tests {
         // = 1000 * 1_000_000_000 * 100 * 3600 / 10_000
         // = 36_000_000_000_000
         let expected = 36_000_000_000_000i128;
-        assert_eq!(payment, expected, "Long position should pay positive funding");
+        assert_eq!(
+            payment, expected,
+            "Long position should pay positive funding"
+        );
     }
 
     #[test]
     fn test_calculate_funding_payment_positive_rate_short() {
         let env = Env::default();
-        
+
         let position = Position {
             trader: Address::generate(&env),
             rwa_token: Address::generate(&env),
@@ -256,13 +251,16 @@ mod tests {
 
         // Expected: -1000 * SCALAR_9 * 100 * 3600 / BASIS_POINTS = negative (short receives)
         let expected = -36_000_000_000_000i128;
-        assert_eq!(payment, expected, "Short position should receive funding (negative payment)");
+        assert_eq!(
+            payment, expected,
+            "Short position should receive funding (negative payment)"
+        );
     }
 
     #[test]
     fn test_calculate_funding_payment_negative_rate_long() {
         let env = Env::default();
-        
+
         let position = Position {
             trader: Address::generate(&env),
             rwa_token: Address::generate(&env),
@@ -289,13 +287,16 @@ mod tests {
 
         // Expected: 1000 * SCALAR_9 * (-100) * 3600 / BASIS_POINTS = negative (long receives)
         let expected = -36_000_000_000_000i128;
-        assert_eq!(payment, expected, "Long position should receive funding with negative rate");
+        assert_eq!(
+            payment, expected,
+            "Long position should receive funding with negative rate"
+        );
     }
 
     #[test]
     fn test_calculate_funding_payment_zero_time() {
         let env = Env::default();
-        
+
         let position = Position {
             trader: Address::generate(&env),
             rwa_token: Address::generate(&env),
@@ -320,13 +321,16 @@ mod tests {
         let current_time = 1000; // Same time as last payment
         let payment = Funding::calculate_funding_payment(&position, &market_config, current_time);
 
-        assert_eq!(payment, 0, "Zero time elapsed should result in zero payment");
+        assert_eq!(
+            payment, 0,
+            "Zero time elapsed should result in zero payment"
+        );
     }
 
     #[test]
     fn test_calculate_funding_payment_new_position() {
         let env = Env::default();
-        
+
         let position = Position {
             trader: Address::generate(&env),
             rwa_token: Address::generate(&env),

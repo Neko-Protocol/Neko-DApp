@@ -11,12 +11,9 @@ impl Events {
         is_liquidatable: bool,
         margin_ratio: i128,
     ) {
-        let topics = (
-            symbol_short!("liq_check"),
-            position_id,
-            trader,
-        );
-        env.events().publish(topics, (is_liquidatable, margin_ratio));
+        let topics = (symbol_short!("liq_check"), position_id, trader);
+        env.events()
+            .publish(topics, (is_liquidatable, margin_ratio));
     }
 
     /// Event emitted when a position is liquidated
@@ -30,15 +27,15 @@ impl Events {
         liquidation_penalty: i128,
         liquidator_reward: i128,
     ) {
-        let topics = (
-            symbol_short!("liquidate"),
-            position_id,
-            trader,
-            liquidator,
-        );
+        let topics = (symbol_short!("liquidate"), position_id, trader, liquidator);
         env.events().publish(
             topics,
-            (position_size, liquidation_price, liquidation_penalty, liquidator_reward),
+            (
+                position_size,
+                liquidation_price,
+                liquidation_penalty,
+                liquidator_reward,
+            ),
         );
     }
 
@@ -49,39 +46,24 @@ impl Events {
         trader: &Address,
         liquidation_price: i128,
     ) {
-        let topics = (
-            symbol_short!("liq_price"),
-            position_id,
-            trader,
-        );
+        let topics = (symbol_short!("liq_price"), position_id, trader);
         env.events().publish(topics, liquidation_price);
     }
 
     /// Event emitted when contract is initialized
-    pub fn contract_initialized(
-        env: &Env,
-        admin: &Address,
-        oracle: &Address,
-    ) {
+    pub fn contract_initialized(env: &Env, admin: &Address, oracle: &Address) {
         let topics = (symbol_short!("init"), admin);
         env.events().publish(topics, oracle);
     }
 
     /// Event emitted when oracle address is updated
-    pub fn oracle_updated(
-        env: &Env,
-        old_oracle: &Address,
-        new_oracle: &Address,
-    ) {
+    pub fn oracle_updated(env: &Env, old_oracle: &Address, new_oracle: &Address) {
         let topics = (symbol_short!("oracle"), old_oracle);
         env.events().publish(topics, new_oracle);
     }
 
     /// Event emitted when protocol pause state changes
-    pub fn protocol_paused_updated(
-        env: &Env,
-        paused: bool,
-    ) {
+    pub fn protocol_paused_updated(env: &Env, paused: bool) {
         let topics = (symbol_short!("paused"),);
         env.events().publish(topics, paused);
     }
@@ -94,14 +76,12 @@ impl Events {
         maintenance_margin: u32,
     ) {
         let topics = (symbol_short!("mkt_cfg"), rwa_token);
-        env.events().publish(topics, (max_leverage, maintenance_margin));
+        env.events()
+            .publish(topics, (max_leverage, maintenance_margin));
     }
 
     /// Event emitted when margin token is configured
-    pub fn margin_token_set(
-        env: &Env,
-        token: &Address,
-    ) {
+    pub fn margin_token_set(env: &Env, token: &Address) {
         let topics = (symbol_short!("mrg_tkn"),);
         env.events().publish(topics, token);
     }
@@ -128,7 +108,8 @@ impl Events {
         margin_ratio: i128,
     ) {
         let topics = (symbol_short!("mrg_rem"), trader, rwa_token);
-        env.events().publish(topics, (amount, new_total_margin, margin_ratio));
+        env.events()
+            .publish(topics, (amount, new_total_margin, margin_ratio));
     }
 
     /// Event emitted when a position is opened
@@ -142,7 +123,8 @@ impl Events {
         leverage: u32,
     ) {
         let topics = (symbol_short!("pos_open"), trader, rwa_token);
-        env.events().publish(topics, (size, entry_price, margin, leverage));
+        env.events()
+            .publish(topics, (size, entry_price, margin, leverage));
     }
 
     /// Event emitted when a position is closed (full or partial)
@@ -166,7 +148,8 @@ impl Events {
         remaining_size: i128,
     ) {
         let topics = (symbol_short!("pos_close"), trader, rwa_token);
-        env.events().publish(topics, (size_closed, exit_price, pnl, remaining_size));
+        env.events()
+            .publish(topics, (size_closed, exit_price, pnl, remaining_size));
     }
 
     /// Event emitted when a position is queried

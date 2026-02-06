@@ -3,7 +3,7 @@ use soroban_sdk::{Address, Env};
 use crate::common::error::Error;
 use crate::common::events::Events;
 use crate::common::storage::Storage;
-use crate::common::types::{Position, BASIS_POINTS, SCALAR_9};
+use crate::common::types::{BASIS_POINTS, Position, SCALAR_9};
 
 /// Liquidation penalty in basis points (5% = 500 basis points)
 const LIQUIDATION_PENALTY_BP: i128 = 500;
@@ -36,20 +36,20 @@ impl Liquidations {
         rwa_token: &Address,
     ) -> Result<bool, Error> {
         // Get the position
-        let position = Storage::get_position(env, trader, rwa_token)
-            .ok_or(Error::PositionNotFound)?;
+        let position =
+            Storage::get_position(env, trader, rwa_token).ok_or(Error::PositionNotFound)?;
 
         // Get market configuration for maintenance margin
-        let market_config = Storage::get_market_config(env, rwa_token)
-            .ok_or(Error::MarketNotFound)?;
+        let market_config =
+            Storage::get_market_config(env, rwa_token).ok_or(Error::MarketNotFound)?;
 
         if !market_config.is_active {
             return Err(Error::MarketInactive);
         }
 
         // Get current price from oracle
-        let current_price = Storage::get_current_price(env, rwa_token)
-            .ok_or(Error::OraclePriceNotFound)?;
+        let current_price =
+            Storage::get_current_price(env, rwa_token).ok_or(Error::OraclePriceNotFound)?;
 
         // Calculate unrealized PnL
         // For long positions (size > 0): PnL = size * (current_price - entry_price)
@@ -62,7 +62,8 @@ impl Liquidations {
 
         // Calculate margin ratio: (margin + unrealized_pnl) / position_value
         // Both numerator and denominator should be in the same units
-        let effective_margin = position.margin
+        let effective_margin = position
+            .margin
             .checked_add(unrealized_pnl)
             .ok_or(Error::ArithmeticError)?;
 
@@ -119,12 +120,12 @@ impl Liquidations {
         }
 
         // Get the position
-        let position = Storage::get_position(env, trader, rwa_token)
-            .ok_or(Error::PositionNotFound)?;
+        let position =
+            Storage::get_position(env, trader, rwa_token).ok_or(Error::PositionNotFound)?;
 
         // Get current price
-        let current_price = Storage::get_current_price(env, rwa_token)
-            .ok_or(Error::OraclePriceNotFound)?;
+        let current_price =
+            Storage::get_current_price(env, rwa_token).ok_or(Error::OraclePriceNotFound)?;
 
         // Calculate unrealized PnL
         let unrealized_pnl = Self::calculate_unrealized_pnl(&position, current_price)?;
@@ -140,7 +141,8 @@ impl Liquidations {
             .ok_or(Error::DivisionByZero)?;
 
         // Calculate effective margin after PnL
-        let effective_margin = position.margin
+        let effective_margin = position
+            .margin
             .checked_add(unrealized_pnl)
             .ok_or(Error::ArithmeticError)?;
 
@@ -197,12 +199,12 @@ impl Liquidations {
         rwa_token: &Address,
     ) -> Result<i128, Error> {
         // Get the position
-        let position = Storage::get_position(env, trader, rwa_token)
-            .ok_or(Error::PositionNotFound)?;
+        let position =
+            Storage::get_position(env, trader, rwa_token).ok_or(Error::PositionNotFound)?;
 
         // Get market configuration for maintenance margin
-        let market_config = Storage::get_market_config(env, rwa_token)
-            .ok_or(Error::MarketNotFound)?;
+        let market_config =
+            Storage::get_market_config(env, rwa_token).ok_or(Error::MarketNotFound)?;
 
         if position.leverage == 0 {
             return Err(Error::DivisionByZero);
@@ -225,7 +227,8 @@ impl Liquidations {
                 .checked_sub(mm_leverage_ratio)
                 .ok_or(Error::ArithmeticError)?;
 
-            position.entry_price
+            position
+                .entry_price
                 .checked_mul(factor)
                 .ok_or(Error::ArithmeticError)?
                 .checked_div(BASIS_POINTS)
@@ -236,7 +239,8 @@ impl Liquidations {
                 .checked_add(mm_leverage_ratio)
                 .ok_or(Error::ArithmeticError)?;
 
-            position.entry_price
+            position
+                .entry_price
                 .checked_mul(factor)
                 .ok_or(Error::ArithmeticError)?
                 .checked_div(BASIS_POINTS)
@@ -252,7 +256,10 @@ impl Liquidations {
     // Helper functions
 
     /// Calculate unrealized PnL for a position
-    pub fn calculate_unrealized_pnl(position: &Position, current_price: i128) -> Result<i128, Error> {
+    pub fn calculate_unrealized_pnl(
+        position: &Position,
+        current_price: i128,
+    ) -> Result<i128, Error> {
         let price_diff = current_price
             .checked_sub(position.entry_price)
             .ok_or(Error::ArithmeticError)?;
@@ -260,7 +267,8 @@ impl Liquidations {
         // PnL = size * price_diff / SCALAR_9
         // For long (size > 0): positive when price increases
         // For short (size < 0): positive when price decreases
-        let pnl = position.size
+        let pnl = position
+            .size
             .checked_mul(price_diff)
             .ok_or(Error::ArithmeticError)?
             .checked_div(SCALAR_9)
@@ -270,11 +278,12 @@ impl Liquidations {
     }
 
     /// Calculate position value at current price
-    pub fn calculate_position_value(position: &Position, current_price: i128) -> Result<i128, Error> {
+    pub fn calculate_position_value(
+        position: &Position,
+        current_price: i128,
+    ) -> Result<i128, Error> {
         let abs_size = if position.size < 0 {
-            position.size
-                .checked_neg()
-                .ok_or(Error::ArithmeticError)?
+            position.size.checked_neg().ok_or(Error::ArithmeticError)?
         } else {
             position.size
         };
@@ -293,7 +302,7 @@ impl Liquidations {
 mod tests {
     use super::*;
     use crate::common::types::{MarketConfig, Position};
-    use soroban_sdk::{testutils::Address as _, Address, Env};
+    use soroban_sdk::{Address, Env, testutils::Address as _};
 
     // Note: These tests require a full contract implementation to run properly.
     // They are kept here for documentation purposes and should be moved to
@@ -330,7 +339,10 @@ mod tests {
         //         = 100_000 * 10 * SCALAR_9
         //         = 1_000_000 * SCALAR_9
         let expected_pnl = 1_000_000 * SCALAR_9;
-        assert_eq!(pnl, expected_pnl, "Long position profit should be 1,000,000 * SCALAR_9");
+        assert_eq!(
+            pnl, expected_pnl,
+            "Long position profit should be 1,000,000 * SCALAR_9"
+        );
     }
 
     #[test]
@@ -354,7 +366,10 @@ mod tests {
         //         = (100_000 * SCALAR_9) * (-10 * SCALAR_9) / SCALAR_9
         //         = -1_000_000 * SCALAR_9
         let expected_pnl = -1_000_000 * SCALAR_9;
-        assert_eq!(pnl, expected_pnl, "Long position loss should be -1,000,000 * SCALAR_9");
+        assert_eq!(
+            pnl, expected_pnl,
+            "Long position loss should be -1,000,000 * SCALAR_9"
+        );
     }
 
     #[test]
@@ -378,7 +393,10 @@ mod tests {
         //         = (-100_000 * SCALAR_9) * (-10 * SCALAR_9) / SCALAR_9
         //         = 1_000_000 * SCALAR_9
         let expected_pnl = 1_000_000 * SCALAR_9;
-        assert_eq!(pnl, expected_pnl, "Short position profit should be 1,000,000 * SCALAR_9");
+        assert_eq!(
+            pnl, expected_pnl,
+            "Short position profit should be 1,000,000 * SCALAR_9"
+        );
     }
 
     #[test]
@@ -401,7 +419,10 @@ mod tests {
         //         = 100_000 * 110 * SCALAR_9
         //         = 11_000_000 * SCALAR_9
         let expected_value = 11_000_000 * SCALAR_9;
-        assert_eq!(value, expected_value, "Position value should be 11,000,000 * SCALAR_9");
+        assert_eq!(
+            value, expected_value,
+            "Position value should be 11,000,000 * SCALAR_9"
+        );
     }
 
     #[test]
@@ -425,6 +446,9 @@ mod tests {
         //         = (100_000 * SCALAR_9) * (110 * SCALAR_9) / SCALAR_9
         //         = 11_000_000 * SCALAR_9
         let expected_value = 11_000_000 * SCALAR_9;
-        assert_eq!(value, expected_value, "Short position value should be 11,000,000 * SCALAR_9");
+        assert_eq!(
+            value, expected_value,
+            "Short position value should be 11,000,000 * SCALAR_9"
+        );
     }
 }

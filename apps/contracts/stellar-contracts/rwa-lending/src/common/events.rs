@@ -1,4 +1,4 @@
-use soroban_sdk::{contractevent, Address, Symbol};
+use soroban_sdk::{Address, Symbol, contractevent};
 
 /// Events emitted by the lending pool contract
 #[contractevent]
@@ -54,12 +54,12 @@ pub struct LiquidationInitiatedEvent {
     pub debt_asset: Symbol,
     pub collateral_amount: i128,
     pub debt_amount: i128,
-    pub auction_id: Address,
+    pub auction_id: u32,
 }
 
 #[contractevent]
 pub struct LiquidationFilledEvent {
-    pub auction_id: Address,
+    pub auction_id: u32,
     pub liquidator: Address,
     pub collateral_received: i128,
     pub debt_paid: i128,
@@ -71,6 +71,38 @@ pub struct InterestAccruedEvent {
     pub b_token_rate: i128,
     pub d_token_rate: i128,
     pub rate_modifier: i128,
+}
+
+#[contractevent]
+pub struct BadDebtAuctionCreatedEvent {
+    pub auction_id: u32,
+    pub borrower: Address,
+    pub debt_asset: Symbol,
+    pub debt_amount: i128,
+}
+
+#[contractevent]
+pub struct BadDebtAuctionFilledEvent {
+    pub auction_id: u32,
+    pub bidder: Address,
+    pub debt_covered: i128,
+    pub backstop_tokens: i128,
+}
+
+#[contractevent]
+pub struct InterestAuctionCreatedEvent {
+    pub auction_id: u32,
+    pub asset: Symbol,
+    pub interest_amount: i128,
+}
+
+#[contractevent]
+pub struct InterestAuctionFilledEvent {
+    pub auction_id: u32,
+    pub bidder: Address,
+    pub asset: Symbol,
+    pub interest_received: i128,
+    pub backstop_paid: i128,
 }
 
 /// Helper struct for publishing events
@@ -176,7 +208,7 @@ impl Events {
         debt_asset: &Symbol,
         collateral_amount: i128,
         debt_amount: i128,
-        auction_id: &Address,
+        auction_id: u32,
     ) {
         LiquidationInitiatedEvent {
             borrower: borrower.clone(),
@@ -184,20 +216,20 @@ impl Events {
             debt_asset: debt_asset.clone(),
             collateral_amount,
             debt_amount,
-            auction_id: auction_id.clone(),
+            auction_id,
         }
         .publish(env);
     }
 
     pub fn liquidation_filled(
         env: &soroban_sdk::Env,
-        auction_id: &Address,
+        auction_id: u32,
         liquidator: &Address,
         collateral_received: i128,
         debt_paid: i128,
     ) {
         LiquidationFilledEvent {
-            auction_id: auction_id.clone(),
+            auction_id,
             liquidator: liquidator.clone(),
             collateral_received,
             debt_paid,
@@ -220,5 +252,68 @@ impl Events {
         }
         .publish(env);
     }
-}
 
+    pub fn bad_debt_auction_created(
+        env: &soroban_sdk::Env,
+        auction_id: u32,
+        borrower: &Address,
+        debt_asset: &Symbol,
+        debt_amount: i128,
+    ) {
+        BadDebtAuctionCreatedEvent {
+            auction_id,
+            borrower: borrower.clone(),
+            debt_asset: debt_asset.clone(),
+            debt_amount,
+        }
+        .publish(env);
+    }
+
+    pub fn bad_debt_auction_filled(
+        env: &soroban_sdk::Env,
+        auction_id: u32,
+        bidder: &Address,
+        debt_covered: i128,
+        backstop_tokens: i128,
+    ) {
+        BadDebtAuctionFilledEvent {
+            auction_id,
+            bidder: bidder.clone(),
+            debt_covered,
+            backstop_tokens,
+        }
+        .publish(env);
+    }
+
+    pub fn interest_auction_created(
+        env: &soroban_sdk::Env,
+        auction_id: u32,
+        asset: &Symbol,
+        interest_amount: i128,
+    ) {
+        InterestAuctionCreatedEvent {
+            auction_id,
+            asset: asset.clone(),
+            interest_amount,
+        }
+        .publish(env);
+    }
+
+    pub fn interest_auction_filled(
+        env: &soroban_sdk::Env,
+        auction_id: u32,
+        bidder: &Address,
+        asset: &Symbol,
+        interest_received: i128,
+        backstop_paid: i128,
+    ) {
+        InterestAuctionFilledEvent {
+            auction_id,
+            bidder: bidder.clone(),
+            asset: asset.clone(),
+            interest_received,
+            backstop_paid,
+        }
+        .publish(env);
+    }
+}
