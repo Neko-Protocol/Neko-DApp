@@ -14,15 +14,15 @@
 
 ## Features
 
-| Feature                 | Description                                                         |
-| ----------------------- | ------------------------------------------------------------------- |
-| **Dashboard**           | Real-time portfolio analytics and performance metrics               |
-| **Liquidity Pools**     | Manage and track NFT-based liquidity positions via SoroSwap         |
-| **Lending & Borrowing** | Participate in DeFi lending markets with RWA collateral             |
-| **Perpetual Futures**   | Trade perpetual contracts for RWA stocks                            |
-| **Token Swap**          | Seamless token exchange on Stellar (SoroSwap) and EVM (CoW/Uniswap) |
-| **RWA Oracle**          | SEP-40 compliant price feeds for Real-World Assets                  |
-| **Multi-Chain**         | Support for both Stellar (Soroban) and EVM networks                 |
+| Feature                 | Description                                                 |
+| ----------------------- | ----------------------------------------------------------- |
+| **Dashboard**           | Real-time portfolio analytics and performance metrics       |
+| **Liquidity Pools**     | Manage and track NFT-based liquidity positions via SoroSwap |
+| **Lending & Borrowing** | Participate in DeFi lending markets with RWA collateral     |
+| **Perpetual Futures**   | Trade perpetual contracts for RWA stocks                    |
+| **Token Swap**          | Seamless token exchange via CoW Swap                        |
+| **RWA Oracle**          | SEP-40 compliant price feeds for Real-World Assets          |
+| **Multi-Chain**         | Support for both Stellar (Soroban) and EVM networks         |
 
 ## Quick Start
 
@@ -228,7 +228,7 @@ neko-dapp/
 | Network     | Technologies                                            |
 | ----------- | ------------------------------------------------------- |
 | **Stellar** | @stellar/stellar-sdk, Stellar Wallets Kit, SoroSwap SDK |
-| **EVM**     | viem, wagmi, RainbowKit, CoW Swap SDK, Uniswap SDK      |
+| **EVM**     | viem, wagmi, RainbowKit, CoW Swap SDK                   |
 
 ### Smart Contracts
 
@@ -366,7 +366,7 @@ Available networks:
 
 ### DeFi Features
 
-- **Swap**: Token exchange interface using SoroSwap SDK
+- **Swap**: Token exchange interface using CoW Swap SDK
 - **Lend**: Supply assets to lending pools
 - **Borrow**: Borrow against collateral
 - **Pools**: Manage liquidity positions
