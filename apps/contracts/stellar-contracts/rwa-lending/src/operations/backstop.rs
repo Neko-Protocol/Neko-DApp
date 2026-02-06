@@ -20,7 +20,7 @@ impl Backstop {
         let token_address = storage.backstop_token
             .ok_or(Error::TokenContractNotSet)?;
         let token_client = TokenClient::new(env, &token_address);
-        token_client.transfer(depositor, &env.current_contract_address(), &amount);
+        token_client.transfer(depositor, env.current_contract_address(), &amount);
 
         // Update backstop deposit
         let mut storage = Storage::get(env);
@@ -34,13 +34,13 @@ impl Backstop {
                 queued_at: None,
             });
 
-        deposit.amount = deposit.amount + amount;
+        deposit.amount += amount;
         deposit.deposited_at = env.ledger().timestamp();
         deposit.in_withdrawal_queue = false;
         deposit.queued_at = None;
 
         storage.backstop_deposits.set(depositor.clone(), deposit);
-        storage.backstop_total = storage.backstop_total + amount;
+        storage.backstop_total += amount;
         Storage::set(env, &storage);
 
         // Update pool state based on backstop
@@ -118,7 +118,7 @@ impl Backstop {
         // For now, we'll allow withdrawal
 
         // Update deposit
-        deposit.amount = deposit.amount - amount;
+        deposit.amount -= amount;
         deposit.in_withdrawal_queue = false;
         deposit.queued_at = None;
 
@@ -128,7 +128,7 @@ impl Backstop {
             .ok_or(Error::TokenContractNotSet)?;
 
         storage.backstop_deposits.set(depositor.clone(), deposit);
-        storage.backstop_total = storage.backstop_total - amount;
+        storage.backstop_total -= amount;
         Storage::set(env, &storage);
 
         // Transfer tokens from contract to depositor

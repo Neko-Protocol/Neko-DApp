@@ -4,7 +4,7 @@ use crate::admin::Admin;
 use crate::common::error::Error;
 use crate::common::events::Events;
 use crate::common::storage::Storage;
-use crate::common::types::MIN_HEALTH_FACTOR;
+use crate::common::types::{MIN_HEALTH_FACTOR, SCALAR_12};
 use crate::operations::borrowing::Borrowing;
 use crate::operations::oracles::Oracles;
 
@@ -81,8 +81,8 @@ impl Collateral {
         // Check borrow limit after removal
         // If borrower has debt, verify they remain properly collateralized
         let cdp = Storage::get_cdp(env, borrower);
-        if let Some(cdp) = &cdp {
-            if cdp.d_tokens > 0 {
+        if let Some(cdp) = &cdp
+            && cdp.d_tokens > 0 {
                 // Calculate borrow limit with reduced collateral
                 let new_collateral = current_collateral - amount;
                 Storage::set_collateral(env, borrower, rwa_token, new_collateral);
@@ -101,7 +101,7 @@ impl Collateral {
                     let debt_amount = cdp.d_tokens
                         .checked_mul(d_token_rate)
                         .ok_or(Error::ArithmeticError)?
-                        .checked_div(1_000_000_000)
+                        .checked_div(SCALAR_12)
                         .ok_or(Error::ArithmeticError)?;
                     
                     // Get price of debt asset
@@ -124,10 +124,10 @@ impl Collateral {
                         return Err(Error::InsufficientBorrowLimit);
                     }
 
-                    // Verify health factor remains above minimum threshold after removal
+                    // Verify health factor remains above minimum threshold after removal (7 decimals)
                     // This ensures the borrower maintains a safety margin above liquidation threshold
                     let health_factor = crate::operations::liquidations::Liquidations::calculate_health_factor(env, borrower)?;
-                    if health_factor < MIN_HEALTH_FACTOR {
+                    if (health_factor as i128) < MIN_HEALTH_FACTOR {
                         return Err(Error::HealthFactorTooLow);
                     }
                 } else {
@@ -136,7 +136,6 @@ impl Collateral {
                     Storage::set_collateral(env, borrower, rwa_token, current_collateral);
                 }
             }
-        }
 
         // Update collateral balance
         Storage::set_collateral(env, borrower, rwa_token, current_collateral - amount);
