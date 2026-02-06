@@ -1,7 +1,7 @@
 <h1 align="center">RWA Token Contract</h1>
 
 <p align="center">
-  <strong>Part of the <a href="https://github.com/Neko-Protocol/Neko-DApp">Neko Protocol</a> DeFi ecosystem on Stellar</strong>
+  <strong>Part of the <a href="https://github.com/Neko-Protocol">Neko Protocol</a> DeFi ecosystem on Stellar</strong>
 </p>
 
 A regulated fungible token contract for Real-World Assets (RWAs) on Stellar Soroban. This contract implements the **SEP-41 Token Interface** with **SEP-57 (T-REX) compatibility** for regulated token transfers, freeze enforcement, and delegated compliance. It powers the tokenized stocks and RWA trading on Neko Protocol.

@@ -1,7 +1,7 @@
 <h1 align="center">RWA Oracle Contract</h1>
 
 <p align="center">
-  <strong>Part of the <a href="https://github.com/Neko-Protocol/Neko-DApp">Neko Protocol</a> DeFi ecosystem on Stellar</strong>
+  <strong>Part of the <a href="https://github.com/Neko-Protocol">Neko Protocol</a> DeFi ecosystem on Stellar</strong>
 </p>
 
 Oracle contract for Real-World Asset (RWA) metadata and price feeds on Stellar Soroban. This contract implements the **SEP-40 Oracle Consumer Interface** and extends it with comprehensive RWA metadata management, providing the price infrastructure for the Neko Protocol's lending, borrowing, and perpetual futures features.
