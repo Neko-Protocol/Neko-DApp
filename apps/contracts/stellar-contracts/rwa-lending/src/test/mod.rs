@@ -39,22 +39,23 @@ fn create_lending_contract(
         &admin,
         &rwa_oracle,
         &reflector_oracle,
-        &1_000_000_000_000, // backstop_threshold: 1000 tokens
-        &500,                // backstop_take_rate: 5%
+        &1_000_000_000_000,  // backstop_threshold: 1000 tokens
+        &500_000,            // backstop_take_rate: 5% (7 decimals)
     );
     
     client
 }
 
-// Helper: Create default interest rate params
+// Helper: Create default interest rate params (all values use 7 decimals)
 fn default_interest_params() -> InterestRateParams {
     InterestRateParams {
-        target_utilization: 7500,      // 75%
-        base_rate: 100,                 // 1%
-        slope_1: 500,                   // 5%
-        slope_2: 2000,                  // 20%
-        slope_3: 10000,                 // 100%
-        reactivity_constant: 1,         // 0.01%
+        target_util: 7_500_000,        // 75%
+        max_util: 9_500_000,           // 95%
+        r_base: 100_000,               // 1%
+        r_one: 500_000,                // 5%
+        r_two: 5_000_000,              // 50%
+        r_three: 15_000_000,           // 150%
+        reactivity: 200,               // 0.00002
     }
 }
 
@@ -89,16 +90,16 @@ fn test_double_initialization() {
         &rwa_oracle,
         &reflector_oracle,
         &1_000_000_000_000,
-        &500,
+        &500_000, // 5% (7 decimals)
     );
-    
+
     // Try to initialize again
     client.initialize(
         &admin,
         &rwa_oracle,
         &reflector_oracle,
         &1_000_000_000_000,
-        &500,
+        &500_000, // 5% (7 decimals)
     );
 }
 
@@ -148,8 +149,8 @@ fn test_collateral_factor() {
     let client = create_lending_contract(&env, admin.clone(), rwa_oracle, reflector_oracle);
     
     let rwa_token = Address::generate(&env);
-    let factor = 7500; // 75%
-    
+    let factor = 7_500_000; // 75% (7 decimals)
+
     // Set collateral factor
     client.set_collateral_factor(&rwa_token, &factor);
     
@@ -195,9 +196,9 @@ fn test_b_token_rate() {
     
     client.set_interest_rate_params(&usdc, &default_interest_params());
     
-    // Initial rate should be 1:1 (1e9)
+    // Initial rate should be 1:1 (1e12 = SCALAR_12)
     let initial_rate = client.get_b_token_rate(&usdc);
-    assert_eq!(initial_rate, 1_000_000_000);
+    assert_eq!(initial_rate, 1_000_000_000_000);
 }
 
 #[test]
@@ -214,9 +215,9 @@ fn test_d_token_rate() {
     
     client.set_interest_rate_params(&usdc, &default_interest_params());
     
-    // Initial rate should be 1:1
+    // Initial rate should be 1:1 (1e12 = SCALAR_12)
     let initial_rate = client.get_d_token_rate(&usdc);
-    assert_eq!(initial_rate, 1_000_000_000);
+    assert_eq!(initial_rate, 1_000_000_000_000);
 }
 
 #[test]
@@ -226,14 +227,163 @@ fn test_b_token_supply() {
     let admin = Address::generate(&env);
     let (_, rwa_oracle) = create_oracle(&env);
     let (_, reflector_oracle) = create_oracle(&env);
-    
+
     let client = create_lending_contract(&env, admin.clone(), rwa_oracle, reflector_oracle);
-    
+
     let usdc = symbol_short!("USDC");
-    
+
     client.set_interest_rate_params(&usdc, &default_interest_params());
-    
+
     // Initial supply should be zero
     let initial_supply = client.get_b_token_supply(&usdc);
     assert_eq!(initial_supply, 0);
+}
+
+// ========== Bad Debt Auction Tests ==========
+
+#[test]
+fn test_has_bad_debt_no_cdp() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let admin = Address::generate(&env);
+    let (_, rwa_oracle) = create_oracle(&env);
+    let (_, reflector_oracle) = create_oracle(&env);
+
+    let client = create_lending_contract(&env, admin.clone(), rwa_oracle, reflector_oracle);
+
+    // A user without CDP should not have bad debt
+    let borrower = Address::generate(&env);
+    let has_bad_debt = client.has_bad_debt(&borrower);
+    assert_eq!(has_bad_debt, false);
+}
+
+#[test]
+fn test_accumulated_interest_initial() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let admin = Address::generate(&env);
+    let (_, rwa_oracle) = create_oracle(&env);
+    let (_, reflector_oracle) = create_oracle(&env);
+
+    let client = create_lending_contract(&env, admin.clone(), rwa_oracle, reflector_oracle);
+
+    let usdc = symbol_short!("USDC");
+    client.set_interest_rate_params(&usdc, &default_interest_params());
+
+    // Initial accumulated interest should be zero
+    let accumulated = client.get_accumulated_interest(&usdc);
+    assert_eq!(accumulated, 0);
+}
+
+#[test]
+fn test_can_create_interest_auction_no_interest() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let admin = Address::generate(&env);
+    let (_, rwa_oracle) = create_oracle(&env);
+    let (_, reflector_oracle) = create_oracle(&env);
+
+    let client = create_lending_contract(&env, admin.clone(), rwa_oracle, reflector_oracle);
+
+    let usdc = symbol_short!("USDC");
+    client.set_interest_rate_params(&usdc, &default_interest_params());
+
+    // Should not be able to create auction without enough accumulated interest
+    let can_create = client.can_create_interest_auction(&usdc);
+    assert_eq!(can_create, false);
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #62)")] // AuctionNotActive
+fn test_create_interest_auction_insufficient_interest() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let admin = Address::generate(&env);
+    let (_, rwa_oracle) = create_oracle(&env);
+    let (_, reflector_oracle) = create_oracle(&env);
+
+    let client = create_lending_contract(&env, admin.clone(), rwa_oracle, reflector_oracle);
+
+    let usdc = symbol_short!("USDC");
+    client.set_interest_rate_params(&usdc, &default_interest_params());
+
+    // Try to create interest auction without enough interest - should panic
+    client.create_interest_auction(&usdc);
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #60)")] // CDPNotInsolvent
+fn test_create_bad_debt_auction_no_cdp() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let admin = Address::generate(&env);
+    let (_, rwa_oracle) = create_oracle(&env);
+    let (_, reflector_oracle) = create_oracle(&env);
+
+    let client = create_lending_contract(&env, admin.clone(), rwa_oracle, reflector_oracle);
+
+    let borrower = Address::generate(&env);
+    let usdc = symbol_short!("USDC");
+
+    // Try to create bad debt auction for user without CDP - should panic
+    client.create_bad_debt_auction(&borrower, &usdc);
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #61)")] // AuctionNotFound
+fn test_fill_bad_debt_auction_not_found() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let admin = Address::generate(&env);
+    let (_, rwa_oracle) = create_oracle(&env);
+    let (_, reflector_oracle) = create_oracle(&env);
+
+    let client = create_lending_contract(&env, admin.clone(), rwa_oracle, reflector_oracle);
+
+    let bidder = Address::generate(&env);
+
+    // Try to fill non-existent auction - should panic
+    client.fill_bad_debt_auction(&999u32, &bidder, &1000i128);
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #61)")] // AuctionNotFound
+fn test_fill_interest_auction_not_found() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let admin = Address::generate(&env);
+    let (_, rwa_oracle) = create_oracle(&env);
+    let (_, reflector_oracle) = create_oracle(&env);
+
+    let client = create_lending_contract(&env, admin.clone(), rwa_oracle, reflector_oracle);
+
+    let bidder = Address::generate(&env);
+    let usdc = symbol_short!("USDC");
+    let fill_percent = 5_000_000i128; // 50% (7 decimals)
+
+    // Try to fill non-existent auction - should panic
+    client.fill_interest_auction(&999u32, &bidder, &usdc, &fill_percent);
+}
+
+#[test]
+fn test_backstop_token_setup() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let admin = Address::generate(&env);
+    let (_, rwa_oracle) = create_oracle(&env);
+    let (_, reflector_oracle) = create_oracle(&env);
+
+    let client = create_lending_contract(&env, admin.clone(), rwa_oracle, reflector_oracle);
+
+    // Set backstop token
+    let backstop_token = Address::generate(&env);
+    client.set_backstop_token(&backstop_token);
+
+    // Set token contract for USDC
+    let usdc = symbol_short!("USDC");
+    let usdc_token = Address::generate(&env);
+    client.set_token_contract(&usdc, &usdc_token);
+
+    // Verify pool is configured correctly
+    assert_eq!(client.get_pool_state(), PoolState::OnIce);
 }
