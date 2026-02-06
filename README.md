@@ -1,18 +1,28 @@
-<img width="2940" height="770" alt="image" src="https://github.com/user-attachments/assets/c8adcc67-4f7d-453e-804a-1cf14be0e582" />
+<p align="center">
+  <img width="2940" height="770" alt="Neko DApp Banner" src="https://github.com/user-attachments/assets/c8adcc67-4f7d-453e-804a-1cf14be0e582" />
+</p>
 
-# Neko DApp
+<h1 align="center">Neko DApp</h1>
 
-A DeFi protocol built on Stellar blockchain, featuring liquidity pools, lending, borrowing, and portfolio management.
+<p align="center">
+  <strong>A multi-chain DeFi protocol for Real-World Assets on Stellar and EVM networks</strong>
+</p>
+
+<p align="center">
+  Liquidity pools • Lending & Borrowing • Perpetual Futures • RWA Tokenization • Portfolio Management
+</p>
 
 ## Features
 
-- **Dashboard**: Real-time portfolio analytics and performance metrics
-- **Liquidity Pools**: Manage and track NFT-based liquidity positions
-- **Lending & Borrowing**: Participate in DeFi lending markets
-- **Perpetual Futures**: Trade perpetual contracts for RWA stocks.
-- **Token Swap**: Seamless token exchange interface
-- **Portfolio Management**: Track your assets and returns across all positions
-- **Oracle Integration**: Real-time price feeds for RWA (Real-World Assets) tokens
+| Feature                 | Description                                                         |
+| ----------------------- | ------------------------------------------------------------------- |
+| **Dashboard**           | Real-time portfolio analytics and performance metrics               |
+| **Liquidity Pools**     | Manage and track NFT-based liquidity positions via SoroSwap         |
+| **Lending & Borrowing** | Participate in DeFi lending markets with RWA collateral             |
+| **Perpetual Futures**   | Trade perpetual contracts for RWA stocks                            |
+| **Token Swap**          | Seamless token exchange on Stellar (SoroSwap) and EVM (CoW/Uniswap) |
+| **RWA Oracle**          | SEP-40 compliant price feeds for Real-World Assets                  |
+| **Multi-Chain**         | Support for both Stellar (Soroban) and EVM networks                 |
 
 ## Quick Start
 
@@ -30,8 +40,8 @@ Before getting started, ensure you have:
 1. **Clone the repository:**
 
    ```bash
-   git clone https://github.com/Neko-Protocol/Neko-DAppV2.git
-   cd Neko-DAppV2
+   git clone https://github.com/Neko-Protocol/Neko-DApp.git
+   cd Neko-DApp
    ```
 
 2. **Install Stellar CLI** (required for generating oracle contract bindings):
@@ -116,52 +126,69 @@ This is a monorepo managed with [Turborepo](https://turbo.build/repo) and npm wo
 ```
 neko-dapp/
 ├── apps/
-│   ├── web-app/              # Next.js web application
+│   ├── web-app/                    # Next.js 16 + React 19 web application
 │   │   ├── src/
-│   │   │   ├── app/          # Next.js App Router pages
-│   │   │   │   ├── dashboard/ # Dashboard routes
-│   │   │   │   └── (marketing)/ # Marketing pages
-│   │   │   ├── features/     # Feature-based modules
-│   │   │   │   ├── borrowing/ # Borrow feature
-│   │   │   │   ├── lending/   # Lend feature
-│   │   │   │   ├── stocks/    # Oracle/Stocks feature
-│   │   │   │   ├── swap/      # Token swap feature
-│   │   │   │   ├── pools/     # Pool management
-│   │   │   │   ├── wallet/    # Wallet integration
-│   │   │   │   └── dashboard/ # Dashboard feature
-│   │   │   ├── components/    # Shared UI components
-│   │   │   │   ├── ui/        # Reusable UI components
-│   │   │   │   ├── charts/    # Chart components
-│   │   │   │   ├── layout/    # Layout components
-│   │   │   │   └── navigation/ # Navigation components
-│   │   │   ├── contracts/     # Contract utilities
-│   │   │   ├── debug/         # Debug utilities
-│   │   │   ├── lib/           # Shared utilities
-│   │   │   │   ├── helpers/   # Helper functions
-│   │   │   │   └── constants/ # Constants and config
-│   │   │   ├── hooks/         # Custom React hooks
-│   │   │   ├── providers/     # Context providers
-│   │   │   └── stores/        # Zustand stores
-│   │   └── public/            # Static assets
-│   └── contracts/             # Smart contracts
-│       ├── stellar-contracts/ # Stellar/Soroban contracts (Rust)
-│       │   ├── rwa-lending/   # RWA Lending contract
-│       │   ├── rwa-oracle/    # RWA Oracle contract
-│       │   ├── rwa-token/     # RWA Token contract
-│       │   └── rwa-perps/     # RWA Perpetuals contract
-│       └── evm-contracts/     # EVM/Solidity contracts (Foundry)
-│           └── rwa-lending/   # RWA Lending contract (EVM)
+│   │   │   ├── app/                # Next.js App Router
+│   │   │   │   ├── (marketing)/    # Marketing/landing pages
+│   │   │   │   ├── api/            # API routes
+│   │   │   │   └── dashboard/      # Dashboard routes
+│   │   │   │       ├── borrowing/
+│   │   │   │       ├── lending/
+│   │   │   │       ├── pools/
+│   │   │   │       ├── stocks/
+│   │   │   │       └── swap/
+│   │   │   ├── features/           # Feature-based modules
+│   │   │   │   ├── borrowing/      # Borrow feature
+│   │   │   │   ├── lending/        # Lend feature
+│   │   │   │   ├── stocks/         # RWA Stocks/Oracle feature
+│   │   │   │   ├── swap/           # Token swap feature
+│   │   │   │   ├── pools/          # Liquidity pool management
+│   │   │   │   ├── wallet/         # Wallet integration
+│   │   │   │   └── dashboard/      # Dashboard overview
+│   │   │   ├── components/         # Shared UI components
+│   │   │   │   ├── ui/             # Reusable UI primitives
+│   │   │   │   ├── charts/         # Chart components
+│   │   │   │   ├── layout/         # Layout components
+│   │   │   │   └── navigation/     # Navigation components
+│   │   │   ├── contracts/          # Contract interaction utilities
+│   │   │   ├── debug/              # Debug utilities
+│   │   │   ├── hooks/              # Custom React hooks
+│   │   │   ├── lib/                # Shared utilities
+│   │   │   │   ├── config/         # App configuration
+│   │   │   │   ├── constants/      # Constants and generated types
+│   │   │   │   ├── helpers/        # Helper functions
+│   │   │   │   ├── services/       # External service integrations
+│   │   │   │   └── types/          # TypeScript type definitions
+│   │   │   ├── providers/          # Context providers
+│   │   │   │   ├── WalletProvider  # Multi-chain wallet support
+│   │   │   │   └── NotificationProvider
+│   │   │   └── stores/             # Zustand state stores
+│   │   │       ├── user.store.ts
+│   │   │       ├── wallet.store.ts
+│   │   │       └── session.store.ts
+│   │   └── public/                 # Static assets
+│   │
+│   └── contracts/                  # Smart contracts
+│       ├── stellar-contracts/      # Stellar/Soroban contracts (Rust)
+│       │   ├── rwa-oracle/         # SEP-40 Oracle for RWA price feeds
+│       │   ├── rwa-token/          # RWA Token with oracle integration
+│       │   ├── rwa-lending/        # Lending protocol (Blend-based)
+│       │   └── rwa-perps/          # Perpetual futures (in development)
+│       └── evm-contracts/          # EVM/Solidity contracts (Foundry)
+│           └── rwa-lending/        # RWA Lending with Pyth oracle
+│
 ├── packages/
-│   ├── config/                # Shared configuration
-│   │   ├── eslint.config.mjs  # ESLint config
-│   │   ├── tailwind.config.ts # Tailwind config
-│   │   ├── postcss.config.mjs # PostCSS config
-│   │   └── tsconfig.json      # TypeScript config
-│   └── contracts/             # Contract client packages
-│       ├── oracle/            # Oracle contract client (@neko/oracle)
-│       └── lending/           # Lending contract client (@neko/lending)
-├── turbo.json                 # Turborepo configuration
-└── package.json               # Root package.json
+│   ├── config/                     # Shared configuration
+│   │   ├── eslint.config.mjs
+│   │   ├── tailwind.config.ts
+│   │   ├── postcss.config.mjs
+│   │   └── tsconfig.json
+│   └── contracts/                  # TypeScript contract clients
+│       ├── oracle/                 # @neko/oracle
+│       └── lending/                # @neko/lending
+│
+├── turbo.json                      # Turborepo configuration
+└── package.json                    # Root package.json (npm workspaces)
 ```
 
 ## Available Scripts
@@ -186,42 +213,91 @@ neko-dapp/
 
 ### Frontend
 
-- **Framework**: Next.js 16 with React 19
-- **Build Tool**: Turbopack (Next.js built-in)
-- **Routing**: Next.js App Router
-- **Styling**: Tailwind CSS 4 + Stellar Design System
-- **State Management**: Zustand
-- **Data Fetching**: React Query (TanStack Query)
-- **Charts**: Chart.js with react-chartjs-2, Recharts
-- **UI Components**: Material-UI, Stellar Design System
+| Technology          | Version  | Description                     |
+| ------------------- | -------- | ------------------------------- |
+| Next.js             | 16.1     | React framework with App Router |
+| React               | 19.2     | UI library                      |
+| Turbopack           | Built-in | Fast bundler for development    |
+| Tailwind CSS        | 4.x      | Utility-first CSS framework     |
+| Zustand             | -        | Lightweight state management    |
+| TanStack Query      | -        | Server state management         |
+| Chart.js / Recharts | -        | Data visualization              |
 
-### Blockchain
+### Blockchain Integration
 
-- **Stellar Network**: @stellar/stellar-sdk, Stellar Wallets Kit
-- **EVM Network**: viem, wagmi, RainbowKit
-- **Stellar Contracts**: Rust with Soroban
-- **EVM Contracts**: Solidity with Foundry
-- **Contract Clients**: TypeScript bindings for contracts
+| Network     | Technologies                                            |
+| ----------- | ------------------------------------------------------- |
+| **Stellar** | @stellar/stellar-sdk, Stellar Wallets Kit, SoroSwap SDK |
+| **EVM**     | viem, wagmi, RainbowKit, CoW Swap SDK, Uniswap SDK      |
+
+### Smart Contracts
+
+| Platform            | Language | Framework        | Standards      |
+| ------------------- | -------- | ---------------- | -------------- |
+| **Stellar/Soroban** | Rust     | Soroban SDK 23.x | SEP-40, SEP-41 |
+| **EVM**             | Solidity | Foundry          | Pyth Oracle    |
 
 ### Monorepo
 
 - **Build System**: Turborepo
-- **Package Manager**: npm workspaces
-- **Code Quality**: ESLint, Prettier, Husky
+- **Package Manager**: npm workspaces (v10.2.3+)
+- **Code Quality**: ESLint 9, Prettier 3, Husky 9
 
 ## Architecture
 
-The project follows a feature-based architecture:
+### Smart Contract Architecture
 
-- **Features**: Self-contained modules for each major feature (lending, borrowing, stocks, etc.)
-- **Components**: Shared UI components used across features
-- **Lib**: Shared utilities, helpers, and constants
-- **Hooks**: Reusable React hooks
-- **Providers**: Context providers for global state
+The Stellar contracts follow a layered dependency structure:
 
-Each feature contains:
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                      Neko Protocol                              │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│   ┌──────────────┐    prices    ┌──────────────┐               │
+│   │  RWA Oracle  │─────────────▶│  RWA Token   │               │
+│   │   (SEP-40)   │              │   (SEP-41)   │               │
+│   └──────┬───────┘              └──────┬───────┘               │
+│          │                             │                        │
+│          │ prices + metadata           │ collateral             │
+│          │                             │                        │
+│          ▼                             ▼                        │
+│   ┌──────────────┐              ┌──────────────┐               │
+│   │  RWA Perps   │              │ RWA Lending  │               │
+│   │  (Futures)   │              │  (Borrow)    │               │
+│   └──────────────┘              └──────────────┘               │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
 
-- `components/` - Feature-specific components
+**Contract Dependencies:**
+
+- `rwa-token` → imports `rwa-oracle` WASM
+- `rwa-lending` → depends on both `rwa-oracle` and `rwa-token`
+- `rwa-perps` → uses `rwa-oracle` for mark prices
+
+### Frontend Architecture
+
+The frontend follows a **feature-based architecture**:
+
+```
+Feature Components → Feature Hooks → Services/Helpers → Contract Clients (@neko/*) → Smart Contracts
+```
+
+**State Management:**
+
+- **Global state**: Zustand stores (user, wallet, session)
+- **Server state**: TanStack Query for async data
+
+**Provider Chain:**
+
+```
+QueryClientProvider → WagmiProvider → RainbowKitProvider → WalletProvider → NotificationProvider
+```
+
+Each feature module contains:
+
+- `components/` - Feature-specific React components
 - `hooks/` - Feature-specific hooks
 - `utils/` - Feature-specific utilities
 
@@ -352,4 +428,10 @@ This project is licensed under the MIT License.
 
 ## Support
 
-For questions and support, please open an issue on GitHub or reach out to the team.
+For questions and support, please open an issue on [GitHub](https://github.com/Neko-Protocol/Neko-DApp/issues).
+
+---
+
+<p align="center">
+  Built with ❤️ by the <a href="https://github.com/Neko-Protocol">Neko Protocol</a> team
+</p>
