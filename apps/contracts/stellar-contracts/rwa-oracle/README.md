@@ -1,4 +1,4 @@
-# RWA Oracle Contract
+<h1 align="center">RWA Oracle Contract</h1>
 
 <p align="center">
   <strong>Part of the <a href="https://github.com/Neko-Protocol/Neko-DApp">Neko Protocol</a> DeFi ecosystem on Stellar</strong>
