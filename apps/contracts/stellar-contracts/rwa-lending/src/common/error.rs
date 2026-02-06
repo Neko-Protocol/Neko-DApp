@@ -53,6 +53,7 @@ pub enum Error {
     InvalidLiquidationAmount = 64,
     HealthFactorTooHigh = 65,
     HealthFactorTooLow = 66,
+    InvalidFillPercent = 67,
 
     // Backstop errors
     InsufficientBackstopDeposit = 70,
