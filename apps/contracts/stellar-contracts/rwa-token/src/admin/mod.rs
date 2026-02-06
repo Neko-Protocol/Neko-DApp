@@ -1,6 +1,6 @@
 pub mod supply;
 
-use soroban_sdk::{assert_with_error, panic_with_error, Address, BytesN, Env, String, Symbol};
+use soroban_sdk::{Address, BytesN, Env, String, Symbol, assert_with_error, panic_with_error};
 
 use crate::common::error::Error;
 use crate::common::events::Events;

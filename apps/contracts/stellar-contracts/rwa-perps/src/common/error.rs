@@ -46,10 +46,10 @@ pub enum Error {
     FundingCalculationError = 71,
 
     // Margin management errors
-    MarginRatioBelowMaintenance = 72,  // Margin removal would violate maintenance requirement
-    MarginTokenNotSet = 73,            // Margin token not configured
+    MarginRatioBelowMaintenance = 72, // Margin removal would violate maintenance requirement
+    MarginTokenNotSet = 73,           // Margin token not configured
 
     // Position validation errors
-    ExceedsMaxLeverage = 80,           // Leverage exceeds market maximum
-    InsufficientInitialMargin = 81,    // Margin below initial requirement
+    ExceedsMaxLeverage = 80,        // Leverage exceeds market maximum
+    InsufficientInitialMargin = 81, // Margin below initial requirement
 }

@@ -35,8 +35,7 @@ impl BadDebt {
         debt_asset: &Symbol,
     ) -> Result<u32, Error> {
         // Get CDP
-        let cdp = Storage::get_cdp(env, borrower)
-            .ok_or(Error::CDPNotInsolvent)?;
+        let cdp = Storage::get_cdp(env, borrower).ok_or(Error::CDPNotInsolvent)?;
 
         // Verify this is bad debt (has debt but no collateral)
         if cdp.d_tokens == 0 {
@@ -44,7 +43,8 @@ impl BadDebt {
         }
 
         // Check that collateral is zero or negligible
-        let all_collateral = crate::operations::collateral::Collateral::get_all_collateral(env, borrower);
+        let all_collateral =
+            crate::operations::collateral::Collateral::get_all_collateral(env, borrower);
         let mut total_collateral = 0i128;
         for key in all_collateral.keys() {
             total_collateral += all_collateral.get(key).unwrap_or(0);
@@ -57,7 +57,8 @@ impl BadDebt {
 
         // Calculate debt amount (using SCALAR_12 for dToken rate)
         let d_token_rate = Storage::get_d_token_rate(env, debt_asset);
-        let debt_amount = cdp.d_tokens
+        let debt_amount = cdp
+            .d_tokens
             .checked_mul(d_token_rate)
             .ok_or(Error::ArithmeticError)?
             .checked_div(SCALAR_12)
@@ -70,8 +71,8 @@ impl BadDebt {
         let auction_data = AuctionData {
             auction_type: AuctionType::BadDebt,
             user: borrower.clone(),
-            bid: soroban_sdk::Map::new(env),    // What bidder pays (backstop tokens)
-            lot: soroban_sdk::Map::new(env),     // What bidder receives (nothing for bad debt)
+            bid: soroban_sdk::Map::new(env), // What bidder pays (backstop tokens)
+            lot: soroban_sdk::Map::new(env), // What bidder receives (nothing for bad debt)
             block: env.ledger().sequence(),
         };
 
@@ -150,8 +151,7 @@ impl BadDebt {
             .ok_or(Error::ArithmeticError)?;
 
         // Get CDP and update debt
-        let mut cdp = Storage::get_cdp(env, &auction.user)
-            .ok_or(Error::CDPNotInsolvent)?;
+        let mut cdp = Storage::get_cdp(env, &auction.user).ok_or(Error::CDPNotInsolvent)?;
 
         // Clone debt_asset to avoid borrow conflict
         let debt_asset = cdp.debt_asset.clone();
@@ -248,7 +248,8 @@ impl BadDebt {
         }
 
         // Check total collateral value
-        let all_collateral = crate::operations::collateral::Collateral::get_all_collateral(env, borrower);
+        let all_collateral =
+            crate::operations::collateral::Collateral::get_all_collateral(env, borrower);
         for key in all_collateral.keys() {
             if all_collateral.get(key).unwrap_or(0) > 0 {
                 return false;

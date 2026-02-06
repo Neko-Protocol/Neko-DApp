@@ -1,5 +1,5 @@
 use soroban_sdk::{
-    contract, contractimpl, Address, BytesN, Env, MuxedAddress, String, Symbol, panic_with_error,
+    Address, BytesN, Env, MuxedAddress, String, Symbol, contract, contractimpl, panic_with_error,
 };
 
 use crate::admin::Admin;
@@ -27,7 +27,15 @@ impl RWATokenContract {
         symbol: String,
         decimals: u32,
     ) {
-        Admin::initialize(&env, &admin, &asset_contract, &pegged_asset, &name, &symbol, decimals);
+        Admin::initialize(
+            &env,
+            &admin,
+            &asset_contract,
+            &pegged_asset,
+            &name,
+            &symbol,
+            decimals,
+        );
     }
 
     // ==================== Admin ====================
@@ -168,13 +176,7 @@ impl TokenInterface for RWATokenContract {
         TokenInterfaceImpl::allowance(&env, &from, &spender)
     }
 
-    fn approve(
-        env: Env,
-        from: Address,
-        spender: Address,
-        amount: i128,
-        live_until_ledger: u32,
-    ) {
+    fn approve(env: Env, from: Address, spender: Address, amount: i128, live_until_ledger: u32) {
         TokenInterfaceImpl::approve(&env, &from, &spender, amount, live_until_ledger);
     }
 

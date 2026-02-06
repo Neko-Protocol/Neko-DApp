@@ -1,10 +1,10 @@
-use soroban_sdk::{Address, Env, Vec};
 use soroban_sdk::token::TokenClient;
+use soroban_sdk::{Address, Env, Vec};
 
 use crate::common::error::Error;
 use crate::common::events::Events;
 use crate::common::storage::Storage;
-use crate::common::types::{Position, BASIS_POINTS, SCALAR_9};
+use crate::common::types::{BASIS_POINTS, Position, SCALAR_9};
 use crate::operations::liquidation::Liquidations;
 
 /// Position management functions for RWA Perpetuals
@@ -76,9 +76,8 @@ impl Positions {
         }
 
         // 4. Get and validate market config
-        let market = Storage::get_market_config(env, rwa_token)
-            .ok_or(Error::MarketNotFound)?;
-        
+        let market = Storage::get_market_config(env, rwa_token).ok_or(Error::MarketNotFound)?;
+
         if !market.is_active {
             return Err(Error::MarketInactive);
         }
@@ -96,8 +95,8 @@ impl Positions {
         // let asset = Asset::Other(asset_symbol);
         // let price_data = oracle_client.lastprice(&asset)?;
         // let current_price = price_data.price;
-        let current_price = Storage::get_current_price(env, rwa_token)
-            .ok_or(Error::OraclePriceNotFound)?;
+        let current_price =
+            Storage::get_current_price(env, rwa_token).ok_or(Error::OraclePriceNotFound)?;
 
         // 6. Calculate position value
         let abs_size = if size < 0 {
@@ -105,7 +104,7 @@ impl Positions {
         } else {
             size
         };
-        
+
         let position_value = abs_size
             .checked_mul(current_price)
             .ok_or(Error::ArithmeticError)?
@@ -129,8 +128,7 @@ impl Positions {
         }
 
         // 9. Transfer margin from trader to contract
-        let margin_token = Storage::get_margin_token(env)
-            .ok_or(Error::MarginTokenNotSet)?;
+        let margin_token = Storage::get_margin_token(env).ok_or(Error::MarginTokenNotSet)?;
         let token_client = TokenClient::new(env, &margin_token);
         let contract_address = env.current_contract_address();
         token_client.transfer(trader, &contract_address, &margin);
@@ -146,14 +144,22 @@ impl Positions {
             opened_at: env.ledger().timestamp(),
             last_funding_payment: 0,
         };
-        
+
         Storage::set_position(env, trader, rwa_token, &position);
 
         // 11. Add rwa_token to trader's token list
         Storage::add_trader_token(env, trader, rwa_token);
 
         // 12. Emit position_opened event
-        Events::position_opened(env, trader, rwa_token, size, current_price, margin, leverage);
+        Events::position_opened(
+            env,
+            trader,
+            rwa_token,
+            size,
+            current_price,
+            margin,
+            leverage,
+        );
 
         Ok(())
     }
@@ -202,8 +208,8 @@ impl Positions {
         }
 
         // 4. Get position
-        let position = Storage::get_position(env, trader, rwa_token)
-            .ok_or(Error::PositionNotFound)?;
+        let position =
+            Storage::get_position(env, trader, rwa_token).ok_or(Error::PositionNotFound)?;
 
         // 5. Validate size_to_close
         let abs_position_size = if position.size < 0 {
@@ -217,58 +223,59 @@ impl Positions {
         }
 
         // 6. Get current price from oracle
-        // TODO: Migration to SEP-40 Oracle Client. 
+        // TODO: Migration to SEP-40 Oracle Client.
         // Current implementation uses storage-cached prices to match margin.rs pattern.
         // Integration should target the `lastprice` method from the RWA Oracle contract.
-        let current_price = Storage::get_current_price(env, rwa_token)
-            .ok_or(Error::OraclePriceNotFound)?;
+        let current_price =
+            Storage::get_current_price(env, rwa_token).ok_or(Error::OraclePriceNotFound)?;
 
         // 7. Calculate P&L and payout
         let total_pnl = Liquidations::calculate_unrealized_pnl(&position, current_price)?;
-        
+
         // Determine if this is a full or partial close
         let is_full_close = size_to_close == abs_position_size;
-        
+
         let (pnl_for_close, margin_to_return, payout) = if is_full_close {
             // Full close: return all remaining margin + total P&L
             // This avoids dust from rounding errors
-            let payout_amount = position.margin
+            let payout_amount = position
+                .margin
                 .checked_add(total_pnl)
                 .ok_or(Error::ArithmeticError)?
                 .max(0); // Prevent negative payouts
-            
+
             (total_pnl, position.margin, payout_amount)
         } else {
             // Partial close: prorate margin and P&L
             // IMPORTANT: Multiply first, then divide to preserve precision
-            
+
             // Prorate P&L: pnl_for_close = (total_pnl * size_to_close) / abs(position.size)
             let pnl_partial = total_pnl
                 .checked_mul(size_to_close)
                 .ok_or(Error::ArithmeticError)?
                 .checked_div(abs_position_size)
                 .ok_or(Error::DivisionByZero)?;
-            
+
             // Prorate margin: margin_to_return = (position.margin * size_to_close) / abs(position.size)
-            let margin_partial = position.margin
+            let margin_partial = position
+                .margin
                 .checked_mul(size_to_close)
                 .ok_or(Error::ArithmeticError)?
                 .checked_div(abs_position_size)
                 .ok_or(Error::DivisionByZero)?;
-            
+
             // Calculate payout: margin + P&L (capped at 0 if negative)
             let payout_amount = margin_partial
                 .checked_add(pnl_partial)
                 .ok_or(Error::ArithmeticError)?
                 .max(0); // Prevent negative payouts
-            
+
             (pnl_partial, margin_partial, payout_amount)
         };
 
         // 8. Transfer payout to trader (only if > 0)
         if payout > 0 {
-            let margin_token = Storage::get_margin_token(env)
-                .ok_or(Error::MarginTokenNotSet)?;
+            let margin_token = Storage::get_margin_token(env).ok_or(Error::MarginTokenNotSet)?;
             let token_client = TokenClient::new(env, &margin_token);
             let contract_address = env.current_contract_address();
             token_client.transfer(&contract_address, trader, &payout);
@@ -282,7 +289,8 @@ impl Positions {
             0
         } else {
             // Partial close: update position
-            let remaining_margin = position.margin
+            let remaining_margin = position
+                .margin
                 .checked_sub(margin_to_return)
                 .ok_or(Error::ArithmeticError)?;
 
@@ -293,7 +301,9 @@ impl Positions {
 
             // Apply sign based on original position direction (long/short)
             let new_size = if position.size < 0 {
-                remaining_abs_size.checked_neg().ok_or(Error::ArithmeticError)?
+                remaining_abs_size
+                    .checked_neg()
+                    .ok_or(Error::ArithmeticError)?
             } else {
                 remaining_abs_size
             };
@@ -339,8 +349,8 @@ impl Positions {
         trader: &Address,
         rwa_token: &Address,
     ) -> Result<Position, Error> {
-        let position = Storage::get_position(env, trader, rwa_token)
-            .ok_or(Error::PositionNotFound)?;
+        let position =
+            Storage::get_position(env, trader, rwa_token).ok_or(Error::PositionNotFound)?;
 
         // Emit position_queried event
         Events::position_queried(env, trader, rwa_token, position.size, position.margin);
@@ -358,10 +368,7 @@ impl Positions {
     ///
     /// # Returns
     /// * `Vec<Position>` - Vector of all positions (empty if trader has no positions)
-    pub fn get_user_positions(
-        env: &Env,
-        trader: &Address,
-    ) -> Vec<Position> {
+    pub fn get_user_positions(env: &Env, trader: &Address) -> Vec<Position> {
         let mut positions = Vec::new(env);
 
         // Get all rwa_tokens for trader

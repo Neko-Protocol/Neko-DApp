@@ -2,11 +2,9 @@
 extern crate std;
 
 use crate::common::types::{InterestRateParams, PoolState};
-use crate::{LendingContract, LendingContractClient};
 use crate::rwa_oracle;
-use soroban_sdk::{
-    symbol_short, testutils::Address as _, Address, Env, Symbol, vec,
-};
+use crate::{LendingContract, LendingContractClient};
+use soroban_sdk::{Address, Env, Symbol, symbol_short, testutils::Address as _, vec};
 
 // Helper: Create a test oracle contract
 fn create_oracle(e: &Env) -> (rwa_oracle::Client<'_>, Address) {
@@ -14,14 +12,20 @@ fn create_oracle(e: &Env) -> (rwa_oracle::Client<'_>, Address) {
     let asset_usdc = rwa_oracle::Asset::Other(Symbol::new(e, "USDC"));
     let assets = vec![e, asset_nvda.clone(), asset_usdc.clone()];
     let admin = Address::generate(e);
-    
+
     let contract_address = e.register(
         rwa_oracle::WASM,
-        (admin.clone(), assets.clone(), asset_usdc.clone(), 14u32, 300u32),
+        (
+            admin.clone(),
+            assets.clone(),
+            asset_usdc.clone(),
+            14u32,
+            300u32,
+        ),
     );
-    
+
     let client = rwa_oracle::Client::new(e, &contract_address);
-    
+
     (client, contract_address)
 }
 
@@ -34,28 +38,28 @@ fn create_lending_contract(
 ) -> LendingContractClient<'_> {
     let contract_id = e.register(LendingContract, ());
     let client = LendingContractClient::new(e, &contract_id);
-    
+
     client.initialize(
         &admin,
         &rwa_oracle,
         &reflector_oracle,
-        &1_000_000_000_000,  // backstop_threshold: 1000 tokens
-        &500_000,            // backstop_take_rate: 5% (7 decimals)
+        &1_000_000_000_000, // backstop_threshold: 1000 tokens
+        &500_000,           // backstop_take_rate: 5% (7 decimals)
     );
-    
+
     client
 }
 
 // Helper: Create default interest rate params (all values use 7 decimals)
 fn default_interest_params() -> InterestRateParams {
     InterestRateParams {
-        target_util: 7_500_000,        // 75%
-        max_util: 9_500_000,           // 95%
-        r_base: 100_000,               // 1%
-        r_one: 500_000,                // 5%
-        r_two: 5_000_000,              // 50%
-        r_three: 15_000_000,           // 150%
-        reactivity: 200,               // 0.00002
+        target_util: 7_500_000, // 75%
+        max_util: 9_500_000,    // 95%
+        r_base: 100_000,        // 1%
+        r_one: 500_000,         // 5%
+        r_two: 5_000_000,       // 50%
+        r_three: 15_000_000,    // 150%
+        reactivity: 200,        // 0.00002
     }
 }
 
@@ -65,9 +69,9 @@ fn test_initialization() {
     let admin = Address::generate(&env);
     let (_, rwa_oracle) = create_oracle(&env);
     let (_, reflector_oracle) = create_oracle(&env);
-    
+
     let client = create_lending_contract(&env, admin.clone(), rwa_oracle, reflector_oracle);
-    
+
     // Check pool state (should be OnIce initially)
     let state = client.get_pool_state();
     assert_eq!(state, PoolState::OnIce);
@@ -81,10 +85,10 @@ fn test_double_initialization() {
     let admin = Address::generate(&env);
     let (_, rwa_oracle) = create_oracle(&env);
     let (_, reflector_oracle) = create_oracle(&env);
-    
+
     let contract_id = env.register(LendingContract, ());
     let client = LendingContractClient::new(&env, &contract_id);
-    
+
     client.initialize(
         &admin,
         &rwa_oracle,
@@ -110,12 +114,12 @@ fn test_set_interest_rate_params() {
     let admin = Address::generate(&env);
     let (_, rwa_oracle) = create_oracle(&env);
     let (_, reflector_oracle) = create_oracle(&env);
-    
+
     let client = create_lending_contract(&env, admin.clone(), rwa_oracle, reflector_oracle);
-    
+
     let usdc = symbol_short!("USDC");
     let params = default_interest_params();
-    
+
     client.set_interest_rate_params(&usdc, &params);
 }
 
@@ -126,13 +130,13 @@ fn test_set_pool_state() {
     let admin = Address::generate(&env);
     let (_, rwa_oracle) = create_oracle(&env);
     let (_, reflector_oracle) = create_oracle(&env);
-    
+
     let client = create_lending_contract(&env, admin.clone(), rwa_oracle, reflector_oracle);
-    
+
     // Change to Active
     client.set_pool_state(&PoolState::Active);
     assert_eq!(client.get_pool_state(), PoolState::Active);
-    
+
     // Change to Frozen
     client.set_pool_state(&PoolState::Frozen);
     assert_eq!(client.get_pool_state(), PoolState::Frozen);
@@ -145,15 +149,15 @@ fn test_collateral_factor() {
     let admin = Address::generate(&env);
     let (_, rwa_oracle) = create_oracle(&env);
     let (_, reflector_oracle) = create_oracle(&env);
-    
+
     let client = create_lending_contract(&env, admin.clone(), rwa_oracle, reflector_oracle);
-    
+
     let rwa_token = Address::generate(&env);
     let factor = 7_500_000; // 75% (7 decimals)
 
     // Set collateral factor
     client.set_collateral_factor(&rwa_token, &factor);
-    
+
     // Get collateral factor
     let retrieved_factor = client.get_collateral_factor(&rwa_token);
     assert_eq!(retrieved_factor, factor);
@@ -166,16 +170,16 @@ fn test_pool_balance() {
     let admin = Address::generate(&env);
     let (_, rwa_oracle) = create_oracle(&env);
     let (_, reflector_oracle) = create_oracle(&env);
-    
+
     let client = create_lending_contract(&env, admin.clone(), rwa_oracle, reflector_oracle);
-    
+
     // Set pool to Active
     client.set_pool_state(&PoolState::Active);
-    
+
     let usdc = symbol_short!("USDC");
-    
+
     client.set_interest_rate_params(&usdc, &default_interest_params());
-    
+
     // Note: In a real test, you'd need to create token contracts and transfer tokens
     // For now, we just test that the function exists and pool balance is accessible
     let pool_balance = client.get_pool_balance(&usdc);
@@ -189,13 +193,13 @@ fn test_b_token_rate() {
     let admin = Address::generate(&env);
     let (_, rwa_oracle) = create_oracle(&env);
     let (_, reflector_oracle) = create_oracle(&env);
-    
+
     let client = create_lending_contract(&env, admin.clone(), rwa_oracle, reflector_oracle);
-    
+
     let usdc = symbol_short!("USDC");
-    
+
     client.set_interest_rate_params(&usdc, &default_interest_params());
-    
+
     // Initial rate should be 1:1 (1e12 = SCALAR_12)
     let initial_rate = client.get_b_token_rate(&usdc);
     assert_eq!(initial_rate, 1_000_000_000_000);
@@ -208,13 +212,13 @@ fn test_d_token_rate() {
     let admin = Address::generate(&env);
     let (_, rwa_oracle) = create_oracle(&env);
     let (_, reflector_oracle) = create_oracle(&env);
-    
+
     let client = create_lending_contract(&env, admin.clone(), rwa_oracle, reflector_oracle);
-    
+
     let usdc = symbol_short!("USDC");
-    
+
     client.set_interest_rate_params(&usdc, &default_interest_params());
-    
+
     // Initial rate should be 1:1 (1e12 = SCALAR_12)
     let initial_rate = client.get_d_token_rate(&usdc);
     assert_eq!(initial_rate, 1_000_000_000_000);

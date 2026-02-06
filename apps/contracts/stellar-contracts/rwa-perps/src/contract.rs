@@ -1,10 +1,10 @@
-use soroban_sdk::{contract, contractimpl, Address, BytesN, Env, Vec};
+use soroban_sdk::{Address, BytesN, Env, Vec, contract, contractimpl};
 
 use crate::admin::Admin;
 use crate::common::error::Error;
 use crate::common::types::{MarketConfig, Position};
-use crate::operations::liquidation::Liquidations;
 use crate::operations::funding::Funding;
+use crate::operations::liquidation::Liquidations;
 use crate::operations::margin::Margins;
 use crate::operations::positions::Positions;
 
@@ -23,7 +23,13 @@ impl RWAPerpsContract {
         protocol_fee_rate: u32,
         liquidation_fee_rate: u32,
     ) {
-        Admin::initialize(&env, &admin, &oracle, protocol_fee_rate, liquidation_fee_rate);
+        Admin::initialize(
+            &env,
+            &admin,
+            &oracle,
+            protocol_fee_rate,
+            liquidation_fee_rate,
+        );
     }
 
     // ========== Admin Functions ==========
@@ -81,11 +87,7 @@ impl RWAPerpsContract {
     // ========== Liquidation Functions ==========
 
     /// Check if a position is liquidatable
-    pub fn check_liquidation(
-        env: Env,
-        trader: Address,
-        rwa_token: Address,
-    ) -> Result<bool, Error> {
+    pub fn check_liquidation(env: Env, trader: Address, rwa_token: Address) -> Result<bool, Error> {
         Liquidations::check_liquidation(&env, &trader, &rwa_token)
     }
 
@@ -111,28 +113,17 @@ impl RWAPerpsContract {
     // ========== Funding Functions ==========
 
     /// Update funding rate for a market (admin only)
-    pub fn update_funding_rate(
-        env: Env,
-        rwa_token: Address,
-        new_rate: i128,
-    ) -> Result<(), Error> {
+    pub fn update_funding_rate(env: Env, rwa_token: Address, new_rate: i128) -> Result<(), Error> {
         Funding::update_funding_rate(&env, &rwa_token, new_rate)
     }
 
     /// Accrue funding for a position
-    pub fn accrue_funding(
-        env: Env,
-        trader: Address,
-        rwa_token: Address,
-    ) -> Result<i128, Error> {
+    pub fn accrue_funding(env: Env, trader: Address, rwa_token: Address) -> Result<i128, Error> {
         Funding::accrue_funding(&env, &trader, &rwa_token)
     }
 
     /// Get current funding rate for a market
-    pub fn get_funding_rate(
-        env: Env,
-        rwa_token: Address,
-    ) -> Result<i128, Error> {
+    pub fn get_funding_rate(env: Env, rwa_token: Address) -> Result<i128, Error> {
         Funding::get_funding_rate(&env, &rwa_token)
     }
 
@@ -201,19 +192,12 @@ impl RWAPerpsContract {
     }
 
     /// Get a specific position for a trader
-    pub fn get_position(
-        env: Env,
-        trader: Address,
-        rwa_token: Address,
-    ) -> Result<Position, Error> {
+    pub fn get_position(env: Env, trader: Address, rwa_token: Address) -> Result<Position, Error> {
         Positions::get_position(&env, &trader, &rwa_token)
     }
 
     /// Get all positions for a trader
-    pub fn get_user_positions(
-        env: Env,
-        trader: Address,
-    ) -> Vec<Position> {
+    pub fn get_user_positions(env: Env, trader: Address) -> Vec<Position> {
         Positions::get_user_positions(&env, &trader)
     }
 }

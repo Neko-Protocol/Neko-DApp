@@ -1,4 +1,4 @@
-use soroban_sdk::{panic_with_error, Address, Env, IntoVal, symbol_short, vec};
+use soroban_sdk::{Address, Env, IntoVal, panic_with_error, symbol_short, vec};
 
 use crate::common::error::Error;
 use crate::common::types::{COMPLIANCE_KEY, IDENTITY_KEY};
@@ -27,7 +27,9 @@ impl Compliance {
 
     /// Set the identity verifier contract address
     pub fn set_identity_verifier(env: &Env, identity_verifier: &Address) {
-        env.storage().instance().set(&IDENTITY_KEY, identity_verifier);
+        env.storage()
+            .instance()
+            .set(&IDENTITY_KEY, identity_verifier);
     }
 
     // ==================== Transfer Check ====================

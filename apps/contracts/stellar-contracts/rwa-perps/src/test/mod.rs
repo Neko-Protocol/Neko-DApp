@@ -4,7 +4,7 @@ extern crate std;
 use crate::common::storage::Storage;
 use crate::common::types::{MarketConfig, Position, SCALAR_9};
 use crate::{RWAPerpsContract, RWAPerpsContractClient};
-use soroban_sdk::{testutils::Address as _, token, Address, Env};
+use soroban_sdk::{Address, Env, testutils::Address as _, token};
 
 // ========== Test Helpers ==========
 
@@ -16,18 +16,12 @@ fn create_oracle(env: &Env) -> Address {
 }
 
 /// Create and initialize the perps contract
-fn create_perps_contract(
-    env: &Env,
-    admin: Address,
-    oracle: Address,
-) -> RWAPerpsContractClient<'_> {
+fn create_perps_contract(env: &Env, admin: Address, oracle: Address) -> RWAPerpsContractClient<'_> {
     let contract_id = env.register(RWAPerpsContract, ());
     let client = RWAPerpsContractClient::new(env, &contract_id);
 
     client.initialize(
-        &admin,
-        &oracle,
-        &10,  // protocol_fee_rate: 0.1%
+        &admin, &oracle, &10,  // protocol_fee_rate: 0.1%
         &500, // liquidation_fee_rate: 5%
     );
 
@@ -49,14 +43,22 @@ fn default_market_config(_env: &Env, rwa_token: Address) -> MarketConfig {
 
 /// Create a mock margin token contract
 fn create_margin_token(env: &Env, admin: &Address) -> Address {
-    let token_address = env.register_stellar_asset_contract_v2(admin.clone()).address();
+    let token_address = env
+        .register_stellar_asset_contract_v2(admin.clone())
+        .address();
     let token_client = token::StellarAssetClient::new(env, &token_address);
     token_client.mint(&admin.clone(), &(1_000_000_000 * SCALAR_9)); // Mint 1B tokens to admin
     token_address
 }
 
 /// Give tokens to a trader for testing
-fn give_tokens_to_trader(env: &Env, token: &Address, _admin: &Address, trader: &Address, amount: i128) {
+fn give_tokens_to_trader(
+    env: &Env,
+    token: &Address,
+    _admin: &Address,
+    trader: &Address,
+    amount: i128,
+) {
     let token_client = token::StellarAssetClient::new(env, token);
     token_client.mint(&trader.clone(), &amount);
 }
@@ -97,12 +99,7 @@ fn test_set_position(
 }
 
 /// Helper to set current price in storage from tests (wraps in contract context)
-fn test_set_price(
-    env: &Env,
-    contract_address: &Address,
-    rwa_token: &Address,
-    price: i128,
-) {
+fn test_set_price(env: &Env, contract_address: &Address, rwa_token: &Address, price: i128) {
     env.as_contract(contract_address, || {
         Storage::set_current_price(env, rwa_token, price);
     });
@@ -460,10 +457,10 @@ fn test_add_margin_success() {
         &env,
         &trader,
         &rwa_token,
-        100_000 * SCALAR_9,  // 100,000 units long
-        100 * SCALAR_9,      // Entry at $100
-        10_000 * SCALAR_9,   // $10,000 margin
-        1000,                // 10x leverage
+        100_000 * SCALAR_9, // 100,000 units long
+        100 * SCALAR_9,     // Entry at $100
+        10_000 * SCALAR_9,  // $10,000 margin
+        1000,               // 10x leverage
     );
     let contract_address = client.address.clone();
     test_set_position(&env, &contract_address, &trader, &rwa_token, &position);
@@ -473,9 +470,11 @@ fn test_add_margin_success() {
     assert!(result.is_ok());
 
     // Verify margin was added
-    let updated_position = env.as_contract(&contract_address, || {
-        Storage::get_position(&env, &trader, &rwa_token)
-    }).unwrap();
+    let updated_position = env
+        .as_contract(&contract_address, || {
+            Storage::get_position(&env, &trader, &rwa_token)
+        })
+        .unwrap();
     assert_eq!(updated_position.margin, 15_000 * SCALAR_9);
 }
 
@@ -517,7 +516,15 @@ fn test_add_margin_zero_amount() {
     client.set_market_config(&rwa_token, &config);
 
     let trader = Address::generate(&env);
-    let position = create_test_position(&env, &trader, &rwa_token, 100_000 * SCALAR_9, 100 * SCALAR_9, 10_000 * SCALAR_9, 1000);
+    let position = create_test_position(
+        &env,
+        &trader,
+        &rwa_token,
+        100_000 * SCALAR_9,
+        100 * SCALAR_9,
+        10_000 * SCALAR_9,
+        1000,
+    );
     let contract_address = client.address.clone();
     test_set_position(&env, &contract_address, &trader, &rwa_token, &position);
 
@@ -543,7 +550,15 @@ fn test_add_margin_negative_amount() {
     client.set_market_config(&rwa_token, &config);
 
     let trader = Address::generate(&env);
-    let position = create_test_position(&env, &trader, &rwa_token, 100_000 * SCALAR_9, 100 * SCALAR_9, 10_000 * SCALAR_9, 1000);
+    let position = create_test_position(
+        &env,
+        &trader,
+        &rwa_token,
+        100_000 * SCALAR_9,
+        100 * SCALAR_9,
+        10_000 * SCALAR_9,
+        1000,
+    );
     let contract_address = client.address.clone();
     test_set_position(&env, &contract_address, &trader, &rwa_token, &position);
 
@@ -569,7 +584,15 @@ fn test_add_margin_protocol_paused() {
     client.set_market_config(&rwa_token, &config);
 
     let trader = Address::generate(&env);
-    let position = create_test_position(&env, &trader, &rwa_token, 100_000 * SCALAR_9, 100 * SCALAR_9, 10_000 * SCALAR_9, 1000);
+    let position = create_test_position(
+        &env,
+        &trader,
+        &rwa_token,
+        100_000 * SCALAR_9,
+        100 * SCALAR_9,
+        10_000 * SCALAR_9,
+        1000,
+    );
     let contract_address = client.address.clone();
     test_set_position(&env, &contract_address, &trader, &rwa_token, &position);
 
@@ -599,7 +622,15 @@ fn test_add_margin_market_inactive() {
     client.set_market_config(&rwa_token, &config);
 
     let trader = Address::generate(&env);
-    let position = create_test_position(&env, &trader, &rwa_token, 100_000 * SCALAR_9, 100 * SCALAR_9, 10_000 * SCALAR_9, 1000);
+    let position = create_test_position(
+        &env,
+        &trader,
+        &rwa_token,
+        100_000 * SCALAR_9,
+        100 * SCALAR_9,
+        10_000 * SCALAR_9,
+        1000,
+    );
     let contract_address = client.address.clone();
     test_set_position(&env, &contract_address, &trader, &rwa_token, &position);
 
@@ -633,16 +664,22 @@ fn test_remove_margin_success() {
     give_tokens_to_trader(&env, &margin_token, &admin, &trader, 100_000 * SCALAR_9);
 
     // Give tokens to the contract so it can transfer back to trader
-    give_tokens_to_trader(&env, &margin_token, &admin, &contract_address, 100_000 * SCALAR_9);
+    give_tokens_to_trader(
+        &env,
+        &margin_token,
+        &admin,
+        &contract_address,
+        100_000 * SCALAR_9,
+    );
 
     let position = create_test_position(
         &env,
         &trader,
         &rwa_token,
-        1_000 * SCALAR_9,    // 1,000 units long
-        100 * SCALAR_9,      // Entry at $100
-        15_000 * SCALAR_9,   // $15,000 margin (15% margin ratio)
-        1000,                // 10x leverage
+        1_000 * SCALAR_9,  // 1,000 units long
+        100 * SCALAR_9,    // Entry at $100
+        15_000 * SCALAR_9, // $15,000 margin (15% margin ratio)
+        1000,              // 10x leverage
     );
     test_set_position(&env, &contract_address, &trader, &rwa_token, &position);
 
@@ -654,9 +691,11 @@ fn test_remove_margin_success() {
     assert!(result.is_ok());
 
     // Verify margin was removed
-    let updated_position = env.as_contract(&contract_address, || {
-        Storage::get_position(&env, &trader, &rwa_token)
-    }).unwrap();
+    let updated_position = env
+        .as_contract(&contract_address, || {
+            Storage::get_position(&env, &trader, &rwa_token)
+        })
+        .unwrap();
     assert_eq!(updated_position.margin, 10_000 * SCALAR_9);
 }
 
@@ -701,7 +740,15 @@ fn test_remove_margin_zero_amount() {
     test_set_price(&env, &contract_address, &rwa_token, 100 * SCALAR_9);
 
     let trader = Address::generate(&env);
-    let position = create_test_position(&env, &trader, &rwa_token, 100_000 * SCALAR_9, 100 * SCALAR_9, 10_000 * SCALAR_9, 1000);
+    let position = create_test_position(
+        &env,
+        &trader,
+        &rwa_token,
+        100_000 * SCALAR_9,
+        100 * SCALAR_9,
+        10_000 * SCALAR_9,
+        1000,
+    );
     test_set_position(&env, &contract_address, &trader, &rwa_token, &position);
 
     // Try to remove zero margin
@@ -729,7 +776,15 @@ fn test_remove_margin_exceeds_available() {
     test_set_price(&env, &contract_address, &rwa_token, 100 * SCALAR_9);
 
     let trader = Address::generate(&env);
-    let position = create_test_position(&env, &trader, &rwa_token, 100_000 * SCALAR_9, 100 * SCALAR_9, 10_000 * SCALAR_9, 1000);
+    let position = create_test_position(
+        &env,
+        &trader,
+        &rwa_token,
+        100_000 * SCALAR_9,
+        100 * SCALAR_9,
+        10_000 * SCALAR_9,
+        1000,
+    );
     test_set_position(&env, &contract_address, &trader, &rwa_token, &position);
 
     // Try to remove more margin than available
@@ -765,7 +820,7 @@ fn test_remove_margin_triggers_liquidation() {
         &rwa_token,
         100_000 * SCALAR_9,
         100 * SCALAR_9,
-        10_000 * SCALAR_9,  // 10% margin
+        10_000 * SCALAR_9, // 10% margin
         1000,
     );
     test_set_position(&env, &contract_address, &trader, &rwa_token, &position);
@@ -835,9 +890,9 @@ fn test_calculate_margin_ratio_with_profit() {
         &env,
         &trader,
         &rwa_token,
-        1_000 * SCALAR_9,    // Long position: 1,000 units
-        100 * SCALAR_9,      // Entry at $100
-        10_000 * SCALAR_9,   // $10,000 margin
+        1_000 * SCALAR_9,  // Long position: 1,000 units
+        100 * SCALAR_9,    // Entry at $100
+        10_000 * SCALAR_9, // $10,000 margin
         1000,
     );
     test_set_position(&env, &contract_address, &trader, &rwa_token, &position);
@@ -896,7 +951,7 @@ fn test_get_available_margin_healthy_position() {
         &rwa_token,
         1_000 * SCALAR_9,
         100 * SCALAR_9,
-        20_000 * SCALAR_9,   // 20% margin
+        20_000 * SCALAR_9, // 20% margin
         1000,
     );
     test_set_position(&env, &contract_address, &trader, &rwa_token, &position);
@@ -951,7 +1006,13 @@ fn test_margin_lifecycle() {
     give_tokens_to_trader(&env, &margin_token, &admin, &trader, 100_000 * SCALAR_9);
 
     // Give tokens to the contract so it can transfer back to trader
-    give_tokens_to_trader(&env, &margin_token, &admin, &contract_address, 100_000 * SCALAR_9);
+    give_tokens_to_trader(
+        &env,
+        &margin_token,
+        &admin,
+        &contract_address,
+        100_000 * SCALAR_9,
+    );
 
     // Position: size = 1,000, price = 100, margin = 10,000
     // Position value = 1,000 * 100 = 100,000
@@ -973,9 +1034,11 @@ fn test_margin_lifecycle() {
 
     // 2. Add margin
     client.add_margin(&trader, &rwa_token, &(5_000 * SCALAR_9));
-    let position_after_add = env.as_contract(&contract_address, || {
-        Storage::get_position(&env, &trader, &rwa_token)
-    }).unwrap();
+    let position_after_add = env
+        .as_contract(&contract_address, || {
+            Storage::get_position(&env, &trader, &rwa_token)
+        })
+        .unwrap();
     assert_eq!(position_after_add.margin, 15_000 * SCALAR_9);
 
     // 3. Check improved margin ratio
@@ -988,9 +1051,11 @@ fn test_margin_lifecycle() {
 
     // 5. Remove some margin
     client.remove_margin(&trader, &rwa_token, &(3_000 * SCALAR_9));
-    let final_position = env.as_contract(&contract_address, || {
-        Storage::get_position(&env, &trader, &rwa_token)
-    }).unwrap();
+    let final_position = env
+        .as_contract(&contract_address, || {
+            Storage::get_position(&env, &trader, &rwa_token)
+        })
+        .unwrap();
     assert_eq!(final_position.margin, 12_000 * SCALAR_9);
 
     // 6. Verify final ratio still above maintenance
@@ -1038,8 +1103,8 @@ fn test_open_long_position_success() {
     let result = client.try_open_position(
         &trader,
         &rwa_token,
-        1_000 * SCALAR_9,  // Long position
-        1000,              // 10x leverage
+        1_000 * SCALAR_9, // Long position
+        1000,             // 10x leverage
         &(10_000 * SCALAR_9),
     );
 
@@ -1079,7 +1144,7 @@ fn test_open_short_position_success() {
     let result = client.try_open_position(
         &trader,
         &rwa_token,
-        -1_000 * SCALAR_9,  // Short position
+        -1_000 * SCALAR_9, // Short position
         1000,
         &(10_000 * SCALAR_9),
     );
@@ -1140,7 +1205,13 @@ fn test_open_position_zero_leverage() {
     let trader = Address::generate(&env);
 
     // Try to open position with zero leverage
-    client.open_position(&trader, &rwa_token, 1_000 * SCALAR_9, 0, &(10_000 * SCALAR_9));
+    client.open_position(
+        &trader,
+        &rwa_token,
+        1_000 * SCALAR_9,
+        0,
+        &(10_000 * SCALAR_9),
+    );
 }
 
 #[test]
@@ -1193,7 +1264,13 @@ fn test_open_position_exceeds_max_leverage() {
     give_tokens_to_trader(&env, &margin_token, &admin, &trader, 20_000 * SCALAR_9);
 
     // Try to open position with leverage > max_leverage (1000)
-    client.open_position(&trader, &rwa_token, 1_000 * SCALAR_9, 2000, &(10_000 * SCALAR_9));
+    client.open_position(
+        &trader,
+        &rwa_token,
+        1_000 * SCALAR_9,
+        2000,
+        &(10_000 * SCALAR_9),
+    );
 }
 
 #[test]
@@ -1222,7 +1299,13 @@ fn test_open_position_insufficient_margin() {
     // Position value = 1,000 * 100 = 100,000
     // Initial margin requirement (10%) = 10,000
     // Try to open with only 5,000 margin
-    client.open_position(&trader, &rwa_token, 1_000 * SCALAR_9, 1000, &(5_000 * SCALAR_9));
+    client.open_position(
+        &trader,
+        &rwa_token,
+        1_000 * SCALAR_9,
+        1000,
+        &(5_000 * SCALAR_9),
+    );
 }
 
 #[test]
@@ -1249,10 +1332,22 @@ fn test_open_position_already_exists() {
     give_tokens_to_trader(&env, &margin_token, &admin, &trader, 40_000 * SCALAR_9);
 
     // Open first position
-    client.open_position(&trader, &rwa_token, 1_000 * SCALAR_9, 1000, &(10_000 * SCALAR_9));
+    client.open_position(
+        &trader,
+        &rwa_token,
+        1_000 * SCALAR_9,
+        1000,
+        &(10_000 * SCALAR_9),
+    );
 
     // Try to open second position (should fail)
-    client.open_position(&trader, &rwa_token, 500 * SCALAR_9, 1000, &(5_000 * SCALAR_9));
+    client.open_position(
+        &trader,
+        &rwa_token,
+        500 * SCALAR_9,
+        1000,
+        &(5_000 * SCALAR_9),
+    );
 }
 
 #[test]
@@ -1274,7 +1369,13 @@ fn test_open_position_market_not_found() {
     let trader = Address::generate(&env);
 
     // Try to open position without market config
-    client.open_position(&trader, &rwa_token, 1_000 * SCALAR_9, 1000, &(10_000 * SCALAR_9));
+    client.open_position(
+        &trader,
+        &rwa_token,
+        1_000 * SCALAR_9,
+        1000,
+        &(10_000 * SCALAR_9),
+    );
 }
 
 #[test]
@@ -1301,7 +1402,13 @@ fn test_open_position_market_inactive() {
     let trader = Address::generate(&env);
 
     // Try to open position on inactive market
-    client.open_position(&trader, &rwa_token, 1_000 * SCALAR_9, 1000, &(10_000 * SCALAR_9));
+    client.open_position(
+        &trader,
+        &rwa_token,
+        1_000 * SCALAR_9,
+        1000,
+        &(10_000 * SCALAR_9),
+    );
 }
 
 #[test]
@@ -1327,7 +1434,13 @@ fn test_open_position_protocol_paused() {
     let trader = Address::generate(&env);
 
     // Try to open position when paused
-    client.open_position(&trader, &rwa_token, 1_000 * SCALAR_9, 1000, &(10_000 * SCALAR_9));
+    client.open_position(
+        &trader,
+        &rwa_token,
+        1_000 * SCALAR_9,
+        1000,
+        &(10_000 * SCALAR_9),
+    );
 }
 
 // Tests for close_position()
@@ -1355,10 +1468,22 @@ fn test_close_position_full_with_profit() {
     give_tokens_to_trader(&env, &margin_token, &admin, &trader, 20_000 * SCALAR_9);
 
     // Give tokens to contract for payout
-    give_tokens_to_trader(&env, &margin_token, &admin, &contract_address, 100_000 * SCALAR_9);
+    give_tokens_to_trader(
+        &env,
+        &margin_token,
+        &admin,
+        &contract_address,
+        100_000 * SCALAR_9,
+    );
 
     // Open position
-    client.open_position(&trader, &rwa_token, 1_000 * SCALAR_9, 1000, &(10_000 * SCALAR_9));
+    client.open_position(
+        &trader,
+        &rwa_token,
+        1_000 * SCALAR_9,
+        1000,
+        &(10_000 * SCALAR_9),
+    );
 
     // Price increases by 10%
     test_set_price(&env, &contract_address, &rwa_token, 110 * SCALAR_9);
@@ -1393,10 +1518,22 @@ fn test_close_position_full_with_loss() {
 
     let trader = Address::generate(&env);
     give_tokens_to_trader(&env, &margin_token, &admin, &trader, 20_000 * SCALAR_9);
-    give_tokens_to_trader(&env, &margin_token, &admin, &contract_address, 100_000 * SCALAR_9);
+    give_tokens_to_trader(
+        &env,
+        &margin_token,
+        &admin,
+        &contract_address,
+        100_000 * SCALAR_9,
+    );
 
     // Open position
-    client.open_position(&trader, &rwa_token, 1_000 * SCALAR_9, 1000, &(10_000 * SCALAR_9));
+    client.open_position(
+        &trader,
+        &rwa_token,
+        1_000 * SCALAR_9,
+        1000,
+        &(10_000 * SCALAR_9),
+    );
 
     // Price decreases by 5%
     test_set_price(&env, &contract_address, &rwa_token, 95 * SCALAR_9);
@@ -1431,10 +1568,22 @@ fn test_close_position_partial() {
 
     let trader = Address::generate(&env);
     give_tokens_to_trader(&env, &margin_token, &admin, &trader, 20_000 * SCALAR_9);
-    give_tokens_to_trader(&env, &margin_token, &admin, &contract_address, 100_000 * SCALAR_9);
+    give_tokens_to_trader(
+        &env,
+        &margin_token,
+        &admin,
+        &contract_address,
+        100_000 * SCALAR_9,
+    );
 
     // Open position
-    client.open_position(&trader, &rwa_token, 1_000 * SCALAR_9, 1000, &(10_000 * SCALAR_9));
+    client.open_position(
+        &trader,
+        &rwa_token,
+        1_000 * SCALAR_9,
+        1000,
+        &(10_000 * SCALAR_9),
+    );
 
     // Close 40% of position
     let result = client.try_close_position(&trader, &rwa_token, &(400 * SCALAR_9));
@@ -1494,7 +1643,13 @@ fn test_close_position_zero_size() {
     give_tokens_to_trader(&env, &margin_token, &admin, &trader, 20_000 * SCALAR_9);
 
     // Open position
-    client.open_position(&trader, &rwa_token, 1_000 * SCALAR_9, 1000, &(10_000 * SCALAR_9));
+    client.open_position(
+        &trader,
+        &rwa_token,
+        1_000 * SCALAR_9,
+        1000,
+        &(10_000 * SCALAR_9),
+    );
 
     // Try to close zero size
     client.close_position(&trader, &rwa_token, &0);
@@ -1524,7 +1679,13 @@ fn test_close_position_exceeds_size() {
     give_tokens_to_trader(&env, &margin_token, &admin, &trader, 20_000 * SCALAR_9);
 
     // Open position of 1,000 units
-    client.open_position(&trader, &rwa_token, 1_000 * SCALAR_9, 1000, &(10_000 * SCALAR_9));
+    client.open_position(
+        &trader,
+        &rwa_token,
+        1_000 * SCALAR_9,
+        1000,
+        &(10_000 * SCALAR_9),
+    );
 
     // Try to close 2,000 units (more than position size)
     client.close_position(&trader, &rwa_token, &(2_000 * SCALAR_9));
@@ -1554,7 +1715,13 @@ fn test_close_position_protocol_paused() {
     give_tokens_to_trader(&env, &margin_token, &admin, &trader, 20_000 * SCALAR_9);
 
     // Open position
-    client.open_position(&trader, &rwa_token, 1_000 * SCALAR_9, 1000, &(10_000 * SCALAR_9));
+    client.open_position(
+        &trader,
+        &rwa_token,
+        1_000 * SCALAR_9,
+        1000,
+        &(10_000 * SCALAR_9),
+    );
 
     // Pause protocol
     client.set_protocol_paused(&true);
@@ -1588,7 +1755,13 @@ fn test_get_position_success() {
     give_tokens_to_trader(&env, &margin_token, &admin, &trader, 20_000 * SCALAR_9);
 
     // Open position
-    client.open_position(&trader, &rwa_token, 1_000 * SCALAR_9, 1000, &(10_000 * SCALAR_9));
+    client.open_position(
+        &trader,
+        &rwa_token,
+        1_000 * SCALAR_9,
+        1000,
+        &(10_000 * SCALAR_9),
+    );
 
     // Get position
     let position = client.get_position(&trader, &rwa_token).unwrap();
@@ -1642,8 +1815,20 @@ fn test_get_user_positions_multiple() {
     give_tokens_to_trader(&env, &margin_token, &admin, &trader, 40_000 * SCALAR_9);
 
     // Open positions on both tokens
-    client.open_position(&trader, &rwa_token1, 1_000 * SCALAR_9, 1000, &(10_000 * SCALAR_9));
-    client.open_position(&trader, &rwa_token2, 500 * SCALAR_9, 1000, &(10_000 * SCALAR_9));
+    client.open_position(
+        &trader,
+        &rwa_token1,
+        1_000 * SCALAR_9,
+        1000,
+        &(10_000 * SCALAR_9),
+    );
+    client.open_position(
+        &trader,
+        &rwa_token2,
+        500 * SCALAR_9,
+        1000,
+        &(10_000 * SCALAR_9),
+    );
 
     // Get all positions
     let positions = client.get_user_positions(&trader);
@@ -1689,10 +1874,22 @@ fn test_position_lifecycle() {
 
     let trader = Address::generate(&env);
     give_tokens_to_trader(&env, &margin_token, &admin, &trader, 20_000 * SCALAR_9);
-    give_tokens_to_trader(&env, &margin_token, &admin, &contract_address, 100_000 * SCALAR_9);
+    give_tokens_to_trader(
+        &env,
+        &margin_token,
+        &admin,
+        &contract_address,
+        100_000 * SCALAR_9,
+    );
 
     // 1. Open position
-    client.open_position(&trader, &rwa_token, 1_000 * SCALAR_9, 1000, &(10_000 * SCALAR_9));
+    client.open_position(
+        &trader,
+        &rwa_token,
+        1_000 * SCALAR_9,
+        1000,
+        &(10_000 * SCALAR_9),
+    );
 
     // 2. Verify position exists
     let position = client.get_position(&trader, &rwa_token).unwrap();
@@ -1736,9 +1933,9 @@ fn test_multiple_positions_different_tokens() {
         let rwa_token = Address::generate(&env);
         let config = default_market_config(&env, rwa_token.clone());
         client.set_market_config(&rwa_token, &config);
-        
+
         test_set_price(&env, &contract_address, &rwa_token, (100 * i) * SCALAR_9);
-        
+
         client.open_position(
             &trader,
             &rwa_token,
@@ -1779,13 +1976,31 @@ fn test_long_and_short_pnl_calculation() {
 
     let trader = Address::generate(&env);
     give_tokens_to_trader(&env, &margin_token, &admin, &trader, 40_000 * SCALAR_9);
-    give_tokens_to_trader(&env, &margin_token, &admin, &contract_address, 200_000 * SCALAR_9);
+    give_tokens_to_trader(
+        &env,
+        &margin_token,
+        &admin,
+        &contract_address,
+        200_000 * SCALAR_9,
+    );
 
     // Open long position on token1
-    client.open_position(&trader, &rwa_token1, 1_000 * SCALAR_9, 1000, &(10_000 * SCALAR_9));
+    client.open_position(
+        &trader,
+        &rwa_token1,
+        1_000 * SCALAR_9,
+        1000,
+        &(10_000 * SCALAR_9),
+    );
 
     // Open short position on token2
-    client.open_position(&trader, &rwa_token2, -1_000 * SCALAR_9, 1000, &(10_000 * SCALAR_9));
+    client.open_position(
+        &trader,
+        &rwa_token2,
+        -1_000 * SCALAR_9,
+        1000,
+        &(10_000 * SCALAR_9),
+    );
 
     // Price increases by 10% for both
     test_set_price(&env, &contract_address, &rwa_token1, 110 * SCALAR_9);

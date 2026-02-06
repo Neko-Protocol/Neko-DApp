@@ -1,3 +1,3 @@
 pub mod error;
-pub mod types;
 pub mod storage;
+pub mod types;

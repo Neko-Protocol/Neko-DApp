@@ -1,4 +1,4 @@
-use soroban_sdk::{assert_with_error, Address, Env, token::TokenClient};
+use soroban_sdk::{Address, Env, assert_with_error, token::TokenClient};
 
 use crate::admin::Admin;
 use crate::common::error::Error;
@@ -17,22 +17,20 @@ impl Backstop {
 
         // Transfer tokens from depositor to contract
         let storage = Storage::get(env);
-        let token_address = storage.backstop_token
-            .ok_or(Error::TokenContractNotSet)?;
+        let token_address = storage.backstop_token.ok_or(Error::TokenContractNotSet)?;
         let token_client = TokenClient::new(env, &token_address);
         token_client.transfer(depositor, env.current_contract_address(), &amount);
 
         // Update backstop deposit
         let mut storage = Storage::get(env);
-        let mut deposit = storage
-            .backstop_deposits
-            .get(depositor.clone())
-            .unwrap_or(crate::common::types::BackstopDeposit {
+        let mut deposit = storage.backstop_deposits.get(depositor.clone()).unwrap_or(
+            crate::common::types::BackstopDeposit {
                 amount: 0,
                 deposited_at: env.ledger().timestamp(),
                 in_withdrawal_queue: false,
                 queued_at: None,
-            });
+            },
+        );
 
         deposit.amount += amount;
         deposit.deposited_at = env.ledger().timestamp();
@@ -123,7 +121,8 @@ impl Backstop {
         deposit.queued_at = None;
 
         // Get token address before updating storage
-        let token_address = storage.backstop_token
+        let token_address = storage
+            .backstop_token
             .clone()
             .ok_or(Error::TokenContractNotSet)?;
 
@@ -146,11 +145,7 @@ impl Backstop {
         let storage = Storage::get(env);
 
         // Calculate queued withdrawals percentage
-        let queued_withdrawals: i128 = storage
-            .withdrawal_queue
-            .iter()
-            .map(|req| req.amount)
-            .sum();
+        let queued_withdrawals: i128 = storage.withdrawal_queue.iter().map(|req| req.amount).sum();
 
         let queued_percentage = if storage.backstop_total > 0 {
             (queued_withdrawals * 10_000) / storage.backstop_total
@@ -181,15 +176,14 @@ impl Backstop {
     #[allow(dead_code)]
     pub fn get_deposit(env: &Env, depositor: &Address) -> crate::common::types::BackstopDeposit {
         let storage = Storage::get(env);
-        storage
-            .backstop_deposits
-            .get(depositor.clone())
-            .unwrap_or(crate::common::types::BackstopDeposit {
+        storage.backstop_deposits.get(depositor.clone()).unwrap_or(
+            crate::common::types::BackstopDeposit {
                 amount: 0,
                 deposited_at: 0,
                 in_withdrawal_queue: false,
                 queued_at: None,
-            })
+            },
+        )
     }
 
     /// Get total backstop deposits
@@ -199,4 +193,3 @@ impl Backstop {
         storage.backstop_total
     }
 }
-

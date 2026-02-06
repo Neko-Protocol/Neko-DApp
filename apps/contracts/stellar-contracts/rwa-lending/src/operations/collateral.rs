@@ -1,4 +1,4 @@
-use soroban_sdk::{assert_with_error, Address, Env, token::TokenClient};
+use soroban_sdk::{Address, Env, assert_with_error, token::TokenClient};
 
 use crate::admin::Admin;
 use crate::common::error::Error;
@@ -40,18 +40,18 @@ impl Collateral {
         Storage::set_collateral(env, borrower, rwa_token, current_collateral + amount);
 
         // Update CDP
-        let mut cdp = Storage::get_cdp(env, borrower).unwrap_or_else(|| {
-            crate::common::types::CDP {
+        let mut cdp =
+            Storage::get_cdp(env, borrower).unwrap_or_else(|| crate::common::types::CDP {
                 collateral: soroban_sdk::Map::new(env),
                 debt_asset: None,
                 d_tokens: 0,
                 created_at: env.ledger().timestamp(),
                 last_update: env.ledger().timestamp(),
-            }
-        });
+            });
 
         // Update collateral in CDP
-        cdp.collateral.set(rwa_token.clone(), current_collateral + amount);
+        cdp.collateral
+            .set(rwa_token.clone(), current_collateral + amount);
         cdp.last_update = env.ledger().timestamp();
         Storage::set_cdp(env, borrower, &cdp);
 
@@ -82,67 +82,74 @@ impl Collateral {
         // If borrower has debt, verify they remain properly collateralized
         let cdp = Storage::get_cdp(env, borrower);
         if let Some(cdp) = &cdp
-            && cdp.d_tokens > 0 {
-                // Calculate borrow limit with reduced collateral
-                let new_collateral = current_collateral - amount;
-                Storage::set_collateral(env, borrower, rwa_token, new_collateral);
-                
-                // Temporarily update CDP to calculate new borrow limit
-                let mut temp_cdp = cdp.clone();
-                temp_cdp.collateral.set(rwa_token.clone(), new_collateral);
-                Storage::set_cdp(env, borrower, &temp_cdp);
-                
-                // Calculate borrow limit with new collateral
-                let borrow_limit = Borrowing::calculate_borrow_limit(env, borrower)?;
-                
-                // Get current debt value
-                if let Some(debt_asset) = &cdp.debt_asset {
-                    let d_token_rate = Storage::get_d_token_rate(env, debt_asset);
-                    let debt_amount = cdp.d_tokens
-                        .checked_mul(d_token_rate)
-                        .ok_or(Error::ArithmeticError)?
-                        .checked_div(SCALAR_12)
-                        .ok_or(Error::ArithmeticError)?;
-                    
-                    // Get price of debt asset
-                    let (debt_price, debt_decimals) = Oracles::get_crypto_price_with_decimals(env, debt_asset)?;
-                    let price_decimals = 7;
-                    let current_debt_value = Oracles::calculate_usd_value(
-                        env,
-                        debt_amount,
-                        debt_price,
-                        debt_decimals,
-                        price_decimals,
-                    )?;
-                    
-                    // Restore original CDP
-                    Storage::set_cdp(env, borrower, cdp);
-                    Storage::set_collateral(env, borrower, rwa_token, current_collateral);
-                    
-                    // Check if removal would make borrower undercollateralized
-                    if current_debt_value > borrow_limit {
-                        return Err(Error::InsufficientBorrowLimit);
-                    }
+            && cdp.d_tokens > 0
+        {
+            // Calculate borrow limit with reduced collateral
+            let new_collateral = current_collateral - amount;
+            Storage::set_collateral(env, borrower, rwa_token, new_collateral);
 
-                    // Verify health factor remains above minimum threshold after removal (7 decimals)
-                    // This ensures the borrower maintains a safety margin above liquidation threshold
-                    let health_factor = crate::operations::liquidations::Liquidations::calculate_health_factor(env, borrower)?;
-                    if (health_factor as i128) < MIN_HEALTH_FACTOR {
-                        return Err(Error::HealthFactorTooLow);
-                    }
-                } else {
-                    // Restore original CDP
-                    Storage::set_cdp(env, borrower, cdp);
-                    Storage::set_collateral(env, borrower, rwa_token, current_collateral);
+            // Temporarily update CDP to calculate new borrow limit
+            let mut temp_cdp = cdp.clone();
+            temp_cdp.collateral.set(rwa_token.clone(), new_collateral);
+            Storage::set_cdp(env, borrower, &temp_cdp);
+
+            // Calculate borrow limit with new collateral
+            let borrow_limit = Borrowing::calculate_borrow_limit(env, borrower)?;
+
+            // Get current debt value
+            if let Some(debt_asset) = &cdp.debt_asset {
+                let d_token_rate = Storage::get_d_token_rate(env, debt_asset);
+                let debt_amount = cdp
+                    .d_tokens
+                    .checked_mul(d_token_rate)
+                    .ok_or(Error::ArithmeticError)?
+                    .checked_div(SCALAR_12)
+                    .ok_or(Error::ArithmeticError)?;
+
+                // Get price of debt asset
+                let (debt_price, debt_decimals) =
+                    Oracles::get_crypto_price_with_decimals(env, debt_asset)?;
+                let price_decimals = 7;
+                let current_debt_value = Oracles::calculate_usd_value(
+                    env,
+                    debt_amount,
+                    debt_price,
+                    debt_decimals,
+                    price_decimals,
+                )?;
+
+                // Restore original CDP
+                Storage::set_cdp(env, borrower, cdp);
+                Storage::set_collateral(env, borrower, rwa_token, current_collateral);
+
+                // Check if removal would make borrower undercollateralized
+                if current_debt_value > borrow_limit {
+                    return Err(Error::InsufficientBorrowLimit);
                 }
+
+                // Verify health factor remains above minimum threshold after removal (7 decimals)
+                // This ensures the borrower maintains a safety margin above liquidation threshold
+                let health_factor =
+                    crate::operations::liquidations::Liquidations::calculate_health_factor(
+                        env, borrower,
+                    )?;
+                if (health_factor as i128) < MIN_HEALTH_FACTOR {
+                    return Err(Error::HealthFactorTooLow);
+                }
+            } else {
+                // Restore original CDP
+                Storage::set_cdp(env, borrower, cdp);
+                Storage::set_collateral(env, borrower, rwa_token, current_collateral);
             }
+        }
 
         // Update collateral balance
         Storage::set_collateral(env, borrower, rwa_token, current_collateral - amount);
 
         // Update CDP
         if let Some(mut cdp) = Storage::get_cdp(env, borrower) {
-            cdp.collateral.set(rwa_token.clone(), current_collateral - amount);
+            cdp.collateral
+                .set(rwa_token.clone(), current_collateral - amount);
             cdp.last_update = env.ledger().timestamp();
             Storage::set_cdp(env, borrower, &cdp);
         }
@@ -171,4 +178,3 @@ impl Collateral {
             .unwrap_or(soroban_sdk::Map::new(env))
     }
 }
-

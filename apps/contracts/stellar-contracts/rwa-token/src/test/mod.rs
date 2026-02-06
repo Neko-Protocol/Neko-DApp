@@ -5,7 +5,7 @@ use crate::Error;
 use crate::contract::{RWATokenContract, RWATokenContractClient};
 use crate::rwa_oracle;
 use rwa_oracle::Asset;
-use rwa_oracle::{RWAMetadata, RWAAssetType, TokenizationInfo, ValuationMethod};
+use rwa_oracle::{RWAAssetType, RWAMetadata, TokenizationInfo, ValuationMethod};
 use soroban_sdk::{
     Address, Env, String, Symbol, Vec,
     testutils::{Address as _, Ledger},
@@ -20,7 +20,13 @@ fn create_oracle(e: &Env) -> (rwa_oracle::Client<'_>, Address) {
 
     let contract_address = e.register(
         rwa_oracle::WASM,
-        (admin.clone(), assets.clone(), asset_usdc.clone(), 14u32, 300u32),
+        (
+            admin.clone(),
+            assets.clone(),
+            asset_usdc.clone(),
+            14u32,
+            300u32,
+        ),
     );
 
     let client = rwa_oracle::Client::new(e, &contract_address);
@@ -98,15 +104,7 @@ fn test_token_transfers() {
     let name = String::from_str(&e, "NVIDIA Corporation Token");
     let symbol = String::from_str(&e, "NVDA");
 
-    let token = create_token_contract(
-        &e,
-        admin,
-        oracle_address,
-        pegged_asset,
-        name,
-        symbol,
-        7,
-    );
+    let token = create_token_contract(&e, admin, oracle_address, pegged_asset, name, symbol, 7);
 
     let alice = Address::generate(&e);
     let bob = Address::generate(&e);
@@ -143,15 +141,7 @@ fn test_allowances() {
     let name = String::from_str(&e, "NVIDIA Corporation Token");
     let symbol = String::from_str(&e, "NVDA");
 
-    let token = create_token_contract(
-        &e,
-        admin,
-        oracle_address,
-        pegged_asset,
-        name,
-        symbol,
-        7,
-    );
+    let token = create_token_contract(&e, admin, oracle_address, pegged_asset, name, symbol, 7);
 
     let alice = Address::generate(&e);
     let bob = Address::generate(&e);
@@ -195,15 +185,7 @@ fn test_increase_decrease_allowance() {
     let name = String::from_str(&e, "NVIDIA Corporation Token");
     let symbol = String::from_str(&e, "NVDA");
 
-    let token = create_token_contract(
-        &e,
-        admin,
-        oracle_address,
-        pegged_asset,
-        name,
-        symbol,
-        7,
-    );
+    let token = create_token_contract(&e, admin, oracle_address, pegged_asset, name, symbol, 7);
 
     let alice = Address::generate(&e);
     let bob = Address::generate(&e);
@@ -237,15 +219,7 @@ fn test_burn() {
     let name = String::from_str(&e, "NVIDIA Corporation Token");
     let symbol = String::from_str(&e, "NVDA");
 
-    let token = create_token_contract(
-        &e,
-        admin,
-        oracle_address,
-        pegged_asset,
-        name,
-        symbol,
-        7,
-    );
+    let token = create_token_contract(&e, admin, oracle_address, pegged_asset, name, symbol, 7);
 
     let alice = Address::generate(&e);
 
@@ -285,15 +259,7 @@ fn test_clawback() {
     let name = String::from_str(&e, "NVIDIA Corporation Token");
     let symbol = String::from_str(&e, "NVDA");
 
-    let token = create_token_contract(
-        &e,
-        admin,
-        oracle_address,
-        pegged_asset,
-        name,
-        symbol,
-        7,
-    );
+    let token = create_token_contract(&e, admin, oracle_address, pegged_asset, name, symbol, 7);
 
     let alice = Address::generate(&e);
 
@@ -320,15 +286,7 @@ fn test_authorization_and_freeze() {
     let name = String::from_str(&e, "NVIDIA Corporation Token");
     let symbol = String::from_str(&e, "NVDA");
 
-    let token = create_token_contract(
-        &e,
-        admin,
-        oracle_address,
-        pegged_asset,
-        name,
-        symbol,
-        7,
-    );
+    let token = create_token_contract(&e, admin, oracle_address, pegged_asset, name, symbol, 7);
 
     let alice = Address::generate(&e);
     let bob = Address::generate(&e);
@@ -351,10 +309,7 @@ fn test_authorization_and_freeze() {
     // Bob is not authorized — transfer should fail
     let result = token.try_transfer(&alice, &bob, &100_0000000);
     assert!(result.is_err());
-    assert_eq!(
-        result.unwrap_err().unwrap(),
-        Error::AddressFrozen.into()
-    );
+    assert_eq!(result.unwrap_err().unwrap(), Error::AddressFrozen.into());
 
     // Authorize bob — transfer should succeed
     token.set_authorized(&bob, &true);
@@ -365,10 +320,7 @@ fn test_authorization_and_freeze() {
     token.set_authorized(&alice, &false);
     let result = token.try_transfer(&alice, &bob, &100_0000000);
     assert!(result.is_err());
-    assert_eq!(
-        result.unwrap_err().unwrap(),
-        Error::AddressFrozen.into()
-    );
+    assert_eq!(result.unwrap_err().unwrap(), Error::AddressFrozen.into());
 }
 
 #[test]
@@ -383,15 +335,7 @@ fn test_freeze_enforcement_transfer_from() {
     let name = String::from_str(&e, "NVIDIA Corporation Token");
     let symbol = String::from_str(&e, "NVDA");
 
-    let token = create_token_contract(
-        &e,
-        admin,
-        oracle_address,
-        pegged_asset,
-        name,
-        symbol,
-        7,
-    );
+    let token = create_token_contract(&e, admin, oracle_address, pegged_asset, name, symbol, 7);
 
     let alice = Address::generate(&e);
     let bob = Address::generate(&e);
@@ -411,20 +355,14 @@ fn test_freeze_enforcement_transfer_from() {
     token.set_authorized(&alice, &false);
     let result = token.try_transfer_from(&carol, &alice, &bob, &100_0000000);
     assert!(result.is_err());
-    assert_eq!(
-        result.unwrap_err().unwrap(),
-        Error::AddressFrozen.into()
-    );
+    assert_eq!(result.unwrap_err().unwrap(), Error::AddressFrozen.into());
 
     // Unfreeze alice, freeze bob (receiver) — should also fail
     token.set_authorized(&alice, &true);
     token.set_authorized(&bob, &false);
     let result = token.try_transfer_from(&carol, &alice, &bob, &100_0000000);
     assert!(result.is_err());
-    assert_eq!(
-        result.unwrap_err().unwrap(),
-        Error::AddressFrozen.into()
-    );
+    assert_eq!(result.unwrap_err().unwrap(), Error::AddressFrozen.into());
 }
 
 #[test]
@@ -439,15 +377,7 @@ fn test_sep57_compliance_and_identity_setters() {
     let name = String::from_str(&e, "NVIDIA Corporation Token");
     let symbol = String::from_str(&e, "NVDA");
 
-    let token = create_token_contract(
-        &e,
-        admin,
-        oracle_address,
-        pegged_asset,
-        name,
-        symbol,
-        7,
-    );
+    let token = create_token_contract(&e, admin, oracle_address, pegged_asset, name, symbol, 7);
 
     // Initially no compliance or identity verifier
     assert_eq!(token.compliance(), None);
@@ -476,15 +406,7 @@ fn test_total_supply_tracking() {
     let name = String::from_str(&e, "NVIDIA Corporation Token");
     let symbol = String::from_str(&e, "NVDA");
 
-    let token = create_token_contract(
-        &e,
-        admin,
-        oracle_address,
-        pegged_asset,
-        name,
-        symbol,
-        7,
-    );
+    let token = create_token_contract(&e, admin, oracle_address, pegged_asset, name, symbol, 7);
 
     let alice = Address::generate(&e);
     let bob = Address::generate(&e);
@@ -646,15 +568,7 @@ fn test_error_handling() {
     let name = String::from_str(&e, "NVIDIA Corporation Token");
     let symbol = String::from_str(&e, "NVDA");
 
-    let token = create_token_contract(
-        &e,
-        admin,
-        oracle_address,
-        pegged_asset,
-        name,
-        symbol,
-        7,
-    );
+    let token = create_token_contract(&e, admin, oracle_address, pegged_asset, name, symbol, 7);
 
     let alice = Address::generate(&e);
     let bob = Address::generate(&e);
@@ -699,15 +613,7 @@ fn test_transfer_from_checks_balance() {
     let name = String::from_str(&e, "NVIDIA Corporation Token");
     let symbol = String::from_str(&e, "NVDA");
 
-    let token = create_token_contract(
-        &e,
-        admin,
-        oracle_address,
-        pegged_asset,
-        name,
-        symbol,
-        7,
-    );
+    let token = create_token_contract(&e, admin, oracle_address, pegged_asset, name, symbol, 7);
 
     let alice = Address::generate(&e);
     let bob = Address::generate(&e);
@@ -749,15 +655,7 @@ fn test_exact_allowance_usage() {
     let name = String::from_str(&e, "NVIDIA Corporation Token");
     let symbol = String::from_str(&e, "NVDA");
 
-    let token = create_token_contract(
-        &e,
-        admin,
-        oracle_address,
-        pegged_asset,
-        name,
-        symbol,
-        7,
-    );
+    let token = create_token_contract(&e, admin, oracle_address, pegged_asset, name, symbol, 7);
 
     let alice = Address::generate(&e);
     let bob = Address::generate(&e);
@@ -800,15 +698,7 @@ fn test_spendable_balance() {
     let name = String::from_str(&e, "NVIDIA Corporation Token");
     let symbol = String::from_str(&e, "NVDA");
 
-    let token = create_token_contract(
-        &e,
-        admin,
-        oracle_address,
-        pegged_asset,
-        name,
-        symbol,
-        7,
-    );
+    let token = create_token_contract(&e, admin, oracle_address, pegged_asset, name, symbol, 7);
 
     let alice = Address::generate(&e);
 

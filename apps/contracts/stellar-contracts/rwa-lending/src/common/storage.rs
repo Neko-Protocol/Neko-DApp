@@ -1,10 +1,9 @@
-use soroban_sdk::{panic_with_error, Address, Env, Map, Symbol, Vec};
+use soroban_sdk::{Address, Env, Map, Symbol, Vec, panic_with_error};
 
 use crate::common::error::Error;
 use crate::common::types::{
-    AuctionData, BackstopDeposit, CDP, InterestRateParams, PoolState,
-    ReserveData, WithdrawalRequest, ADMIN_KEY, STORAGE,
-    INSTANCE_TTL, INSTANCE_BUMP, USER_TTL, USER_BUMP,
+    ADMIN_KEY, AuctionData, BackstopDeposit, CDP, INSTANCE_BUMP, INSTANCE_TTL, InterestRateParams,
+    PoolState, ReserveData, STORAGE, USER_BUMP, USER_TTL, WithdrawalRequest,
 };
 
 /// Main pool storage structure
@@ -128,10 +127,7 @@ impl Storage {
 
     /// Get CDP for a borrower
     pub fn get_cdp(env: &Env, borrower: &Address) -> Option<CDP> {
-        let cdp: Option<CDP> = env.storage()
-            .persistent()
-            .get(borrower)
-            .unwrap_or(None);
+        let cdp: Option<CDP> = env.storage().persistent().get(borrower).unwrap_or(None);
 
         // Extend TTL if CDP exists
         if cdp.is_some() {
@@ -172,7 +168,9 @@ impl Storage {
             .get(lender.clone())
             .unwrap_or(Map::new(env));
         lender_balances.set(asset.clone(), amount);
-        storage.b_token_balances.set(lender.clone(), lender_balances);
+        storage
+            .b_token_balances
+            .set(lender.clone(), lender_balances);
         Self::set(env, &storage);
     }
 
@@ -216,7 +214,9 @@ impl Storage {
             .get(borrower.clone())
             .unwrap_or(Map::new(env));
         borrower_balances.set(asset.clone(), amount);
-        storage.d_token_balances.set(borrower.clone(), borrower_balances);
+        storage
+            .d_token_balances
+            .set(borrower.clone(), borrower_balances);
         Self::set(env, &storage);
     }
 
@@ -260,7 +260,9 @@ impl Storage {
             .get(borrower.clone())
             .unwrap_or(Map::new(env));
         borrower_collateral.set(rwa_token.clone(), amount);
-        storage.collateral.set(borrower.clone(), borrower_collateral);
+        storage
+            .collateral
+            .set(borrower.clone(), borrower_collateral);
         Self::set(env, &storage);
     }
 
@@ -290,8 +292,9 @@ impl Storage {
     /// Set token contract address for an asset symbol
     pub fn set_token_contract(env: &Env, asset: &Symbol, token_address: &Address) {
         let mut storage = Self::get(env);
-        storage.token_contracts.set(asset.clone(), token_address.clone());
+        storage
+            .token_contracts
+            .set(asset.clone(), token_address.clone());
         Self::set(env, &storage);
     }
-
 }

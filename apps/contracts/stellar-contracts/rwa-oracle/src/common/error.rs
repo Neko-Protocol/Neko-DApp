@@ -27,4 +27,7 @@ pub enum Error {
 
     /// Timestamp is too old or not strictly increasing
     TimestampTooOld = 8,
+
+    /// Asset not registered in assets vector
+    AssetNotRegistered = 10,
 }

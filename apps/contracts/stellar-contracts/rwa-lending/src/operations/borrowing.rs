@@ -1,4 +1,4 @@
-use soroban_sdk::{assert_with_error, Address, Env, Symbol, token::TokenClient};
+use soroban_sdk::{Address, Env, Symbol, assert_with_error, token::TokenClient};
 
 use crate::admin::Admin;
 use crate::common::error::Error;
@@ -35,42 +35,44 @@ impl Borrowing {
         Interest::accrue_interest(env, asset)?;
 
         // Get or create CDP
-        let mut cdp = Storage::get_cdp(env, borrower).unwrap_or_else(|| {
-            crate::common::types::CDP {
+        let mut cdp =
+            Storage::get_cdp(env, borrower).unwrap_or_else(|| crate::common::types::CDP {
                 collateral: soroban_sdk::Map::new(env),
                 debt_asset: None,
                 d_tokens: 0,
                 created_at: env.ledger().timestamp(),
                 last_update: env.ledger().timestamp(),
-            }
-        });
+            });
 
         // Check if borrower already has debt in a different asset
         if let Some(debt_asset) = &cdp.debt_asset
-            && debt_asset != asset {
-                return Err(Error::DebtAssetAlreadySet);
-            }
+            && debt_asset != asset
+        {
+            return Err(Error::DebtAssetAlreadySet);
+        }
 
         // Calculate borrow limit
         let borrow_limit = Self::calculate_borrow_limit(env, borrower)?;
 
         // Get asset decimals from token contract
-        let token_address = Storage::get_token_contract(env, asset)
-            .ok_or(Error::TokenContractNotSet)?;
+        let token_address =
+            Storage::get_token_contract(env, asset).ok_or(Error::TokenContractNotSet)?;
         let token_client = TokenClient::new(env, &token_address);
         let asset_decimals = token_client.decimals();
 
         // Get current debt value
         let current_debt_value = if cdp.d_tokens > 0 {
             let d_token_rate = Storage::get_d_token_rate(env, asset);
-            let debt_amount = cdp.d_tokens
+            let debt_amount = cdp
+                .d_tokens
                 .checked_mul(d_token_rate)
                 .ok_or(Error::ArithmeticError)?
                 .checked_div(SCALAR_12)
                 .ok_or(Error::ArithmeticError)?;
 
             // Get price of debt asset (includes price decimals from oracle)
-            let (debt_price, debt_price_decimals) = Oracles::get_crypto_price_with_decimals(env, asset)?;
+            let (debt_price, debt_price_decimals) =
+                Oracles::get_crypto_price_with_decimals(env, asset)?;
 
             // Calculate debt value in USD
             Oracles::calculate_usd_value(
@@ -86,13 +88,8 @@ impl Borrowing {
 
         // Calculate new debt value
         let (asset_price, price_decimals) = Oracles::get_crypto_price_with_decimals(env, asset)?;
-        let new_debt_value = Oracles::calculate_usd_value(
-            env,
-            amount,
-            asset_price,
-            asset_decimals,
-            price_decimals,
-        )?;
+        let new_debt_value =
+            Oracles::calculate_usd_value(env, amount, asset_price, asset_decimals, price_decimals)?;
 
         let total_debt_value = current_debt_value
             .checked_add(new_debt_value)
@@ -141,14 +138,15 @@ impl Borrowing {
 
         // Verify health factor remains above minimum threshold (7 decimals)
         // This ensures the borrower maintains a safety margin above liquidation threshold
-        let health_factor = crate::operations::liquidations::Liquidations::calculate_health_factor(env, borrower)?;
+        let health_factor =
+            crate::operations::liquidations::Liquidations::calculate_health_factor(env, borrower)?;
         if (health_factor as i128) < MIN_HEALTH_FACTOR {
             return Err(Error::HealthFactorTooLow);
         }
 
         // Transfer asset from pool to borrower
-        let token_address = Storage::get_token_contract(env, asset)
-            .ok_or(Error::TokenContractNotSet)?;
+        let token_address =
+            Storage::get_token_contract(env, asset).ok_or(Error::TokenContractNotSet)?;
         let token_client = TokenClient::new(env, &token_address);
         token_client.transfer(&env.current_contract_address(), borrower, &amount);
 
@@ -173,8 +171,7 @@ impl Borrowing {
         Interest::accrue_interest(env, asset)?;
 
         // Get CDP
-        let mut cdp = Storage::get_cdp(env, borrower)
-            .ok_or(Error::DebtAssetNotSet)?;
+        let mut cdp = Storage::get_cdp(env, borrower).ok_or(Error::DebtAssetNotSet)?;
 
         // Check debt asset matches
         if cdp.debt_asset.as_ref() != Some(asset) {
@@ -226,8 +223,8 @@ impl Borrowing {
         Storage::set_pool_balance(env, asset, pool_balance + amount);
 
         // Transfer asset from borrower to pool
-        let token_address = Storage::get_token_contract(env, asset)
-            .ok_or(Error::TokenContractNotSet)?;
+        let token_address =
+            Storage::get_token_contract(env, asset).ok_or(Error::TokenContractNotSet)?;
         let token_client = TokenClient::new(env, &token_address);
         token_client.transfer(borrower, env.current_contract_address(), &amount);
 
@@ -253,7 +250,8 @@ impl Borrowing {
             }
 
             // Get RWA token price (includes price decimals from oracle)
-            let (rwa_price, price_decimals) = Oracles::get_rwa_price_with_decimals(env, &rwa_token)?;
+            let (rwa_price, price_decimals) =
+                Oracles::get_rwa_price_with_decimals(env, &rwa_token)?;
             // Get token decimals from RWA token contract
             let rwa_token_client = TokenClient::new(env, &rwa_token);
             let rwa_decimals = rwa_token_client.decimals();
@@ -288,14 +286,16 @@ impl Borrowing {
             if let Some(debt_asset) = &cdp.debt_asset {
                 if cdp.d_tokens > 0 {
                     let d_token_rate = Storage::get_d_token_rate(env, debt_asset);
-                    let debt_amount = cdp.d_tokens
+                    let debt_amount = cdp
+                        .d_tokens
                         .checked_mul(d_token_rate)
                         .ok_or(Error::ArithmeticError)?
                         .checked_div(SCALAR_12)
                         .ok_or(Error::ArithmeticError)?;
 
                     // Get price of debt asset (includes price decimals from oracle)
-                    let (debt_price, price_decimals) = Oracles::get_crypto_price_with_decimals(env, debt_asset)?;
+                    let (debt_price, price_decimals) =
+                        Oracles::get_crypto_price_with_decimals(env, debt_asset)?;
                     // Get asset decimals from token contract
                     let token_address = Storage::get_token_contract(env, debt_asset)
                         .ok_or(Error::TokenContractNotSet)?;

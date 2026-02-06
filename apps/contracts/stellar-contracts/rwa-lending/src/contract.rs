@@ -1,4 +1,4 @@
-use soroban_sdk::{contract, contractimpl, Address, Env, Symbol};
+use soroban_sdk::{Address, Env, Symbol, contract, contractimpl};
 
 use crate::admin::Admin;
 use crate::common::error::Error;
@@ -46,11 +46,7 @@ impl LendingContract {
     }
 
     /// Set interest rate parameters for an asset
-    pub fn set_interest_rate_params(
-        env: Env,
-        asset: Symbol,
-        params: InterestRateParams,
-    ) {
+    pub fn set_interest_rate_params(env: Env, asset: Symbol, params: InterestRateParams) {
         Admin::set_interest_rate_params(&env, &asset, &params);
     }
 
@@ -93,7 +89,12 @@ impl LendingContract {
     }
 
     /// Withdraw crypto asset from the pool
-    pub fn withdraw(env: Env, lender: Address, asset: Symbol, b_tokens: i128) -> Result<i128, Error> {
+    pub fn withdraw(
+        env: Env,
+        lender: Address,
+        asset: Symbol,
+        b_tokens: i128,
+    ) -> Result<i128, Error> {
         Lending::withdraw(&env, &lender, &asset, b_tokens)
     }
 
@@ -120,7 +121,12 @@ impl LendingContract {
     }
 
     /// Repay debt
-    pub fn repay(env: Env, borrower: Address, asset: Symbol, d_tokens: i128) -> Result<i128, Error> {
+    pub fn repay(
+        env: Env,
+        borrower: Address,
+        asset: Symbol,
+        d_tokens: i128,
+    ) -> Result<i128, Error> {
         Borrowing::repay(&env, &borrower, &asset, d_tokens)
     }
 
@@ -188,15 +194,17 @@ impl LendingContract {
         debt_asset: Symbol,
         liquidation_percent: u32,
     ) -> Result<u32, Error> {
-        Liquidations::initiate_liquidation(&env, &borrower, &rwa_token, &debt_asset, liquidation_percent)
+        Liquidations::initiate_liquidation(
+            &env,
+            &borrower,
+            &rwa_token,
+            &debt_asset,
+            liquidation_percent,
+        )
     }
 
     /// Fill a liquidation auction
-    pub fn fill_auction(
-        env: Env,
-        auction_id: u32,
-        liquidator: Address,
-    ) -> Result<(), Error> {
+    pub fn fill_auction(env: Env, auction_id: u32, liquidator: Address) -> Result<(), Error> {
         Liquidations::fill_auction(&env, auction_id, &liquidator)
     }
 
@@ -288,4 +296,3 @@ impl LendingContract {
         Liquidations::calculate_health_factor(&env, &borrower)
     }
 }
-
