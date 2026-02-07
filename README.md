@@ -125,6 +125,27 @@ This is a monorepo managed with [Turborepo](https://turbo.build/repo) and npm wo
 
 ```
 neko-dapp/
+├── .agents/
+│   └── skills/                    # AI Agent skills for Claude Code
+│       ├── stellar-dev/           # Stellar/Soroban development playbook
+│       ├── tanstack-query/        # TanStack Query v5 patterns
+│       ├── tailwind-patterns/     # Tailwind CSS component patterns
+│       ├── next-best-practices/   # Next.js optimization guidelines
+│       ├── vercel-react-best-practices/  # React performance patterns
+│       ├── vercel-composition-patterns/  # Component composition patterns
+│       ├── remotion-best-practices/      # Video creation with Remotion
+│       ├── commit-work/           # Git commit best practices
+│       ├── seo-audit/             # Technical SEO audit
+│       ├── web-design-guidelines/ # UI/UX review guidelines
+│       ├── agent-md-refactor/     # AGENTS.md refactoring
+│       ├── skill-creator/         # Guide for creating skills
+│       └── find-skills/           # Skill discovery and installation
+│
+├── .claude/
+│   └── skills -> ../.agents/skills   # Symbolic link for Claude Code
+│
+├── CLAUDE.md                      # Project instructions for Claude Code
+│
 ├── apps/
 │   ├── web-app/                    # Next.js 16 + React 19 web application
 │   │   ├── src/
@@ -414,6 +435,34 @@ Please ensure your code:
 - Includes appropriate TypeScript types
 - Follows the existing code style
 - Uses conventional commits (feat, fix, chore, etc.)
+
+### AI Agent Skills
+
+The `.agents/skills/` directory contains specialized skills for Claude Code and other LLM-based assistants. The `.claude/skills` symbolic link provides integration with Claude Code.
+
+| Skill                           | Description                                                                  | Command                        |
+| ------------------------------- | ---------------------------------------------------------------------------- | ------------------------------ |
+| **stellar-dev**                 | Stellar/Soroban development: contracts, SDK, RPC, wallets, testing, security | `/stellar-dev`                 |
+| **tanstack-query**              | TanStack Query v5: patterns, v4→v5 migration, SSR, optimistic updates        | `/tanstack-query`              |
+| **tailwind-patterns**           | Tailwind CSS: layouts, cards, navigation, forms, dark mode                   | `/tailwind-patterns`           |
+| **next-best-practices**         | Next.js: RSC, data patterns, metadata, error handling, bundling              | `/next-best-practices`         |
+| **vercel-react-best-practices** | React performance: rendering, caching, bundle optimization                   | `/vercel-react-best-practices` |
+| **vercel-composition-patterns** | React composition: compound components, render props, context                | `/vercel-composition-patterns` |
+| **remotion-best-practices**     | Remotion video: animations, transitions, audio, captions                     | `/remotion-best-practices`     |
+| **commit-work**                 | Git commits: staging, splitting, Conventional Commits                        | `/commit-work`                 |
+| **seo-audit**                   | SEO audit: meta tags, structured data, performance                           | `/seo-audit`                   |
+| **web-design-guidelines**       | UI/UX review: accessibility, design best practices                           | `/web-design-guidelines`       |
+| **agent-md-refactor**           | Refactor AGENTS.md/CLAUDE.md with progressive disclosure                     | `/agent-md-refactor`           |
+| **skill-creator**               | Guide for creating custom skills                                             | `/skill-creator`               |
+| **find-skills**                 | Discover and install skills from [skills.sh](https://skills.sh/)             | `/find-skills`                 |
+
+**Installing new skills:**
+
+```bash
+npx skills find [query]              # Search for skills
+npx skills add <owner/repo@skill>    # Install a skill
+npx skills check                     # Check for updates
+```
 
 ## License
 
