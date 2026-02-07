@@ -1,4 +1,4 @@
-use soroban_sdk::{assert_with_error, panic_with_error, Address, Env, MuxedAddress};
+use soroban_sdk::{Address, Env, MuxedAddress, assert_with_error, panic_with_error};
 
 use crate::common::error::Error;
 use crate::common::events::Events;
@@ -10,13 +10,7 @@ use crate::token::balance::BalanceStorage;
 #[allow(clippy::module_name_repetitions)]
 pub trait TokenInterface {
     fn allowance(env: Env, from: Address, spender: Address) -> i128;
-    fn approve(
-        env: Env,
-        from: Address,
-        spender: Address,
-        amount: i128,
-        live_until_ledger: u32,
-    );
+    fn approve(env: Env, from: Address, spender: Address, amount: i128, live_until_ledger: u32);
     fn balance(env: Env, id: Address) -> i128;
     fn transfer(env: Env, from: Address, to: MuxedAddress, amount: i128);
     fn transfer_from(env: Env, spender: Address, from: Address, to: Address, amount: i128);
@@ -67,11 +61,7 @@ impl TokenInterfaceImpl {
     pub fn transfer(env: &Env, from: &Address, to: &Address, amount: i128) {
         from.require_auth();
         assert_with_error!(env, amount > 0, Error::ValueNotPositive);
-        assert_with_error!(
-            env,
-            to != from,
-            Error::CannotTransferToSelf
-        );
+        assert_with_error!(env, to != from, Error::CannotTransferToSelf);
 
         let balance = BalanceStorage::get(env, from);
         assert_with_error!(env, balance >= amount, Error::InsufficientBalance);
@@ -81,13 +71,7 @@ impl TokenInterfaceImpl {
         Events::transfer(env, from, to, amount);
     }
 
-    pub fn transfer_from(
-        env: &Env,
-        spender: &Address,
-        from: &Address,
-        to: &Address,
-        amount: i128,
-    ) {
+    pub fn transfer_from(env: &Env, spender: &Address, from: &Address, to: &Address, amount: i128) {
         spender.require_auth();
         assert_with_error!(env, amount > 0, Error::ValueNotPositive);
 

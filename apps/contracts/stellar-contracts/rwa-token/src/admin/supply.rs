@@ -1,4 +1,4 @@
-use soroban_sdk::{panic_with_error, Env};
+use soroban_sdk::{Env, panic_with_error};
 
 use crate::common::error::Error;
 use crate::common::types::TOTAL_SUPPLY_KEY;

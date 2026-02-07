@@ -1,4 +1,4 @@
-use soroban_sdk::{contractevent, Address, Env};
+use soroban_sdk::{Address, Env, contractevent};
 
 /// Mint event emitted when tokens are minted
 #[contractevent]

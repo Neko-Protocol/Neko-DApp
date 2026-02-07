@@ -1,8 +1,8 @@
 #![no_std]
 
 mod admin;
-mod contract;
 mod common;
+mod contract;
 mod operations;
 mod test;
 

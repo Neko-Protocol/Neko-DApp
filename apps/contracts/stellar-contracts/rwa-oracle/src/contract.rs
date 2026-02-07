@@ -1,5 +1,5 @@
 use soroban_sdk::{
-    contract, contractimpl, panic_with_error, Address, BytesN, Env, Map, Symbol, Vec,
+    Address, BytesN, Env, Map, Symbol, Vec, contract, contractimpl, panic_with_error,
 };
 
 use crate::admin::Admin;
@@ -60,16 +60,17 @@ impl RWAOracle {
         Admin::require_admin(env);
         let mut state = RWAOracleStorage::get(env);
 
+        // Verify asset is registered
+        let asset = Asset::Other(asset_id.clone());
+        if !state.assets.contains(&asset) {
+            return Err(Error::AssetNotRegistered);
+        }
+
         // Set metadata
         state.rwa_metadata.set(asset_id.clone(), metadata.clone());
 
-        // Update asset type mapping if asset exists in price feed
-        if let Some(asset) = state.assets.iter().find(|a| match a {
-            Asset::Other(sym) => sym == &asset_id,
-            _ => false,
-        }) {
-            state.asset_types.set(asset.clone(), metadata.asset_type);
-        }
+        // Always update asset_types (no conditional - asset verified above)
+        state.asset_types.set(asset, metadata.asset_type);
 
         RWAOracleStorage::set(env, &state);
         Admin::extend_instance_ttl(env);
@@ -219,9 +220,11 @@ impl RWAOracle {
     }
 
     fn extend_persistent_ttl(env: &Env, key: &DataKey) {
-        env.storage()
-            .persistent()
-            .extend_ttl(key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
+        env.storage().persistent().extend_ttl(
+            key,
+            PERSISTENT_LIFETIME_THRESHOLD,
+            PERSISTENT_BUMP_AMOUNT,
+        );
     }
 }
 

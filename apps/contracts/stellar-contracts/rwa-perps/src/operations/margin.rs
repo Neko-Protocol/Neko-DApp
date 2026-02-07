@@ -1,5 +1,5 @@
-use soroban_sdk::{Address, Env};
 use soroban_sdk::token::TokenClient;
+use soroban_sdk::{Address, Env};
 
 use crate::common::error::Error;
 use crate::common::events::Events;
@@ -58,25 +58,24 @@ impl Margins {
         }
 
         // 3. Get position
-        let mut position = Storage::get_position(env, trader, rwa_token)
-            .ok_or(Error::PositionNotFound)?;
+        let mut position =
+            Storage::get_position(env, trader, rwa_token).ok_or(Error::PositionNotFound)?;
 
         // 4. Validate market
-        let market = Storage::get_market_config(env, rwa_token)
-            .ok_or(Error::MarketNotFound)?;
+        let market = Storage::get_market_config(env, rwa_token).ok_or(Error::MarketNotFound)?;
         if !market.is_active {
             return Err(Error::MarketInactive);
         }
 
         // 5. Transfer tokens from trader to contract
-        let margin_token = Storage::get_margin_token(env)
-            .ok_or(Error::MarginTokenNotSet)?;
+        let margin_token = Storage::get_margin_token(env).ok_or(Error::MarginTokenNotSet)?;
         let token_client = TokenClient::new(env, &margin_token);
         let contract_address = env.current_contract_address();
         token_client.transfer(trader, &contract_address, &amount);
 
         // 6. Update position margin
-        position.margin = position.margin
+        position.margin = position
+            .margin
             .checked_add(amount)
             .ok_or(Error::ArithmeticError)?;
         Storage::set_position(env, trader, rwa_token, &position);
@@ -135,26 +134,26 @@ impl Margins {
         }
 
         // 3. Get position
-        let mut position = Storage::get_position(env, trader, rwa_token)
-            .ok_or(Error::PositionNotFound)?;
+        let mut position =
+            Storage::get_position(env, trader, rwa_token).ok_or(Error::PositionNotFound)?;
 
         if amount > position.margin {
             return Err(Error::InsufficientMargin);
         }
 
         // 4. Validate market
-        let market = Storage::get_market_config(env, rwa_token)
-            .ok_or(Error::MarketNotFound)?;
+        let market = Storage::get_market_config(env, rwa_token).ok_or(Error::MarketNotFound)?;
         if !market.is_active {
             return Err(Error::MarketInactive);
         }
 
         // 5. Get current price
-        let current_price = Storage::get_current_price(env, rwa_token)
-            .ok_or(Error::OraclePriceNotFound)?;
+        let current_price =
+            Storage::get_current_price(env, rwa_token).ok_or(Error::OraclePriceNotFound)?;
 
         // 6. Calculate post-removal margin ratio
-        let new_margin = position.margin
+        let new_margin = position
+            .margin
             .checked_sub(amount)
             .ok_or(Error::ArithmeticError)?;
 
@@ -181,8 +180,7 @@ impl Margins {
         }
 
         // 8. Transfer tokens from contract back to trader
-        let margin_token = Storage::get_margin_token(env)
-            .ok_or(Error::MarginTokenNotSet)?;
+        let margin_token = Storage::get_margin_token(env).ok_or(Error::MarginTokenNotSet)?;
         let token_client = TokenClient::new(env, &margin_token);
         let contract_address = env.current_contract_address();
         token_client.transfer(&contract_address, trader, &amount);
@@ -232,16 +230,17 @@ impl Margins {
         trader: &Address,
         rwa_token: &Address,
     ) -> Result<i128, Error> {
-        let position = Storage::get_position(env, trader, rwa_token)
-            .ok_or(Error::PositionNotFound)?;
+        let position =
+            Storage::get_position(env, trader, rwa_token).ok_or(Error::PositionNotFound)?;
 
-        let current_price = Storage::get_current_price(env, rwa_token)
-            .ok_or(Error::OraclePriceNotFound)?;
+        let current_price =
+            Storage::get_current_price(env, rwa_token).ok_or(Error::OraclePriceNotFound)?;
 
         let unrealized_pnl = Liquidations::calculate_unrealized_pnl(&position, current_price)?;
         let position_value = Liquidations::calculate_position_value(&position, current_price)?;
 
-        let effective_margin = position.margin
+        let effective_margin = position
+            .margin
             .checked_add(unrealized_pnl)
             .ok_or(Error::ArithmeticError)?;
 
@@ -294,18 +293,18 @@ impl Margins {
         trader: &Address,
         rwa_token: &Address,
     ) -> Result<i128, Error> {
-        let position = Storage::get_position(env, trader, rwa_token)
-            .ok_or(Error::PositionNotFound)?;
+        let position =
+            Storage::get_position(env, trader, rwa_token).ok_or(Error::PositionNotFound)?;
 
-        let market = Storage::get_market_config(env, rwa_token)
-            .ok_or(Error::MarketNotFound)?;
+        let market = Storage::get_market_config(env, rwa_token).ok_or(Error::MarketNotFound)?;
 
-        let current_price = Storage::get_current_price(env, rwa_token)
-            .ok_or(Error::OraclePriceNotFound)?;
+        let current_price =
+            Storage::get_current_price(env, rwa_token).ok_or(Error::OraclePriceNotFound)?;
 
         let unrealized_pnl = Liquidations::calculate_unrealized_pnl(&position, current_price)?;
         let position_value = Liquidations::calculate_position_value(&position, current_price)?;
-        let effective_margin = position.margin
+        let effective_margin = position
+            .margin
             .checked_add(unrealized_pnl)
             .ok_or(Error::ArithmeticError)?;
 

@@ -2,16 +2,16 @@
 
 use soroban_sdk::{Address, Symbol, contracttype};
 
+pub mod admin;
 pub mod common;
+pub mod contract;
 pub mod rwa;
 pub mod sep40;
-pub mod admin;
-pub mod contract;
 
 // Re-exports
 pub use common::error::Error;
-pub use rwa::types::{RWAAssetType, RWAMetadata, TokenizationInfo, ValuationMethod};
 pub use contract::{RWAOracle, RWAOracleClient};
+pub use rwa::types::{RWAAssetType, RWAMetadata, TokenizationInfo, ValuationMethod};
 
 /// Quoted asset definition (SEP-40 compatible)
 #[contracttype]

@@ -3,7 +3,9 @@ use soroban_sdk::{Env, Symbol};
 use crate::common::error::Error;
 use crate::common::events::Events;
 use crate::common::storage::{PoolStorage, Storage};
-use crate::common::types::{InterestRateParams, ReserveData, SCALAR_7, SCALAR_12, SECONDS_PER_YEAR};
+use crate::common::types::{
+    InterestRateParams, ReserveData, SCALAR_7, SCALAR_12, SECONDS_PER_YEAR,
+};
 
 /// Interest rate calculations and accrual
 ///
@@ -82,13 +84,7 @@ impl Interest {
         Storage::set(env, &storage);
 
         // Emit event
-        Events::interest_accrued(
-            env,
-            asset,
-            reserve.b_rate,
-            reserve.d_rate,
-            reserve.ir_mod,
-        );
+        Events::interest_accrued(env, asset, reserve.b_rate, reserve.d_rate, reserve.ir_mod);
 
         Ok(())
     }
@@ -97,8 +93,8 @@ impl Interest {
     /// Returns (accrual_12d, new_ir_mod_7d)
     fn calc_accrual(
         params: &InterestRateParams,
-        cur_util: i128,  // 7 decimals
-        ir_mod: i128,    // 7 decimals
+        cur_util: i128, // 7 decimals
+        ir_mod: i128,   // 7 decimals
         last_time: u64,
         current_time: u64,
     ) -> Result<(i128, i128), Error> {
@@ -139,8 +135,12 @@ impl Interest {
             // Segment 2: target < util <= max (95%)
             // rate = ((util - target) / (max - target)) * R2 + R1 + R0
             // rate = rate * ir_mod / SCALAR_7
-            let util_diff = cur_util.checked_sub(target_util).ok_or(Error::ArithmeticError)?;
-            let range = max_util.checked_sub(target_util).ok_or(Error::ArithmeticError)?;
+            let util_diff = cur_util
+                .checked_sub(target_util)
+                .ok_or(Error::ArithmeticError)?;
+            let range = max_util
+                .checked_sub(target_util)
+                .ok_or(Error::ArithmeticError)?;
             let rate = if range > 0 {
                 util_diff
                     .checked_mul(r_two)
@@ -162,8 +162,12 @@ impl Interest {
             // Segment 3: util > max (95%)
             // rate = ((util - max) / (1 - max)) * R3 + R2 + R1 + R0
             // Note: No ir_mod multiplication in segment 3 (like Blend)
-            let util_diff = cur_util.checked_sub(max_util).ok_or(Error::ArithmeticError)?;
-            let range = SCALAR_7.checked_sub(max_util).ok_or(Error::ArithmeticError)?;
+            let util_diff = cur_util
+                .checked_sub(max_util)
+                .ok_or(Error::ArithmeticError)?;
+            let range = SCALAR_7
+                .checked_sub(max_util)
+                .ok_or(Error::ArithmeticError)?;
             if range > 0 {
                 util_diff
                     .checked_mul(r_three)
@@ -210,7 +214,9 @@ impl Interest {
         // Calculate new rate modifier
         // util_dif = cur_util - target_util
         // ir_mod_change = delta_time * util_dif * reactivity / SCALAR_7
-        let util_dif = cur_util.checked_sub(target_util).ok_or(Error::ArithmeticError)?;
+        let util_dif = cur_util
+            .checked_sub(target_util)
+            .ok_or(Error::ArithmeticError)?;
 
         let ir_mod_change = (delta_time as i128)
             .checked_mul(util_dif)
@@ -225,8 +231,8 @@ impl Interest {
             .ok_or(Error::ArithmeticError)?;
 
         // Bound ir_mod: min = 0.1 (SCALAR_7 / 10), max = 10 (SCALAR_7 * 10)
-        let min_ir_mod = SCALAR_7 / 10;  // 0.1
-        let max_ir_mod = SCALAR_7 * 10;  // 10.0
+        let min_ir_mod = SCALAR_7 / 10; // 0.1
+        let max_ir_mod = SCALAR_7 * 10; // 10.0
         let new_ir_mod = new_ir_mod_raw.clamp(min_ir_mod, max_ir_mod);
 
         Ok((accrual, new_ir_mod))
@@ -238,8 +244,8 @@ impl Interest {
         reserve: &mut ReserveData,
         storage: &PoolStorage,
         _asset: &Symbol,
-        accrual: i128,  // 12 decimals
-        new_ir_mod: i128,  // 7 decimals
+        accrual: i128,    // 12 decimals
+        new_ir_mod: i128, // 7 decimals
         current_time: u64,
     ) -> Result<(), Error> {
         // Save old d_rate before updating
@@ -256,11 +262,13 @@ impl Interest {
         let backstop_take_rate = storage.backstop_take_rate as i128;
         if backstop_take_rate > 0 && reserve.d_supply > 0 {
             // Interest earned = d_supply * (new_d_rate - old_d_rate) / SCALAR_12
-            let rate_increase = reserve.d_rate
+            let rate_increase = reserve
+                .d_rate
                 .checked_sub(old_d_rate)
                 .ok_or(Error::ArithmeticError)?;
 
-            let interest_earned = reserve.d_supply
+            let interest_earned = reserve
+                .d_supply
                 .checked_mul(rate_increase)
                 .ok_or(Error::ArithmeticError)?
                 .checked_div(SCALAR_12)
@@ -397,7 +405,7 @@ impl Interest {
             utilization,
             reserve.ir_mod,
             reserve.last_time,
-            reserve.last_time + 1,  // Simulate 1 second
+            reserve.last_time + 1, // Simulate 1 second
         )?;
 
         // Convert accrual to annual rate (7 decimals)
@@ -420,13 +428,13 @@ impl Interest {
     /// Default interest rate parameters (Blend-style)
     pub fn default_params() -> InterestRateParams {
         InterestRateParams {
-            target_util: 7_500_000,    // 75%
-            max_util: 9_500_000,       // 95%
-            r_base: 100_000,           // 1%
-            r_one: 500_000,            // 5%
-            r_two: 5_000_000,          // 50%
-            r_three: 15_000_000,       // 150%
-            reactivity: 200,           // 0.00002
+            target_util: 7_500_000, // 75%
+            max_util: 9_500_000,    // 95%
+            r_base: 100_000,        // 1%
+            r_one: 500_000,         // 5%
+            r_two: 5_000_000,       // 50%
+            r_three: 15_000_000,    // 150%
+            reactivity: 200,        // 0.00002
         }
     }
 }

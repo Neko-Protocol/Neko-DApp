@@ -1,4 +1,4 @@
-use soroban_sdk::{contractevent, Address, Symbol};
+use soroban_sdk::{Address, Symbol, contractevent};
 
 /// Events emitted by the lending pool contract
 #[contractevent]
@@ -317,4 +317,3 @@ impl Events {
         .publish(env);
     }
 }
-

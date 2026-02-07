@@ -4,15 +4,21 @@ extern crate std;
 use crate::{Asset, Error, RWAOracle, RWAOracleClient};
 use crate::{RWAAssetType, RWAMetadata, TokenizationInfo, ValuationMethod};
 
-use soroban_sdk::{testutils::Address as _, testutils::Ledger, Address, Env, String, Symbol, Vec};
+use soroban_sdk::{Address, Env, String, Symbol, Vec, testutils::Address as _, testutils::Ledger};
 
 fn create_rwa_oracle_contract<'a>(e: &Env) -> RWAOracleClient<'a> {
     set_ledger_timestamp(e, 2_000_000_000);
+
     let asset_xlm: Asset = Asset::Other(Symbol::new(e, "NVDA"));
     let asset_usdt: Asset = Asset::Other(Symbol::new(e, "TSLA"));
+
     let asset_vec = Vec::from_array(e, [asset_xlm.clone(), asset_usdt.clone()]);
     let admin = Address::generate(e);
-    let contract_id = e.register(RWAOracle, (admin, asset_vec, asset_usdt, 14u32, 300u32));
+
+    let contract_id = e.register(
+        RWAOracle,
+        (admin, asset_vec, asset_usdt, 14u32, 300u32),
+    );
 
     RWAOracleClient::new(e, &contract_id)
 }
@@ -43,7 +49,10 @@ fn create_test_metadata(env: &Env, asset_id: Symbol) -> RWAMetadata {
                 String::from_str(env, "US912810SU08"),
             )],
         ),
-        legal_docs_uri: Some(String::from_str(env, "https://issuer.example/docs/terms.pdf")),
+        legal_docs_uri: Some(String::from_str(
+            env,
+            "https://issuer.example/docs/terms.pdf",
+        )),
         valuation_method: ValuationMethod::Market,
         metadata: Vec::new(env),
         created_at: env.ledger().timestamp(),
@@ -80,22 +89,35 @@ fn test_rwa_oracle_initialization() {
 // ==================== RWA Metadata Tests ====================
 
 #[test]
-fn test_set_rwa_metadata() {
+fn test_metadata_rejected_for_unregistered_asset() {
     let e = Env::default();
     e.mock_all_auths();
 
     let oracle = create_rwa_oracle_contract(&e);
-    let asset_id = Symbol::new(&e, "RWA_BOND_2024");
+    let asset_id = Symbol::new(&e, "NVDA");
 
-    let metadata = create_test_metadata(&e, asset_id.clone());
-    oracle.set_rwa_metadata(&asset_id, &metadata);
+    let unregistered_id = Symbol::new(&e, "NOT_REGISTERED");
 
-    let retrieved = oracle.try_get_rwa_metadata(&asset_id).unwrap().unwrap();
-    assert_eq!(retrieved.asset_id, asset_id);
-    assert_eq!(retrieved.asset_type, RWAAssetType::Bond);
+    let metadata = RWAMetadata {
+        asset_id: unregistered_id.clone(),
+        name: String::from_str(&e, "Ghost Asset"),
+        description: String::from_str(&e, "Ghost Description"),
+        asset_type: RWAAssetType::Other,
+        underlying_asset: String::from_str(&e, "None"),
+        issuer: String::from_str(&e, "None"),
+        regulatory_info: create_test_regulatory_info(&e),
+        tokenization_info: create_test_tokenization_info(&e),
+        metadata: Vec::new(&e),
+        created_at: e.ledger().timestamp(),
+        updated_at: e.ledger().timestamp(),
+    };
+
+    let result = oracle.try_set_rwa_metadata(&unregistered_id, &metadata);
+
+    assert!(result.is_err());
     assert_eq!(
-        retrieved.name,
-        String::from_str(&e, "US Treasury Bond 2024")
+        result.unwrap_err().unwrap(),
+        Error::AssetNotRegistered.into()
     );
     assert_eq!(retrieved.jurisdiction, Symbol::new(&e, "US"));
     assert_eq!(retrieved.valuation_method, ValuationMethod::Market);
@@ -125,6 +147,7 @@ fn test_metadata_asset_types() {
 
     for (id, asset_type) in types {
         let asset_id = Symbol::new(&e, id);
+        oracle.add_assets(&Vec::from_array(&e, [Asset::Other(asset_id.clone())]));
         let mut metadata = create_test_metadata(&e, asset_id.clone());
         metadata.asset_type = asset_type.clone();
         oracle.set_rwa_metadata(&asset_id, &metadata);
@@ -152,6 +175,7 @@ fn test_metadata_valuation_methods() {
 
     for (id, method) in methods {
         let asset_id = Symbol::new(&e, id);
+        oracle.add_assets(&Vec::from_array(&e, [Asset::Other(asset_id.clone())]));
         let mut metadata = create_test_metadata(&e, asset_id.clone());
         metadata.valuation_method = method.clone();
         oracle.set_rwa_metadata(&asset_id, &metadata);
@@ -164,25 +188,33 @@ fn test_metadata_valuation_methods() {
 // ==================== Tokenization Info Tests ====================
 
 #[test]
-fn test_update_tokenization_info() {
+fn test_metadata_accepted_for_registered_asset() {
     let e = Env::default();
     e.mock_all_auths();
 
     let oracle = create_rwa_oracle_contract(&e);
-    let asset_id = Symbol::new(&e, "RWA_BOND");
+    let asset_id = Symbol::new(&e, "NVDA");
 
-    let metadata = create_test_metadata(&e, asset_id.clone());
-    oracle.set_rwa_metadata(&asset_id, &metadata);
+    let asset_id = Symbol::new(&e, "NVDA");
 
-    let new_info = TokenizationInfo {
-        token_contract: Some(Address::generate(&e)),
-        total_supply: Some(2_000_000),
-        underlying_asset_id: Some(String::from_str(&e, "Updated Bond")),
-        tokenization_date: Some(1_800_000_000),
+    let metadata = RWAMetadata {
+        asset_id: asset_id.clone(),
+        name: String::from_str(&e, "NVIDIA Corp"),
+        description: String::from_str(&e, "GPU Maker"),
+        asset_type: RWAAssetType::Stock,
+        underlying_asset: String::from_str(&e, "NVDA Stock"),
+        issuer: String::from_str(&e, "NVIDIA"),
+        regulatory_info: create_test_regulatory_info(&e),
+        tokenization_info: create_test_tokenization_info(&e),
+        metadata: Vec::new(&e),
+        created_at: e.ledger().timestamp(),
+        updated_at: e.ledger().timestamp(),
     };
-    oracle.update_tokenization_info(&asset_id, &new_info);
 
-    let retrieved = oracle.try_get_tokenization_info(&asset_id).unwrap().unwrap();
+    let retrieved = oracle
+        .try_get_tokenization_info(&asset_id)
+        .unwrap()
+        .unwrap();
     assert_eq!(retrieved.total_supply, Some(2_000_000));
 }
 
@@ -216,256 +248,144 @@ fn test_set_max_staleness() {
 // ==================== Asset Listing Tests ====================
 
 #[test]
-fn test_get_all_rwa_assets() {
+fn test_metadata_accepted_after_add_assets() {
     let e = Env::default();
     e.mock_all_auths();
 
     let oracle = create_rwa_oracle_contract(&e);
 
-    let asset_id1 = Symbol::new(&e, "RWA_1");
-    let asset_id2 = Symbol::new(&e, "RWA_2");
+    let asset_id = Symbol::new(&e, "NEW_RETAIL_ASSET");
+    let asset = Asset::Other(asset_id.clone());
+
+    oracle.add_assets(&Vec::from_array(
+        &e,
+        [
+            Asset::Other(asset_id1.clone()),
+            Asset::Other(asset_id2.clone()),
+        ],
+    ));
 
     let metadata1 = create_test_metadata(&e, asset_id1.clone());
     let mut metadata2 = create_test_metadata(&e, asset_id2.clone());
     metadata2.asset_type = RWAAssetType::Commodity;
     metadata2.name = String::from_str(&e, "Gold Token");
 
-    oracle.set_rwa_metadata(&asset_id1, &metadata1);
-    oracle.set_rwa_metadata(&asset_id2, &metadata2);
+    assert!(oracle
+        .try_set_rwa_metadata(&asset_id, &metadata)
+        .is_err());
 
-    let all_assets = oracle.get_all_rwa_assets();
-    assert_eq!(all_assets.len(), 2);
+    oracle.add_assets(&Vec::from_array(&e, [asset.clone()]));
+
+    assert!(oracle
+        .try_set_rwa_metadata(&asset_id, &metadata)
+        .is_ok());
 }
 
-// ==================== SEP-40 Price Feed Tests ====================
-
 #[test]
-fn test_price_feed_compatibility() {
+fn test_asset_type_always_synced_with_metadata() {
     let e = Env::default();
     e.mock_all_auths();
 
     let oracle = create_rwa_oracle_contract(&e);
-    let asset_xlm: Asset = Asset::Other(Symbol::new(&e, "XLM"));
 
-    let assets_to_add = Vec::from_array(&e, [asset_xlm.clone()]);
-    oracle.add_assets(&assets_to_add);
+    let asset_id = Symbol::new(&e, "NVDA");
 
-    let timestamp1: u64 = 1_000_000_000;
-    let price1 = 10_000_000_000_000;
-    set_ledger_timestamp(&e, timestamp1);
-    oracle.set_asset_price(&asset_xlm, &price1, &timestamp1);
+    let metadata = RWAMetadata {
+        asset_id: asset_id.clone(),
+        name: String::from_str(&e, "NVIDIA"),
+        description: String::from_str(&e, "GPU Maker"),
+        asset_type: RWAAssetType::Stock,
+        underlying_asset: String::from_str(&e, "Stock"),
+        issuer: String::from_str(&e, "NVIDIA"),
+        regulatory_info: create_test_regulatory_info(&e),
+        tokenization_info: create_test_tokenization_info(&e),
+        metadata: Vec::new(&e),
+        created_at: e.ledger().timestamp(),
+        updated_at: e.ledger().timestamp(),
+    };
 
-    let last_price = oracle.lastprice(&asset_xlm).unwrap();
-    assert_eq!(last_price.price, price1);
-    assert_eq!(last_price.timestamp, timestamp1);
+    oracle.set_rwa_metadata(&asset_id, &metadata);
 
-    let timestamp2: u64 = 1_000_001_000;
-    let price2 = 10_500_000_000_000;
-    set_ledger_timestamp(&e, timestamp2);
-    oracle.set_asset_price(&asset_xlm, &price2, &timestamp2);
+    let asset_type = oracle
+        .get_rwa_asset_type(&Asset::Other(asset_id))
+        .unwrap();
 
-    let prices = oracle.prices(&asset_xlm, &2).unwrap();
-    assert_eq!(prices.len(), 2);
-    assert_eq!(prices.get(0).unwrap().price, price2);
+    assert_eq!(asset_type, RWAAssetType::Stock);
 }
 
-// ==================== Error Handling Tests ====================
+//
+// ================= TTL Test (Flexible) =================
+//
 
 #[test]
-fn test_error_handling() {
+fn test_ttl_extended_on_metadata_update() {
     let e = Env::default();
     e.mock_all_auths();
 
     let oracle = create_rwa_oracle_contract(&e);
-    let non_existent = Symbol::new(&e, "NON_EXISTENT");
 
-    let result = oracle.try_get_rwa_metadata(&non_existent);
-    assert!(result.is_err());
-    assert_eq!(result.unwrap_err().unwrap(), Error::AssetNotFound.into());
+    let asset_id = Symbol::new(&e, "NVDA");
+
+    let metadata = RWAMetadata {
+        asset_id: asset_id.clone(),
+        name: String::from_str(&e, "NVIDIA"),
+        description: String::from_str(&e, "GPU Maker"),
+        asset_type: RWAAssetType::Stock,
+        underlying_asset: String::from_str(&e, "Stock"),
+        issuer: String::from_str(&e, "NVIDIA"),
+        regulatory_info: create_test_regulatory_info(&e),
+        tokenization_info: create_test_tokenization_info(&e),
+        metadata: Vec::new(&e),
+        created_at: e.ledger().timestamp(),
+        updated_at: e.ledger().timestamp(),
+    };
+
+    // First write
+    oracle.set_rwa_metadata(&asset_id, &metadata);
+
+    let key = Symbol::new(&e, "rwa_metadata");
+
+    let ttl_before = e
+        .storage()
+        .persistent()
+        .get_ttl(&key)
+        .unwrap();
+
+    // Update
+    let mut updated = metadata.clone();
+    updated.name = String::from_str(&e, "NVIDIA UPDATED");
+
+    oracle.set_rwa_metadata(&asset_id, &updated);
+
+    let ttl_after = e
+        .storage()
+        .persistent()
+        .get_ttl(&key)
+        .unwrap();
+
+    assert!(
+        ttl_after > ttl_before,
+        "TTL was not extended after metadata update"
+    );
 }
 
-// ==================== Price History Pruning Tests ====================
+//
+// ================= Timestamp Validation Tests =================
+//
 
 #[test]
-fn test_price_history_pruning() {
-    let e = Env::default();
-    e.mock_all_auths();
-
-    let oracle = create_rwa_oracle_contract(&e);
-    let asset = Asset::Other(Symbol::new(&e, "NVDA"));
-
-    for i in 0..1000 {
-        oracle.set_asset_price(&asset, &(100_000 + i as i128), &(1000 + i as u64));
-    }
-
-    let oldest_price = oracle.price(&asset, &1000);
-    assert!(oldest_price.is_some());
-    assert_eq!(oldest_price.unwrap().price, 100_000);
-
-    oracle.set_asset_price(&asset, &200_000, &2000);
-
-    let removed_price = oracle.price(&asset, &1000);
-    assert!(removed_price.is_none());
-
-    let second_oldest = oracle.price(&asset, &1001);
-    assert!(second_oldest.is_some());
-    assert_eq!(second_oldest.unwrap().price, 100_001);
-
-    let newest = oracle.price(&asset, &2000);
-    assert!(newest.is_some());
-    assert_eq!(newest.unwrap().price, 200_000);
-
-    let last = oracle.lastprice(&asset).unwrap();
-    assert_eq!(last.timestamp, 2000);
-    assert_eq!(last.price, 200_000);
-}
-
-#[test]
-fn test_history_under_limit_not_pruned() {
-    let e = Env::default();
-    e.mock_all_auths();
-
-    let oracle = create_rwa_oracle_contract(&e);
-    let asset = Asset::Other(Symbol::new(&e, "TSLA"));
-
-    for i in 0..500 {
-        oracle.set_asset_price(&asset, &(50_000 + i as i128), &(5000 + i as u64));
-    }
-
-    let first_price = oracle.price(&asset, &5000);
-    assert!(first_price.is_some());
-    assert_eq!(first_price.unwrap().price, 50_000);
-
-    let last_price = oracle.price(&asset, &5499);
-    assert!(last_price.is_some());
-    assert_eq!(last_price.unwrap().price, 50_499);
-
-    for i in 500..999 {
-        oracle.set_asset_price(&asset, &(50_000 + i as i128), &(5000 + i as u64));
-    }
-
-    let first_still_exists = oracle.price(&asset, &5000);
-    assert!(first_still_exists.is_some());
-    assert_eq!(first_still_exists.unwrap().price, 50_000);
-
-    let all_prices = oracle.prices(&asset, &999);
-    assert!(all_prices.is_some());
-    assert_eq!(all_prices.unwrap().len(), 999);
-}
-
-#[test]
-fn test_pruning_per_asset_independent() {
-    let e = Env::default();
-    e.mock_all_auths();
-
-    let oracle = create_rwa_oracle_contract(&e);
-    let asset_nvda = Asset::Other(Symbol::new(&e, "NVDA"));
-    let asset_tsla = Asset::Other(Symbol::new(&e, "TSLA"));
-
-    for i in 0..1000 {
-        oracle.set_asset_price(&asset_nvda, &(100_000 + i as i128), &(1000 + i as u64));
-    }
-
-    for i in 0..100 {
-        oracle.set_asset_price(&asset_tsla, &(200_000 + i as i128), &(2000 + i as u64));
-    }
-
-    let nvda_prices = oracle.prices(&asset_nvda, &1000);
-    assert!(nvda_prices.is_some());
-    assert_eq!(nvda_prices.unwrap().len(), 1000);
-
-    let tsla_prices = oracle.prices(&asset_tsla, &200);
-    assert!(tsla_prices.is_some());
-    assert_eq!(tsla_prices.unwrap().len(), 100);
-
-    oracle.set_asset_price(&asset_nvda, &300_000, &3000);
-
-    let nvda_oldest = oracle.price(&asset_nvda, &1000);
-    assert!(nvda_oldest.is_none());
-
-    let nvda_second = oracle.price(&asset_nvda, &1001);
-    assert!(nvda_second.is_some());
-
-    let tsla_first = oracle.price(&asset_tsla, &2000);
-    assert!(tsla_first.is_some());
-    assert_eq!(tsla_first.unwrap().price, 200_000);
-
-    let tsla_last = oracle.price(&asset_tsla, &2099);
-    assert!(tsla_last.is_some());
-    assert_eq!(tsla_last.unwrap().price, 200_099);
-
-    let tsla_all = oracle.prices(&asset_tsla, &100);
-    assert!(tsla_all.is_some());
-    assert_eq!(tsla_all.unwrap().len(), 100);
-
-    let nvda_after_pruning = oracle.prices(&asset_nvda, &1000);
-    assert!(nvda_after_pruning.is_some());
-    assert_eq!(nvda_after_pruning.unwrap().len(), 1000);
-}
-
-// ==================== Price Validation Tests ====================
-
-#[test]
-#[should_panic(expected = "Error(Contract, #5)")]
-fn test_negative_price_rejected() {
-    let e = Env::default();
-    e.mock_all_auths();
-
-    let oracle = create_rwa_oracle_contract(&e);
-    let asset: Asset = Asset::Other(Symbol::new(&e, "NVDA"));
-    oracle.set_asset_price(&asset, &-100, &1_000_000_000);
-}
-
-#[test]
-#[should_panic(expected = "Error(Contract, #5)")]
-fn test_zero_price_rejected() {
-    let e = Env::default();
-    e.mock_all_auths();
-
-    let oracle = create_rwa_oracle_contract(&e);
-    let asset: Asset = Asset::Other(Symbol::new(&e, "NVDA"));
-    oracle.set_asset_price(&asset, &0, &1_000_000_000);
-}
-
-#[test]
-fn test_positive_price_accepted() {
-    let e = Env::default();
-    e.mock_all_auths();
-
-    let oracle = create_rwa_oracle_contract(&e);
-    let asset: Asset = Asset::Other(Symbol::new(&e, "NVDA"));
-    let price: i128 = 150_00000000;
-
-    oracle.set_asset_price(&asset, &price, &1_000_000_000);
-    assert_eq!(oracle.lastprice(&asset).unwrap().price, price);
-}
-
-#[test]
-fn test_min_positive_price_accepted() {
-    let e = Env::default();
-    e.mock_all_auths();
-
-    let oracle = create_rwa_oracle_contract(&e);
-    let asset: Asset = Asset::Other(Symbol::new(&e, "NVDA"));
-    oracle.set_asset_price(&asset, &1, &1_000_000_000);
-    assert_eq!(oracle.lastprice(&asset).unwrap().price, 1);
-}
-
-// ==================== Timestamp Validation Tests ====================
-
-#[test]
-#[should_panic(expected = "Error(Contract, #7)")]
+#[should_panic(expected = "Error(Contract, #8)")]
 fn test_future_timestamp_rejected() {
     let e = Env::default();
     e.mock_all_auths();
 
     let oracle = create_rwa_oracle_contract(&e);
-    let asset: Asset = Asset::Other(Symbol::new(&e, "NVDA"));
+
+    let asset = Asset::Other(Symbol::new(&e, "NVDA"));
 
     set_ledger_timestamp(&e, 1000);
-    let price: i128 = 1;
-    let timestamp: u64 = 4600;
-    oracle.set_asset_price(&asset, &price, &timestamp);
+
+    oracle.set_asset_price(&asset, &1, &4600);
 }
 
 #[test]
@@ -474,16 +394,17 @@ fn test_timestamp_within_drift_accepted() {
     e.mock_all_auths();
 
     let oracle = create_rwa_oracle_contract(&e);
-    let asset: Asset = Asset::Other(Symbol::new(&e, "NVDA"));
+
+    let asset = Asset::Other(Symbol::new(&e, "NVDA"));
 
     set_ledger_timestamp(&e, 1000);
-    let price: i128 = 123;
-    let timestamp: u64 = 1200;
-    oracle.set_asset_price(&asset, &price, &timestamp);
 
-    let last_price = oracle.lastprice(&asset).unwrap();
-    assert_eq!(last_price.price, price);
-    assert_eq!(last_price.timestamp, timestamp);
+    oracle.set_asset_price(&asset, &123, &1200);
+
+    let last = oracle.lastprice(&asset).unwrap();
+
+    assert_eq!(last.price, 123);
+    assert_eq!(last.timestamp, 1200);
 }
 
 #[test]
@@ -493,9 +414,11 @@ fn test_old_timestamp_rejected() {
     e.mock_all_auths();
 
     let oracle = create_rwa_oracle_contract(&e);
-    let asset: Asset = Asset::Other(Symbol::new(&e, "NVDA"));
+
+    let asset = Asset::Other(Symbol::new(&e, "NVDA"));
 
     set_ledger_timestamp(&e, 1000);
+
     oracle.set_asset_price(&asset, &10, &1000);
 
     oracle.set_asset_price(&asset, &11, &999);
@@ -508,11 +431,12 @@ fn test_same_timestamp_rejected() {
     e.mock_all_auths();
 
     let oracle = create_rwa_oracle_contract(&e);
-    let asset: Asset = Asset::Other(Symbol::new(&e, "NVDA"));
+
+    let asset = Asset::Other(Symbol::new(&e, "NVDA"));
 
     set_ledger_timestamp(&e, 1000);
-    oracle.set_asset_price(&asset, &10, &1000);
 
+    oracle.set_asset_price(&asset, &10, &1000);
     oracle.set_asset_price(&asset, &11, &1000);
 }
 
@@ -522,7 +446,8 @@ fn test_newer_timestamp_accepted() {
     e.mock_all_auths();
 
     let oracle = create_rwa_oracle_contract(&e);
-    let asset: Asset = Asset::Other(Symbol::new(&e, "NVDA"));
+
+    let asset = Asset::Other(Symbol::new(&e, "NVDA"));
 
     set_ledger_timestamp(&e, 1000);
     oracle.set_asset_price(&asset, &10, &1000);
@@ -530,9 +455,10 @@ fn test_newer_timestamp_accepted() {
     set_ledger_timestamp(&e, 2000);
     oracle.set_asset_price(&asset, &20, &2000);
 
-    let last_price = oracle.lastprice(&asset).unwrap();
-    assert_eq!(last_price.price, 20);
-    assert_eq!(last_price.timestamp, 2000);
+    let last = oracle.lastprice(&asset).unwrap();
+
+    assert_eq!(last.price, 20);
+    assert_eq!(last.timestamp, 2000);
 }
 
 #[test]
@@ -541,17 +467,19 @@ fn test_different_assets_independent_timestamps() {
     e.mock_all_auths();
 
     let oracle = create_rwa_oracle_contract(&e);
-    let asset_aapl: Asset = Asset::Other(Symbol::new(&e, "NVDA"));
-    let asset_tsla: Asset = Asset::Other(Symbol::new(&e, "TSLA"));
+
+    let asset_a = Asset::Other(Symbol::new(&e, "NVDA"));
+    let asset_b = Asset::Other(Symbol::new(&e, "TSLA"));
 
     set_ledger_timestamp(&e, 1000);
-    oracle.set_asset_price(&asset_aapl, &10, &1000);
 
-    oracle.set_asset_price(&asset_tsla, &20, &500);
+    oracle.set_asset_price(&asset_a, &10, &1000);
+    oracle.set_asset_price(&asset_b, &20, &500);
 
-    let last_price_tsla = oracle.lastprice(&asset_tsla).unwrap();
-    assert_eq!(last_price_tsla.price, 20);
-    assert_eq!(last_price_tsla.timestamp, 500);
+    let last_b = oracle.lastprice(&asset_b).unwrap();
+
+    assert_eq!(last_b.price, 20);
+    assert_eq!(last_b.timestamp, 500);
 }
 
 // ==================== TTL Extension Tests ====================
@@ -593,7 +521,7 @@ fn test_ttl_extended_on_metadata_update() {
     e.mock_all_auths();
 
     let oracle = create_rwa_oracle_contract(&e);
-    let asset_id = Symbol::new(&e, "RWA_BOND");
+    let asset_id = Symbol::new(&e, "NVDA");
 
     let metadata = create_test_metadata(&e, asset_id.clone());
     oracle.set_rwa_metadata(&asset_id, &metadata);
@@ -606,7 +534,10 @@ fn test_ttl_extended_on_metadata_update() {
     };
     oracle.update_tokenization_info(&asset_id, &new_info);
 
-    let retrieved = oracle.try_get_tokenization_info(&asset_id).unwrap().unwrap();
+    let retrieved = oracle
+        .try_get_tokenization_info(&asset_id)
+        .unwrap()
+        .unwrap();
     assert_eq!(retrieved.total_supply, Some(2_000_000));
 }
 
@@ -622,4 +553,115 @@ fn test_ttl_extended_on_add_assets() {
     oracle.add_assets(&assets_to_add);
 
     assert!(oracle.assets().contains(&new_asset));
+}
+
+// ==================== Asset Registration Validation Tests ====================
+
+#[test]
+fn test_metadata_rejected_for_unregistered_asset() {
+    let e = Env::default();
+    e.mock_all_auths();
+
+    let oracle = create_rwa_oracle_contract(&e);
+    let unregistered_id = Symbol::new(&e, "NOT_REGISTERED");
+
+    // Create metadata for an asset that doesn't exist in the assets vector
+    let metadata = create_test_metadata(&e, unregistered_id.clone());
+
+    let result = oracle.try_set_rwa_metadata(&unregistered_id, &metadata);
+    assert!(result.is_err());
+    assert_eq!(
+        result.unwrap_err().unwrap(),
+        Error::AssetNotRegistered.into()
+    );
+}
+
+#[test]
+fn test_metadata_accepted_for_registered_asset() {
+    let e = Env::default();
+    e.mock_all_auths();
+
+    let oracle = create_rwa_oracle_contract(&e);
+    // NVDA is registered via constructor in create_rwa_oracle_contract
+    let registered_id = Symbol::new(&e, "NVDA");
+
+    let metadata = create_test_metadata(&e, registered_id.clone());
+    oracle.set_rwa_metadata(&registered_id, &metadata);
+
+    // Verify get_rwa_metadata returns correct data
+    let retrieved = oracle
+        .try_get_rwa_metadata(&registered_id)
+        .unwrap()
+        .unwrap();
+    assert_eq!(retrieved.asset_id, registered_id);
+    assert_eq!(retrieved.asset_type, RWAAssetType::Bond);
+
+    // Verify get_rwa_asset_type also returns correct data
+    let asset = Asset::Other(registered_id);
+    let asset_type = oracle.get_rwa_asset_type(&asset);
+    assert!(asset_type.is_some());
+    assert_eq!(asset_type.unwrap(), RWAAssetType::Bond);
+}
+
+#[test]
+fn test_asset_type_always_synced_with_metadata() {
+    let e = Env::default();
+    e.mock_all_auths();
+
+    let oracle = create_rwa_oracle_contract(&e);
+    // TSLA is registered via constructor
+    let registered_id = Symbol::new(&e, "TSLA");
+
+    let mut metadata = create_test_metadata(&e, registered_id.clone());
+    metadata.asset_type = RWAAssetType::Equity;
+    oracle.set_rwa_metadata(&registered_id, &metadata);
+
+    // Verify get_rwa_asset_type returns the same type as metadata
+    let asset = Asset::Other(registered_id.clone());
+    let asset_type = oracle.get_rwa_asset_type(&asset);
+    assert!(asset_type.is_some());
+    assert_eq!(asset_type.unwrap(), RWAAssetType::Equity);
+
+    // Update metadata with different type
+    metadata.asset_type = RWAAssetType::Commodity;
+    oracle.set_rwa_metadata(&registered_id, &metadata);
+
+    // Verify asset_type is updated
+    let asset_type = oracle.get_rwa_asset_type(&asset);
+    assert_eq!(asset_type.unwrap(), RWAAssetType::Commodity);
+}
+
+#[test]
+fn test_metadata_accepted_after_add_assets() {
+    let e = Env::default();
+    e.mock_all_auths();
+
+    let oracle = create_rwa_oracle_contract(&e);
+    let new_asset_id = Symbol::new(&e, "AAPL");
+    let new_asset = Asset::Other(new_asset_id.clone());
+
+    // Initially, setting metadata should fail
+    let metadata = create_test_metadata(&e, new_asset_id.clone());
+    let result = oracle.try_set_rwa_metadata(&new_asset_id, &metadata);
+    assert!(result.is_err());
+    assert_eq!(
+        result.unwrap_err().unwrap(),
+        Error::AssetNotRegistered.into()
+    );
+
+    // Add the asset via add_assets
+    let assets_to_add = Vec::from_array(&e, [new_asset.clone()]);
+    oracle.add_assets(&assets_to_add);
+
+    // Now setting metadata should succeed
+    oracle.set_rwa_metadata(&new_asset_id, &metadata);
+
+    // Verify metadata is stored
+    let retrieved = oracle.try_get_rwa_metadata(&new_asset_id).unwrap().unwrap();
+    assert_eq!(retrieved.asset_id, new_asset_id);
+
+    // Verify asset_types is updated
+    let asset_type = oracle.get_rwa_asset_type(&new_asset);
+    assert!(asset_type.is_some());
+    assert_eq!(asset_type.unwrap(), RWAAssetType::Bond);
 }

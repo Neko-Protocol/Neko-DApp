@@ -1,4 +1,4 @@
-use soroban_sdk::{assert_with_error, Address, Env, Symbol, token::TokenClient};
+use soroban_sdk::{Address, Env, Symbol, assert_with_error, token::TokenClient};
 
 use crate::admin::Admin;
 use crate::common::error::Error;
@@ -39,8 +39,8 @@ impl Lending {
         let b_tokens = types::rounding::to_b_token_down(amount, b_token_rate)?;
 
         // Transfer asset from lender to pool
-        let token_address = Storage::get_token_contract(env, asset)
-            .ok_or(Error::TokenContractNotSet)?;
+        let token_address =
+            Storage::get_token_contract(env, asset).ok_or(Error::TokenContractNotSet)?;
         let token_client = TokenClient::new(env, &token_address);
         token_client.transfer(lender, env.current_contract_address(), &amount);
 
@@ -127,8 +127,8 @@ impl Lending {
         }
 
         // Transfer asset from pool to lender
-        let token_address = Storage::get_token_contract(env, asset)
-            .ok_or(Error::TokenContractNotSet)?;
+        let token_address =
+            Storage::get_token_contract(env, asset).ok_or(Error::TokenContractNotSet)?;
         let token_client = TokenClient::new(env, &token_address);
         token_client.transfer(&env.current_contract_address(), lender, &amount);
 
@@ -153,4 +153,3 @@ impl Lending {
         Storage::get_b_token_supply(env, asset)
     }
 }
-

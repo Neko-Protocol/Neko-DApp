@@ -1,7 +1,7 @@
-use soroban_sdk::{panic_with_error, Address, Env, String};
+use soroban_sdk::{Address, Env, String, panic_with_error};
 
 use crate::common::error::Error;
-use crate::common::types::{TokenStorage, STORAGE, ADMIN_KEY};
+use crate::common::types::{ADMIN_KEY, STORAGE, TokenStorage};
 
 /// Token metadata and admin storage operations
 pub struct MetadataStorage;

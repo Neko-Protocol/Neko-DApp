@@ -1,4 +1,4 @@
-use soroban_sdk::{contracttype, Address, Map, Symbol};
+use soroban_sdk::{Address, Map, Symbol, contracttype};
 
 // ============================================================================
 // SCALAR CONSTANTS
@@ -78,9 +78,9 @@ pub const BAD_DEBT_LOT_MULTIPLIER: i128 = 12_000_000;
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum PoolState {
-    Active,  // All operations enabled
-    OnIce,   // Only borrowing disabled
-    Frozen,  // Both borrowing and depositing disabled
+    Active, // All operations enabled
+    OnIce,  // Only borrowing disabled
+    Frozen, // Both borrowing and depositing disabled
 }
 
 // ============================================================================
@@ -166,9 +166,9 @@ impl ReserveData {
     /// Create new reserve data with initial 1:1 rates
     pub fn new(timestamp: u64) -> Self {
         Self {
-            b_rate: SCALAR_12,  // 1:1 initial rate
-            d_rate: SCALAR_12,  // 1:1 initial rate
-            ir_mod: SCALAR_7,   // 1.0 initial modifier
+            b_rate: SCALAR_12, // 1:1 initial rate
+            d_rate: SCALAR_12, // 1:1 initial rate
+            ir_mod: SCALAR_7,  // 1.0 initial modifier
             b_supply: 0,
             d_supply: 0,
             backstop_credit: 0,
@@ -319,9 +319,7 @@ pub mod rounding {
             .ok_or(Error::ArithmeticError)?
             .checked_sub(1)
             .ok_or(Error::ArithmeticError)?;
-        numerator
-            .checked_div(b_rate)
-            .ok_or(Error::ArithmeticError)
+        numerator.checked_div(b_rate).ok_or(Error::ArithmeticError)
     }
 
     /// Convert bTokens to underlying asset amount with rounding down (floor)
@@ -346,9 +344,7 @@ pub mod rounding {
             .ok_or(Error::ArithmeticError)?
             .checked_sub(1)
             .ok_or(Error::ArithmeticError)?;
-        numerator
-            .checked_div(d_rate)
-            .ok_or(Error::ArithmeticError)
+        numerator.checked_div(d_rate).ok_or(Error::ArithmeticError)
     }
 
     /// Convert underlying asset amount to dTokens with rounding down (floor)

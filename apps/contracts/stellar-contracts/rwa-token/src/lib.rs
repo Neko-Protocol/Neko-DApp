@@ -1,10 +1,10 @@
 #![no_std]
 
+pub mod admin;
 pub mod common;
-pub mod token;
 pub mod compliance;
 pub mod oracle;
-pub mod admin;
+pub mod token;
 
 pub use common::error::Error;
 

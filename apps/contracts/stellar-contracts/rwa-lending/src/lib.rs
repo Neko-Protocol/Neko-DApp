@@ -15,4 +15,3 @@ pub use contract::{LendingContract, LendingContractClient};
 pub mod rwa_oracle {
     soroban_sdk::contractimport!(file = "../target/wasm32v1-none/release/rwa_oracle.wasm");
 }
-

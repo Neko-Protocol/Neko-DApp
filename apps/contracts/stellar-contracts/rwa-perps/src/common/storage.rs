@@ -1,6 +1,6 @@
-use soroban_sdk::{panic_with_error, Address, Env, Map, Symbol, symbol_short};
-use crate::common::types::{Position, MarketConfig, PerpsStorage, STORAGE, ADMIN_KEY};
 use crate::common::error::Error;
+use crate::common::types::{ADMIN_KEY, MarketConfig, PerpsStorage, Position, STORAGE};
+use soroban_sdk::{Address, Env, Map, Symbol, panic_with_error, symbol_short};
 
 const PRICE_KEY: Symbol = symbol_short!("price");
 

@@ -1,15 +1,15 @@
-use soroban_sdk::{contracttype, Address, Symbol};
+use soroban_sdk::{Address, Symbol, contracttype};
 
 // Position structure
 #[contracttype]
 #[derive(Clone, Debug)]
 pub struct Position {
     pub trader: Address,
-    pub rwa_token: Address,      // Address for the RWA stock token
-    pub size: i128,              // Position size (positive = long, negative = short)
-    pub entry_price: i128,       // Average entry price
-    pub margin: i128,            // Collateral amount
-    pub leverage: u32,           // Leverage multiplier (e.g., 5x = 500)
+    pub rwa_token: Address, // Address for the RWA stock token
+    pub size: i128,         // Position size (positive = long, negative = short)
+    pub entry_price: i128,  // Average entry price
+    pub margin: i128,       // Collateral amount
+    pub leverage: u32,      // Leverage multiplier (e.g., 5x = 500)
     pub opened_at: u64,
     pub last_funding_payment: u64,
 }
@@ -19,10 +19,10 @@ pub struct Position {
 #[derive(Clone, Debug)]
 pub struct MarketConfig {
     pub rwa_token: Address,
-    pub max_leverage: u32,        // Maximum allowed leverage (e.g., 10x = 1000)
-    pub maintenance_margin: u32,  // Maintenance margin in basis points (e.g., 500 = 5%)
-    pub initial_margin: u32,      // Initial margin in basis points (e.g., 1000 = 10%)
-    pub funding_rate: i128,       // Current funding rate in basis points (can be negative)
+    pub max_leverage: u32,       // Maximum allowed leverage (e.g., 10x = 1000)
+    pub maintenance_margin: u32, // Maintenance margin in basis points (e.g., 500 = 5%)
+    pub initial_margin: u32,     // Initial margin in basis points (e.g., 1000 = 10%)
+    pub funding_rate: i128,      // Current funding rate in basis points (can be negative)
     pub last_funding_update: u64,
     pub is_active: bool,
 }
@@ -32,7 +32,7 @@ pub struct MarketConfig {
 #[derive(Clone, Debug)]
 pub struct FundingPayment {
     pub position_id: Address,
-    pub amount: i128,             // Positive = trader pays, negative = trader receives
+    pub amount: i128, // Positive = trader pays, negative = trader receives
     pub timestamp: u64,
 }
 

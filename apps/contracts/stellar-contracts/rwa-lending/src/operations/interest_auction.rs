@@ -28,10 +28,7 @@ impl InterestAuction {
     /// # Returns
     /// * `Ok(u32)` - The auction ID
     /// * `Err(Error)` - If creation fails
-    pub fn create_interest_auction(
-        env: &Env,
-        asset: &Symbol,
-    ) -> Result<u32, Error> {
+    pub fn create_interest_auction(env: &Env, asset: &Symbol) -> Result<u32, Error> {
         // Get reserve data
         let reserve_data = Storage::get_reserve_data(env, asset);
 
@@ -43,8 +40,8 @@ impl InterestAuction {
         }
 
         // Get token address for the asset
-        let token_address = Storage::get_token_contract(env, asset)
-            .ok_or(Error::TokenContractNotSet)?;
+        let token_address =
+            Storage::get_token_contract(env, asset).ok_or(Error::TokenContractNotSet)?;
 
         // Generate auction ID
         let auction_id = Self::generate_auction_id(env);
@@ -58,7 +55,7 @@ impl InterestAuction {
         let auction_data = AuctionData {
             auction_type: AuctionType::Interest,
             user: env.current_contract_address(), // Protocol is the "user"
-            bid: soroban_sdk::Map::new(env),       // Will be filled by bidders
+            bid: soroban_sdk::Map::new(env),      // Will be filled by bidders
             lot,
             block: env.ledger().sequence(),
         };
@@ -121,8 +118,8 @@ impl InterestAuction {
         let (lot_modifier, bid_modifier) = Self::calculate_modifiers(blocks_elapsed);
 
         // Get token address for the asset
-        let token_address = Storage::get_token_contract(env, asset)
-            .ok_or(Error::TokenContractNotSet)?;
+        let token_address =
+            Storage::get_token_contract(env, asset).ok_or(Error::TokenContractNotSet)?;
 
         // Get total interest from lot map (keyed by token address)
         let total_interest = auction.lot.get(token_address.clone()).unwrap_or(0);
@@ -162,11 +159,16 @@ impl InterestAuction {
         // Transfer interest to bidder
         if interest_to_receive > 0 {
             let token_client = TokenClient::new(env, &token_address);
-            token_client.transfer(&env.current_contract_address(), bidder, &interest_to_receive);
+            token_client.transfer(
+                &env.current_contract_address(),
+                bidder,
+                &interest_to_receive,
+            );
 
             // Update reserve data to reduce backstop_credit
             let mut reserve_data = Storage::get_reserve_data(env, asset);
-            reserve_data.backstop_credit = reserve_data.backstop_credit
+            reserve_data.backstop_credit = reserve_data
+                .backstop_credit
                 .saturating_sub(interest_to_receive);
             Storage::set_reserve_data(env, asset, &reserve_data);
         }

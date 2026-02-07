@@ -1,4 +1,4 @@
-use soroban_sdk::{panic_with_error, Address, Env};
+use soroban_sdk::{Address, Env, panic_with_error};
 
 use crate::common::error::Error;
 use crate::common::types::DataKey;

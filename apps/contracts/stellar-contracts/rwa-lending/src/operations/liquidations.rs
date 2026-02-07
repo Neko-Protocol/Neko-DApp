@@ -2,7 +2,9 @@ use soroban_sdk::{Address, Env, Map, Symbol, token::TokenClient};
 
 use crate::common::error::Error;
 use crate::common::storage::Storage;
-use crate::common::types::{AuctionData, AuctionType, AUCTION_DURATION_BLOCKS, MAX_HEALTH_FACTOR, SCALAR_7, SCALAR_12};
+use crate::common::types::{
+    AUCTION_DURATION_BLOCKS, AuctionData, AuctionType, MAX_HEALTH_FACTOR, SCALAR_7, SCALAR_12,
+};
 use crate::operations::collateral::Collateral;
 use crate::operations::oracles::Oracles;
 
@@ -20,8 +22,7 @@ impl Liquidations {
         liquidation_percent: u32,
     ) -> Result<u32, Error> {
         // Get CDP
-        let cdp = Storage::get_cdp(env, borrower)
-            .ok_or(Error::CDPNotInsolvent)?;
+        let cdp = Storage::get_cdp(env, borrower).ok_or(Error::CDPNotInsolvent)?;
 
         // Check if borrower has debt in this asset
         if cdp.debt_asset.as_ref() != Some(debt_asset) {
@@ -45,7 +46,8 @@ impl Liquidations {
 
         // Get debt amount (using SCALAR_12 for dToken rate)
         let d_token_rate = Storage::get_d_token_rate(env, debt_asset);
-        let debt_amount = cdp.d_tokens
+        let debt_amount = cdp
+            .d_tokens
             .checked_mul(d_token_rate)
             .ok_or(Error::ArithmeticError)?
             .checked_div(SCALAR_12)
@@ -76,8 +78,8 @@ impl Liquidations {
             .ok_or(Error::ArithmeticError)?
             .checked_div(2)
             .ok_or(Error::ArithmeticError)?)
-            .checked_add(SCALAR_7)
-            .ok_or(Error::ArithmeticError)?;
+        .checked_add(SCALAR_7)
+        .ok_or(Error::ArithmeticError)?;
 
         // Get total collateral value for this RWA token
         let (rwa_price, rwa_decimals) = Oracles::get_rwa_price_with_decimals(env, rwa_token)?;
@@ -125,8 +127,8 @@ impl Liquidations {
         let auction_id = Self::generate_auction_id(env);
 
         // Get token contract address for debt asset
-        let debt_token_address = Storage::get_token_contract(env, debt_asset)
-            .ok_or(Error::TokenContractNotSet)?;
+        let debt_token_address =
+            Storage::get_token_contract(env, debt_asset).ok_or(Error::TokenContractNotSet)?;
 
         // Create lot map (collateral - what liquidator receives)
         let mut lot = Map::new(env);
@@ -165,11 +167,7 @@ impl Liquidations {
     }
 
     /// Fill a liquidation auction
-    pub fn fill_auction(
-        env: &Env,
-        auction_id: u32,
-        liquidator: &Address,
-    ) -> Result<(), Error> {
+    pub fn fill_auction(env: &Env, auction_id: u32, liquidator: &Address) -> Result<(), Error> {
         liquidator.require_auth();
 
         let mut storage = Storage::get(env);
@@ -222,12 +220,15 @@ impl Liquidations {
 
         // Transfer collateral from contract to liquidator
         let rwa_token_client = TokenClient::new(env, &rwa_token);
-        rwa_token_client.transfer(&env.current_contract_address(), liquidator, &collateral_received);
+        rwa_token_client.transfer(
+            &env.current_contract_address(),
+            liquidator,
+            &collateral_received,
+        );
 
         // Update CDP
         let borrower = &auction.user;
-        let mut cdp = Storage::get_cdp(env, borrower)
-            .ok_or(Error::CDPNotInsolvent)?;
+        let mut cdp = Storage::get_cdp(env, borrower).ok_or(Error::CDPNotInsolvent)?;
 
         // Get debt asset symbol from CDP
         let debt_asset = cdp.debt_asset.clone().ok_or(Error::DebtAssetNotSet)?;
@@ -249,11 +250,21 @@ impl Liquidations {
 
         // Update collateral
         let current_collateral = Storage::get_collateral(env, borrower, &rwa_token);
-        Storage::set_collateral(env, borrower, &rwa_token, current_collateral - collateral_received);
+        Storage::set_collateral(
+            env,
+            borrower,
+            &rwa_token,
+            current_collateral - collateral_received,
+        );
 
         // Update dToken balance
         let current_balance = Storage::get_d_token_balance(env, borrower, &debt_asset);
-        Storage::set_d_token_balance(env, borrower, &debt_asset, current_balance - d_tokens_to_burn);
+        Storage::set_d_token_balance(
+            env,
+            borrower,
+            &debt_asset,
+            current_balance - d_tokens_to_burn,
+        );
 
         // Update pool balance
         let pool_balance = Storage::get_pool_balance(env, &debt_asset);
@@ -286,8 +297,7 @@ impl Liquidations {
     /// Returns health factor in 7 decimals (10_000_000 = 1.0)
     pub fn calculate_health_factor(env: &Env, borrower: &Address) -> Result<u32, Error> {
         // Get CDP
-        let cdp = Storage::get_cdp(env, borrower)
-            .ok_or(Error::CDPNotInsolvent)?;
+        let cdp = Storage::get_cdp(env, borrower).ok_or(Error::CDPNotInsolvent)?;
 
         // Calculate total collateral value
         let all_collateral = Collateral::get_all_collateral(env, borrower);
@@ -332,14 +342,16 @@ impl Liquidations {
         let total_debt_value = if let Some(debt_asset) = &cdp.debt_asset {
             if cdp.d_tokens > 0 {
                 let d_token_rate = Storage::get_d_token_rate(env, debt_asset);
-                let debt_amount = cdp.d_tokens
+                let debt_amount = cdp
+                    .d_tokens
                     .checked_mul(d_token_rate)
                     .ok_or(Error::ArithmeticError)?
                     .checked_div(SCALAR_12)
                     .ok_or(Error::ArithmeticError)?;
 
                 // Get price of debt asset
-                let (debt_price, debt_decimals) = Oracles::get_crypto_price_with_decimals(env, debt_asset)?;
+                let (debt_price, debt_decimals) =
+                    Oracles::get_crypto_price_with_decimals(env, debt_asset)?;
                 let price_decimals = 7;
 
                 // Calculate debt value in USD

@@ -1,4 +1,4 @@
-use soroban_sdk::{panic_with_error, Address, Env, Map, Symbol, Vec};
+use soroban_sdk::{Address, Env, Map, Symbol, Vec, panic_with_error};
 
 use crate::common::error::Error;
 use crate::common::storage::Storage;
@@ -99,11 +99,7 @@ impl Admin {
     }
 
     /// Set interest rate parameters for an asset
-    pub fn set_interest_rate_params(
-        env: &Env,
-        asset: &Symbol,
-        params: &InterestRateParams,
-    ) {
+    pub fn set_interest_rate_params(env: &Env, asset: &Symbol, params: &InterestRateParams) {
         Self::require_admin(env);
 
         // Validate parameters (7 decimals)
@@ -118,7 +114,9 @@ impl Admin {
         }
 
         let mut storage = Storage::get(env);
-        storage.interest_rate_params.set(asset.clone(), params.clone());
+        storage
+            .interest_rate_params
+            .set(asset.clone(), params.clone());
         Storage::set(env, &storage);
     }
 
@@ -178,6 +176,7 @@ impl Admin {
     /// Only the admin can call this function
     pub fn upgrade(env: &Env, new_wasm_hash: &soroban_sdk::BytesN<32>) {
         Self::require_admin(env);
-        env.deployer().update_current_contract_wasm(new_wasm_hash.clone());
+        env.deployer()
+            .update_current_contract_wasm(new_wasm_hash.clone());
     }
 }

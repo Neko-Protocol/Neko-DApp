@@ -71,4 +71,3 @@ pub enum Error {
     // Token contract errors
     TokenContractNotSet = 84,
 }
-

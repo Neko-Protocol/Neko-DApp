@@ -22,9 +22,17 @@ pub enum Error {
     /// Unauthorized access
     Unauthorized = 6,
 
+    /// Invalid compliance data
+    InvalidComplianceData = 7,
+
+    /// Asset not registered
+    AssetNotRegistered = 10,
     /// Timestamp is too far in the future
     TimestampInFuture = 7,
 
     /// Timestamp is too old or not strictly increasing
     TimestampTooOld = 8,
+
+    /// Asset not registered in assets vector
+    AssetNotRegistered = 10,
 }
