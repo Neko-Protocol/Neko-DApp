@@ -58,6 +58,12 @@ impl RWAOracle {
         metadata: RWAMetadata,
     ) -> Result<(), Error> {
         Admin::require_admin(env);
+
+        // Validate asset_id consistency
+        if metadata.asset_id != asset_id {
+            return Err(Error::InvalidMetadata);
+        }
+
         let mut state = RWAOracleStorage::get(env);
 
         // Set metadata
